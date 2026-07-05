@@ -504,6 +504,18 @@ const formatCurrencyAbsolute = (value: number, blur: boolean = false) => {
   return `$${Math.abs(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
+// Compact currency for very tight spaces (e.g. mobile calendar day cells) where
+// a full "+$252,303.00" simply won't fit in a ~40px cell. Abbreviates thousands/
+// millions instead of truncating mid-number.
+const formatCurrencyCompact = (value: number, blur: boolean = false) => {
+  if (blur) return '****';
+  const prefix = value >= 0 ? '+' : '-';
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) return `${prefix}$${(abs / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)}M`;
+  if (abs >= 1_000) return `${prefix}$${(abs / 1_000).toFixed(abs >= 10_000 ? 0 : 1)}k`;
+  return `${prefix}$${abs.toFixed(0)}`;
+};
+
 // ============================================================
 // STRICT NUMERIC VALIDATION - Only allows numbers, single decimal, single negative
 // ============================================================
@@ -3779,7 +3791,7 @@ function App() {
               )}
             >
               <SlidersHorizontal className="w-4 h-4 flex-shrink-0" />
-              <span>Filters & View</span>
+              <span>Filters<span className="hidden sm:inline"> & View</span></span>
               {activeTradeFilterCount > 0 && (
                 <span className="flex items-center justify-center w-5 h-5 rounded-full bg-white text-black text-[10px] font-bold flex-shrink-0">
                   {activeTradeFilterCount}
@@ -3875,7 +3887,7 @@ function App() {
             type="button"
             onClick={toggleTradeSelectMode}
             className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors border',
+              'flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm transition-colors border',
               tradeSelectMode
                 ? 'bg-white text-black border-white hover:bg-zinc-200'
                 : theme === 'dark'
@@ -3884,12 +3896,12 @@ function App() {
             )}
           >
             <Check className="w-4 h-4" />
-            <span>{tradeSelectMode ? 'Cancel' : 'Select'}</span>
+            <span className="hidden sm:inline">{tradeSelectMode ? 'Cancel' : 'Select'}</span>
           </button>
 
-          <button onClick={() => { resetTradeForm(); resetCalculator(); setShowAddTrade(true); }} className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors">
+          <button onClick={() => { resetTradeForm(); resetCalculator(); setShowAddTrade(true); }} className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors">
             <Plus className="w-4 h-4" />
-            <span>Add Trade</span>
+            <span className="hidden sm:inline">Add Trade</span>
           </button>
         </div>
       </div>
@@ -3925,7 +3937,9 @@ function App() {
       )}
 
       {galleryView === 'list' && (
-        <div className="relative bg-gradient-to-b from-zinc-900/70 to-zinc-900/30 border border-zinc-800 rounded-xl overflow-hidden">
+        <>
+        {/* Desktop/tablet: full data table. Kept as-is at md+ where 950px of columns fits comfortably. */}
+        <div className="hidden md:block relative bg-gradient-to-b from-zinc-900/70 to-zinc-900/30 border border-zinc-800 rounded-xl overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-500/0 via-zinc-500/60 to-red-500/0" />
           <div className="trade-table-scroll w-full overflow-x-auto block clear-both">
             <table className="w-full min-w-[950px]" style={{ minWidth: '950px' }}>
@@ -4012,11 +4026,89 @@ function App() {
             </table>
           </div>
         </div>
+
+        {/* Mobile: stacked cards carrying the same fields as the table above
+            (trade #, date, symbol, account, P&L, R:R, rules, setup, session,
+            tracking #, edit) instead of forcing horizontal scroll through
+            12 columns on a narrow screen. */}
+        <div className="md:hidden space-y-2.5">
+          {filteredTrades.map((trade) => {
+            const account = accounts.find(a => a.id === trade.accountId);
+            const isWin = trade.profitLoss >= 0;
+            const rowRR = trade.riskAmount > 0 ? trade.profitLoss / trade.riskAmount : null;
+            const isSelected = selectedTradeIds.includes(trade.id);
+            return (
+              <div
+                key={trade.id}
+                onClick={() => tradeSelectMode ? toggleTradeSelected(trade.id) : setShowTradeDetail(trade.id)}
+                className={cn(
+                  'relative flex flex-col gap-2 p-3.5 pl-4 bg-gradient-to-r from-zinc-900/70 to-zinc-900/30 border rounded-xl cursor-pointer transition-colors min-w-0 overflow-hidden',
+                  isSelected ? 'border-white/60' : 'border-zinc-800'
+                )}
+              >
+                <div className={cn('absolute left-0 top-0 bottom-0 w-1', isWin ? 'bg-emerald-500/60' : 'bg-red-500/60')} />
+
+                {tradeSelectMode && (
+                  <div
+                    className="absolute top-3 right-3 z-10"
+                    onClick={(e) => { e.stopPropagation(); toggleTradeSelected(trade.id); }}
+                  >
+                    <span className={cn(
+                      'flex items-center justify-center w-6 h-6 rounded border transition-colors bg-zinc-950/80',
+                      isSelected ? 'bg-white border-white text-black' : 'border-zinc-600 text-transparent hover:border-zinc-400'
+                    )}>
+                      <Check className="w-4 h-4" />
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex items-start justify-between gap-3 min-w-0">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xs text-zinc-500 font-mono flex-shrink-0">{getDisplayTradeNumber(trade)}</span>
+                      <h4 className="font-semibold text-white truncate tracking-tight">{trade.symbol}</h4>
+                    </div>
+                    <p className="text-xs text-zinc-500 truncate mt-0.5">{account?.name} · {formatDate(trade.date)}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className={cn('font-mono font-bold', isWin ? 'text-emerald-400' : 'text-red-400')}>
+                      {formatCurrency(trade.profitLoss, privacyMode)}
+                    </p>
+                    {rowRR !== null && (
+                      <span className={cn('inline-block mt-1 text-xs font-medium px-1.5 py-0.5 rounded border whitespace-nowrap', rowRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : rowRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-red-400 border-red-500/30 bg-red-500/10')}>
+                        {rowRR >= 1 ? '+' : ''}{rowRR.toFixed(2)}R
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-zinc-800/70">
+                  <span className={cn('text-xs px-2 py-0.5 rounded flex items-center gap-1', trade.rulesFollowed === 'followed' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400')}>
+                    {trade.rulesFollowed === 'followed' ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                    <span className="truncate">{trade.rulesFollowed}</span>
+                  </span>
+                  {trade.setupTypes.length > 0 && (
+                    <span className="px-2 py-0.5 bg-zinc-800/80 border border-zinc-700/50 rounded text-xs text-zinc-300 truncate max-w-[100px]">{trade.setupTypes[0]}</span>
+                  )}
+                  {trade.session && <SessionBadge value={trade.session} size="sm" />}
+                  {trade.trackingNumber && <TrackingBadge value={trade.trackingNumber} size="sm" />}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); openEditTrade(trade); }}
+                    className="ml-auto p-1 text-zinc-600 hover:text-white transition-colors flex-shrink-0"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        </>
       )}
 
       {galleryView === 'preview' && (
-        <div className="trade-table-scroll overflow-x-auto w-full">
-        <div className="space-y-2.5 min-w-[850px]">
+        <div className="trade-table-scroll md:overflow-x-auto w-full">
+        <div className="space-y-2.5 md:min-w-[850px]">
           {filteredTrades.map((trade) => {
             const account = accounts.find(a => a.id === trade.accountId);
             const coverImage = trade.executionImages[0]?.url || trade.timeframes.flatMap(tf => tf.images)[0]?.url;
@@ -4049,7 +4141,7 @@ function App() {
                   </div>
                 )}
 
-                <div className="w-24 h-16 bg-zinc-800 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden border border-zinc-800 relative">
+                <div className="w-16 h-12 sm:w-24 sm:h-16 bg-zinc-800 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden border border-zinc-800 relative">
                   <span className="absolute top-1 left-1 z-10 flex items-center justify-center w-4 h-4 rounded bg-black/70 backdrop-blur-sm text-[9px] font-mono text-zinc-300">
                     {getDisplayTradeNumber(trade)}
                   </span>
@@ -4061,7 +4153,7 @@ function App() {
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-4 mb-1.5">
+                  <div className="flex items-start justify-between gap-x-4 gap-y-1 mb-1.5 flex-wrap">
                     <div className="min-w-0 flex-1">
                       <h4 className="font-semibold text-white truncate tracking-tight">{trade.symbol}</h4>
                       <p className="text-xs text-zinc-500 truncate">{account?.name} · {formatDate(trade.date)}</p>
@@ -4898,8 +4990,8 @@ function App() {
         </div>
 
         {/* Hero summary bar — big net P&L front and center like a prop-firm dashboard, stats trailing */}
-        <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5 flex flex-wrap items-center gap-x-8 gap-y-4">
-          <div className="flex items-center gap-3 pr-8 border-r border-zinc-800/80">
+        <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-4 sm:p-5 flex flex-wrap items-center gap-x-4 sm:gap-x-8 gap-y-4">
+          <div className="flex items-center gap-3 pr-4 sm:pr-8 border-r border-zinc-800/80">
             <div className={cn('w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0', totalPnL >= 0 ? 'bg-emerald-500/15 border border-emerald-500/25' : 'bg-red-500/15 border border-red-500/25')}>
               <DollarSign className={cn('w-5 h-5', totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400')} />
             </div>
@@ -4910,7 +5002,7 @@ function App() {
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+          <div className="flex flex-wrap items-center gap-x-4 sm:gap-x-8 gap-y-3">
             <div>
               <p className="text-xs text-zinc-500 uppercase tracking-wider mb-0.5">Trading Days</p>
               <p className="text-lg font-semibold text-white">{tradingDays}</p>
@@ -4934,75 +5026,139 @@ function App() {
           </div>
         </div>
 
-        <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-4">
-          <div className="grid grid-cols-8 gap-2 mb-2">
-            {dayNames.map(day => (
-              <div key={day} className="text-center text-xs text-zinc-500 font-medium py-2">{day}</div>
-            ))}
-            <div className="text-center text-xs text-zinc-500 font-medium py-2">Week</div>
-          </div>
+        <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-3 sm:p-4">
+          {/* Desktop/tablet: original 8-column grid (7 days + Week recap column) */}
+          <div className="hidden md:block">
+            <div className="grid grid-cols-8 gap-2 mb-2">
+              {dayNames.map(day => (
+                <div key={day} className="text-center text-xs text-zinc-500 font-medium py-2">{day}</div>
+              ))}
+              <div className="text-center text-xs text-zinc-500 font-medium py-2">Week</div>
+            </div>
 
-          <div className="space-y-2">
-            {weeks.map((week, wi) => {
-              const weekRealDays = week.filter(d => d.day !== null);
-              const weekPnl = weekRealDays.reduce((s, d) => s + d.pnl, 0);
-              const weekTradingDays = weekRealDays.filter(d => d.trades.length > 0).length;
-              const hasWeekData = weekTradingDays > 0;
-              return (
-                <div key={wi} className="grid grid-cols-8 gap-2">
-                  {week.map((day, di) => (
-                    <div
-                      key={di}
-                      className={cn(
-                        'rounded-xl p-2.5 min-h-[92px] flex flex-col justify-between min-w-0 transition-colors',
-                        day.day === null ? 'bg-transparent' :
-                        day.trades.length === 0 ? 'bg-zinc-800/30 border border-zinc-800/60' :
-                        day.pnl > 0 ? 'bg-emerald-500/15 border border-emerald-500/30 hover:bg-emerald-500/25 cursor-pointer' :
-                        day.pnl < 0 ? 'bg-red-500/15 border border-red-500/30 hover:bg-red-500/25 cursor-pointer' :
-                        'bg-zinc-800/40 border border-zinc-700/60'
-                      )}
-                    >
-                      {day.day !== null && (
+            <div className="space-y-2">
+              {weeks.map((week, wi) => {
+                const weekRealDays = week.filter(d => d.day !== null);
+                const weekPnl = weekRealDays.reduce((s, d) => s + d.pnl, 0);
+                const weekTradingDays = weekRealDays.filter(d => d.trades.length > 0).length;
+                const hasWeekData = weekTradingDays > 0;
+                return (
+                  <div key={wi} className="grid grid-cols-8 gap-2">
+                    {week.map((day, di) => (
+                      <div
+                        key={di}
+                        className={cn(
+                          'rounded-xl p-2.5 min-h-[92px] flex flex-col justify-between min-w-0 transition-colors',
+                          day.day === null ? 'bg-transparent' :
+                          day.trades.length === 0 ? 'bg-zinc-800/30 border border-zinc-800/60' :
+                          day.pnl > 0 ? 'bg-emerald-500/15 border border-emerald-500/30 hover:bg-emerald-500/25 cursor-pointer' :
+                          day.pnl < 0 ? 'bg-red-500/15 border border-red-500/30 hover:bg-red-500/25 cursor-pointer' :
+                          'bg-zinc-800/40 border border-zinc-700/60'
+                        )}
+                      >
+                        {day.day !== null && (
+                          <>
+                            <span className="text-xs text-zinc-500 font-medium">{day.day}</span>
+                            {day.trades.length > 0 ? (
+                              <div className="min-w-0">
+                                <p className={cn('text-sm font-bold font-mono truncate', day.pnl > 0 ? 'text-emerald-400' : day.pnl < 0 ? 'text-red-400' : 'text-zinc-300')}>
+                                  {formatCurrency(day.pnl, privacyMode)}
+                                </p>
+                                <p className="text-[10px] text-zinc-500 mt-0.5">{day.trades.length} trade{day.trades.length !== 1 ? 's' : ''}</p>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-zinc-700">—</span>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    ))}
+
+                    {/* Week recap cell */}
+                    <div className={cn(
+                      'rounded-xl p-2.5 min-h-[92px] flex flex-col items-center justify-center min-w-0 border',
+                      !hasWeekData ? 'bg-zinc-900/40 border-zinc-800/50' :
+                      weekPnl > 0 ? 'bg-emerald-500/10 border-emerald-500/25' :
+                      weekPnl < 0 ? 'bg-red-500/10 border-red-500/25' :
+                      'bg-zinc-800/40 border-zinc-700/60'
+                    )}>
+                      {hasWeekData ? (
                         <>
-                          <span className="text-xs text-zinc-500 font-medium">{day.day}</span>
-                          {day.trades.length > 0 ? (
-                            <div className="min-w-0">
-                              <p className={cn('text-sm font-bold font-mono truncate', day.pnl > 0 ? 'text-emerald-400' : day.pnl < 0 ? 'text-red-400' : 'text-zinc-300')}>
-                                {formatCurrency(day.pnl, privacyMode)}
-                              </p>
-                              <p className="text-[10px] text-zinc-500 mt-0.5">{day.trades.length} trade{day.trades.length !== 1 ? 's' : ''}</p>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-zinc-700">—</span>
-                          )}
+                          <p className="text-[9px] text-zinc-500 uppercase tracking-wider">Week {wi + 1}</p>
+                          <p className={cn('text-sm font-bold font-mono truncate', weekPnl > 0 ? 'text-emerald-400' : weekPnl < 0 ? 'text-red-400' : 'text-zinc-300')}>
+                            {formatCurrency(weekPnl, privacyMode)}
+                          </p>
+                          <p className="text-[10px] text-zinc-600">{weekTradingDays} day{weekTradingDays !== 1 ? 's' : ''}</p>
                         </>
+                      ) : (
+                        <span className="text-xs text-zinc-700">—</span>
                       )}
                     </div>
-                  ))}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
-                  {/* Week recap cell */}
-                  <div className={cn(
-                    'rounded-xl p-2.5 min-h-[92px] flex flex-col items-center justify-center min-w-0 border',
-                    !hasWeekData ? 'bg-zinc-900/40 border-zinc-800/50' :
-                    weekPnl > 0 ? 'bg-emerald-500/10 border-emerald-500/25' :
-                    weekPnl < 0 ? 'bg-red-500/10 border-red-500/25' :
-                    'bg-zinc-800/40 border-zinc-700/60'
-                  )}>
-                    {hasWeekData ? (
-                      <>
-                        <p className="text-[9px] text-zinc-500 uppercase tracking-wider">Week {wi + 1}</p>
-                        <p className={cn('text-sm font-bold font-mono truncate', weekPnl > 0 ? 'text-emerald-400' : weekPnl < 0 ? 'text-red-400' : 'text-zinc-300')}>
+          {/* Mobile: 7-column grid sized for narrow screens. The Week recap moves
+              from an 8th squeezed column into a compact summary line under each
+              week's row, so day cells stay readable instead of shrinking to ~30px. */}
+          <div className="md:hidden">
+            <div className="grid grid-cols-7 gap-1">
+              {dayNames.map(day => (
+                <div key={day} className="text-center text-[10px] text-zinc-500 font-medium py-1 truncate">{day.slice(0, 2)}</div>
+              ))}
+            </div>
+
+            <div className="space-y-1 mt-1">
+              {weeks.map((week, wi) => {
+                const weekRealDays = week.filter(d => d.day !== null);
+                const weekPnl = weekRealDays.reduce((s, d) => s + d.pnl, 0);
+                const weekTradingDays = weekRealDays.filter(d => d.trades.length > 0).length;
+                const hasWeekData = weekTradingDays > 0;
+                return (
+                  <div key={wi} className="space-y-0.5">
+                    <div className="grid grid-cols-7 gap-1">
+                      {week.map((day, di) => (
+                        <div
+                          key={di}
+                          className={cn(
+                            'rounded-lg p-1 min-h-[44px] flex flex-col justify-between min-w-0 transition-colors',
+                            day.day === null ? 'bg-transparent' :
+                            day.trades.length === 0 ? 'bg-zinc-800/30 border border-zinc-800/60' :
+                            day.pnl > 0 ? 'bg-emerald-500/15 border border-emerald-500/30' :
+                            day.pnl < 0 ? 'bg-red-500/15 border border-red-500/30' :
+                            'bg-zinc-800/40 border border-zinc-700/60'
+                          )}
+                        >
+                          {day.day !== null && (
+                            <>
+                              <span className="text-[9px] text-zinc-500 font-medium">{day.day}</span>
+                              {day.trades.length > 0 ? (
+                                <p className={cn('text-[9px] font-bold font-mono truncate leading-tight', day.pnl > 0 ? 'text-emerald-400' : day.pnl < 0 ? 'text-red-400' : 'text-zinc-300')}>
+                                  {formatCurrencyCompact(day.pnl, privacyMode)}
+                                </p>
+                              ) : (
+                                <span className="text-[9px] text-zinc-700">—</span>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {hasWeekData && (
+                      <div className="flex items-center justify-between px-1 text-[10px]">
+                        <span className="text-zinc-500">Week {wi + 1} · {weekTradingDays} day{weekTradingDays !== 1 ? 's' : ''}</span>
+                        <span className={cn('font-mono font-semibold', weekPnl > 0 ? 'text-emerald-400' : weekPnl < 0 ? 'text-red-400' : 'text-zinc-400')}>
                           {formatCurrency(weekPnl, privacyMode)}
-                        </p>
-                        <p className="text-[10px] text-zinc-600">{weekTradingDays} day{weekTradingDays !== 1 ? 's' : ''}</p>
-                      </>
-                    ) : (
-                      <span className="text-xs text-zinc-700">—</span>
+                        </span>
+                      </div>
                     )}
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
 
           <div className="flex items-center gap-4 mt-4 pt-4 border-t border-zinc-800/70 flex-wrap">
