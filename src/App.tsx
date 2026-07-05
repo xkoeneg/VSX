@@ -3483,7 +3483,7 @@ function App() {
       <div className="flex flex-col gap-4">
         {/* Total P&L */}
         <div className={cn(
-          "relative overflow-hidden border rounded-2xl p-6 transition-colors duration-300 min-w-0",
+          "relative overflow-hidden border rounded-2xl p-4 sm:p-6 transition-colors duration-300 min-w-0",
           theme === 'dark'
             ? 'bg-gradient-to-br from-zinc-900 via-zinc-900/90 to-zinc-900/60 border-zinc-800'
             : 'bg-gradient-to-br from-white via-zinc-50 to-zinc-100 border-zinc-200'
@@ -3493,7 +3493,7 @@ function App() {
             <div className="min-w-0">
               <p className={cn("text-xs uppercase tracking-wider font-medium mb-2", tc.textMuted)}>Total Profit &amp; Loss</p>
               <div className="flex items-baseline gap-3 flex-wrap">
-                <span className={cn('text-4xl font-bold tracking-tight tabular-nums', stats.totalPnL >= 0 ? 'text-emerald-500' : 'text-red-500')}>
+                <span className={cn('text-3xl sm:text-4xl font-bold tracking-tight tabular-nums', stats.totalPnL >= 0 ? 'text-emerald-500' : 'text-red-500')}>
                   {formatCurrency(stats.totalPnL, privacyMode)}
                 </span>
                 <span className={cn('flex items-center gap-1 text-sm font-medium px-2.5 py-1 rounded-lg flex-shrink-0', stats.growth >= 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-500')}>
@@ -3651,7 +3651,7 @@ function App() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
                     <div className="min-w-0">
                       <p className="text-[10px] text-zinc-500 uppercase tracking-wider truncate">Starting</p>
                       <p className="text-xs text-zinc-300 truncate tabular-nums">{privacyMode ? '****' : `$${account.startingBalance.toLocaleString()}`}</p>
@@ -3678,7 +3678,7 @@ function App() {
       </div>
 
       {/* Recent trades */}
-      <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-6">
+      <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <h3 className="text-lg font-semibold text-white tracking-tight">Recent Trades</h3>
           <button onClick={() => { resetTradeForm(); resetCalculator(); setShowAddTrade(true); }} className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors">
@@ -6887,7 +6887,7 @@ function App() {
   );
 
   return (
-    <div className={cn("h-screen flex overflow-hidden transition-colors duration-300", theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-50 theme-light-fix')}>
+    <div className={cn("h-dvh flex overflow-hidden transition-colors duration-300", theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-50 theme-light-fix')}>
       <style>{`
         * {
           scrollbar-width: none;
@@ -7031,7 +7031,7 @@ function App() {
           </span>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {view === 'dashboard' && renderDashboard()}
           {view === 'trades' && renderTradeHistory()}
           {view === 'discipline' && renderDisciplineTracker()}
