@@ -3535,13 +3535,15 @@ function App() {
           return (
             <div
               className={cn(
-                'relative flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-2xl border border-l-4 bg-zinc-900/40 border-zinc-800/80 px-5 py-3.5 min-w-0 transition-all duration-300',
+                'relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-l-4 bg-zinc-900/40 border-zinc-800/80 p-4 sm:px-5 sm:py-3.5 min-w-0 transition-all duration-300',
                 isHealthy && 'border-l-emerald-500 shadow-[0_0_18px_rgba(16,185,129,0.12)]',
                 isDanger && 'border-l-amber-500 shadow-[0_0_18px_rgba(245,158,11,0.10)]'
               )}
             >
-              {/* Left: label + headline follow rate */}
-              <div className="flex items-center gap-5 min-w-0 flex-1">
+              {/* Left: label + headline follow rate — its own flex-wrap group so the
+                  percentage/label/progress-bar cluster wraps onto a second line
+                  instead of overflowing into the badges on narrow screens. */}
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4 min-w-0 w-full sm:w-auto sm:flex-1">
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   <Brain className="w-4 h-4 text-violet-400 flex-shrink-0" />
                   <h3 className="text-sm font-semibold text-white tracking-tight truncate">Discipline</h3>
