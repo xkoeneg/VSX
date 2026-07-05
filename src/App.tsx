@@ -1845,6 +1845,10 @@ function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [isExportConfirmOpen, setIsExportConfirmOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // PHASE 0 (Mobile Instrumentation): tracks whether the off-canvas mobile
+  // sidebar drawer is open. Fully independent from `sidebarCollapsed`, which
+  // remains the desktop-only expand/collapse control.
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [galleryView, setGalleryView] = useState<GalleryView>('gallery');
   const [tradeFilter, setTradeFilter] = useState<TradeFilter>('all');
   const [tradeSortField, setTradeSortField] = useState<TradeSortField>('date');
@@ -3226,148 +3230,170 @@ function App() {
     );
   };
 
-  const renderSidebar = () => (
-    <aside className={cn(
-      "h-screen sticky top-0 flex-shrink-0 transition-all duration-300 overflow-hidden",
-      sidebarCollapsed ? "w-[72px]" : "w-64"
-    )}>
-      <div className={cn(
-        "h-full flex flex-col transition-all duration-300",
-        sidebarCollapsed ? "w-[72px]" : "w-64",
-        theme === 'dark' ? 'bg-zinc-900 border-r border-zinc-800' : 'bg-white border-r border-zinc-200'
-      )}>
-        <div className={cn("p-4 border-b", theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200')}>
-          <div className={cn("flex items-center", sidebarCollapsed ? "flex-col gap-2" : "justify-between")}>
-            <div className={cn("flex items-center gap-3 min-w-0", sidebarCollapsed && "justify-center")}>
-              <div className={cn(
-                "relative w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0",
-                theme === 'dark' ? 'bg-gradient-to-br from-zinc-800 to-zinc-900 border border-emerald-500/20' : 'bg-gradient-to-br from-zinc-100 to-zinc-200'
-              )}>
-                <Activity className={cn(
-                  "w-[18px] h-[18px]",
-                  theme === 'dark' ? 'text-emerald-400 drop-shadow-[0_0_6px_rgba(52,211,153,0.55)]' : 'text-emerald-600'
-                )} />
-              </div>
-              {!sidebarCollapsed && (
-                <div className="min-w-0 flex-1">
-                  <h1 className={cn("font-bold text-lg uppercase tracking-wider leading-none truncate", theme === 'dark' ? 'text-white' : 'text-zinc-900')}>
-                    VSX
-                  </h1>
-                  <p className={cn("text-[10px] font-medium uppercase tracking-widest truncate mt-0.5", theme === 'dark' ? 'text-zinc-500' : 'text-zinc-500')}>
-                    Trading Journal
-                  </p>
+  // Shared sidebar content, rendered into two completely separate DOM trees
+  // (mobile drawer vs. desktop permanent sidebar) so there is no longer any
+  // single set of classes where mobile and desktop states can collide.
+  // `isMobile` forces the content into its always-expanded (label-visible)
+  // mobile appearance and swaps in the X-close control; on desktop, layout
+  // follows `sidebarCollapsed` exactly as before.
+  const renderSidebarContent = (isMobile: boolean) => {
+    const collapsed = !isMobile && sidebarCollapsed;
+    return (
+      <div className="flex flex-col h-full w-full justify-between p-4">
+        {/* TOP GROUP: logo/header row + primary nav items, strictly stacked */}
+        <div className="flex flex-col gap-1 w-full min-h-0">
+          <div className={cn("pb-4 mb-2 border-b w-full", theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200')}>
+            <div className={cn("flex items-center", collapsed ? "flex-col gap-2" : "justify-between")}>
+              <div className={cn("flex items-center gap-3 min-w-0", collapsed && "justify-center")}>
+                <div className={cn(
+                  "relative w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0",
+                  theme === 'dark' ? 'bg-gradient-to-br from-zinc-800 to-zinc-900 border border-emerald-500/20' : 'bg-gradient-to-br from-zinc-100 to-zinc-200'
+                )}>
+                  <Activity className={cn(
+                    "w-[18px] h-[18px]",
+                    theme === 'dark' ? 'text-emerald-400 drop-shadow-[0_0_6px_rgba(52,211,153,0.55)]' : 'text-emerald-600'
+                  )} />
                 </div>
+                {!collapsed && (
+                  <div className="min-w-0 flex-1">
+                    <h1 className={cn("font-bold text-lg uppercase tracking-wider leading-none truncate", theme === 'dark' ? 'text-white' : 'text-zinc-900')}>
+                      VSX
+                    </h1>
+                    <p className={cn("text-[10px] font-medium uppercase tracking-widest truncate mt-0.5", theme === 'dark' ? 'text-zinc-500' : 'text-zinc-500')}>
+                      Trading Journal
+                    </p>
+                  </div>
+                )}
+              </div>
+              {isMobile ? (
+                <button
+                  type="button"
+                  onClick={() => setIsMobileSidebarOpen(false)}
+                  aria-label="Close menu"
+                  className={cn(
+                    "p-1.5 rounded-lg transition-colors flex-shrink-0",
+                    theme === 'dark' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
+                  )}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setSidebarCollapsed(prev => !prev)}
+                  title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                  className={cn(
+                    "p-1.5 rounded-lg transition-colors flex-shrink-0",
+                    theme === 'dark' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
+                  )}
+                >
+                  {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+                </button>
               )}
             </div>
-            <button
-              onClick={() => setSidebarCollapsed(prev => !prev)}
-              title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              className={cn(
-                "p-1.5 rounded-lg transition-colors flex-shrink-0",
-                theme === 'dark' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
-              )}
-            >
-              {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-            </button>
           </div>
+
+          <nav className="flex flex-col gap-1 w-full overflow-y-auto overflow-x-hidden min-h-0">
+            {[
+              { id: 'dashboard' as ViewType, icon: LayoutDashboard, label: 'Dashboard' },
+              { id: 'trades' as ViewType, icon: TrendingUp, label: 'Trade History' },
+              { id: 'discipline' as ViewType, icon: Shield, label: 'Discipline Tracker' },
+              { id: 'playbook' as ViewType, icon: BookOpen, label: 'Rules Playbook' },
+              { id: 'notices' as ViewType, icon: FileText, label: 'Market Notices' },
+              { id: 'wiki' as ViewType, icon: Lightbulb, label: 'Knowledge Wiki' },
+              { id: 'calendar' as ViewType, icon: Calendar, label: 'Performance Calendar' },
+            ].map(item => (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setView(item.id);
+                  setIsMobileSidebarOpen(false);
+                }}
+                title={collapsed ? item.label : undefined}
+                className={cn(
+                  'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm',
+                  collapsed && 'justify-center px-0',
+                  view === item.id
+                    ? theme === 'dark' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900'
+                    : theme === 'dark' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800/50' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50'
+                )}
+              >
+                <item.icon className="w-4 h-4 flex-shrink-0" />
+                {!collapsed && <span className="truncate">{item.label}</span>}
+              </button>
+            ))}
+          </nav>
         </div>
 
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto overflow-x-hidden">
-          {[
-            { id: 'dashboard' as ViewType, icon: LayoutDashboard, label: 'Dashboard' },
-            { id: 'trades' as ViewType, icon: TrendingUp, label: 'Trade History' },
-            { id: 'discipline' as ViewType, icon: Shield, label: 'Discipline Tracker' },
-            { id: 'playbook' as ViewType, icon: BookOpen, label: 'Rules Playbook' },
-            { id: 'notices' as ViewType, icon: FileText, label: 'Market Notices' },
-            { id: 'wiki' as ViewType, icon: Lightbulb, label: 'Knowledge Wiki' },
-            { id: 'calendar' as ViewType, icon: Calendar, label: 'Performance Calendar' },
-          ].map(item => (
+        {/* BOTTOM GROUP: theme/privacy + data backup, pinned to the bottom, strictly stacked */}
+        <div className="flex flex-col gap-4 mt-auto w-full">
+          <div className={cn("flex flex-col gap-1 w-full pt-4 border-t", theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200')}>
             <button
-              key={item.id}
-              onClick={() => setView(item.id)}
-              title={sidebarCollapsed ? item.label : undefined}
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              title={collapsed ? (theme === 'dark' ? 'Light Theme' : 'Dark Theme') : undefined}
               className={cn(
                 'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm',
-                sidebarCollapsed && 'justify-center px-0',
-                view === item.id
-                  ? theme === 'dark' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900'
-                  : theme === 'dark' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800/50' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50'
+                collapsed && 'justify-center px-0',
+                theme === 'dark' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800/50' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
               )}
             >
-              <item.icon className="w-4 h-4 flex-shrink-0" />
-              {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
+              {theme === 'dark' ? <Sun className="w-4 h-4 flex-shrink-0" /> : <Moon className="w-4 h-4 flex-shrink-0" />}
+              {!collapsed && <span className="truncate">{theme === 'dark' ? 'Light Theme' : 'Dark Theme'}</span>}
             </button>
-          ))}
-        </nav>
+            <button
+              onClick={() => setPrivacyMode(!privacyMode)}
+              title={collapsed ? (privacyMode ? 'Privacy Mode On' : 'Privacy Mode Off') : undefined}
+              className={cn(
+                'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm',
+                collapsed && 'justify-center px-0',
+                privacyMode
+                  ? 'bg-amber-500/10 text-amber-500'
+                  : theme === 'dark' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800/50' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+              )}
+            >
+              {privacyMode ? <EyeOff className="w-4 h-4 flex-shrink-0" /> : <Eye className="w-4 h-4 flex-shrink-0" />}
+              {!collapsed && <span className="truncate">{privacyMode ? 'Privacy Mode On' : 'Privacy Mode Off'}</span>}
+            </button>
+          </div>
 
-        <div className={cn("p-3 border-t", theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200')}>
-          <button
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            title={sidebarCollapsed ? (theme === 'dark' ? 'Light Theme' : 'Dark Theme') : undefined}
-            className={cn(
-              'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm',
-              sidebarCollapsed && 'justify-center px-0',
-              theme === 'dark' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800/50' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+          <div className={cn("flex flex-col gap-1.5 w-full pt-4 border-t", theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200')}>
+            {!collapsed && (
+              <div className="flex items-center gap-2 px-3 py-1.5 mb-1">
+                <HardDrive className={cn("w-4 h-4 flex-shrink-0", theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400')} />
+                <span className={cn("text-xs uppercase tracking-wider truncate", theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400')}>
+                  Data Backup
+                </span>
+              </div>
             )}
-          >
-            {theme === 'dark' ? <Sun className="w-4 h-4 flex-shrink-0" /> : <Moon className="w-4 h-4 flex-shrink-0" />}
-            {!sidebarCollapsed && <span className="truncate">{theme === 'dark' ? 'Light Theme' : 'Dark Theme'}</span>}
-          </button>
-          <button
-            onClick={() => setPrivacyMode(!privacyMode)}
-            title={sidebarCollapsed ? (privacyMode ? 'Privacy Mode On' : 'Privacy Mode Off') : undefined}
-            className={cn(
-              'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm mt-1',
-              sidebarCollapsed && 'justify-center px-0',
-              privacyMode
-                ? 'bg-amber-500/10 text-amber-500'
-                : theme === 'dark' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800/50' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
-            )}
-          >
-            {privacyMode ? <EyeOff className="w-4 h-4 flex-shrink-0" /> : <Eye className="w-4 h-4 flex-shrink-0" />}
-            {!sidebarCollapsed && <span className="truncate">{privacyMode ? 'Privacy Mode On' : 'Privacy Mode Off'}</span>}
-          </button>
-        </div>
-
-        <div className={cn("p-3 border-t", theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200')}>
-          {!sidebarCollapsed && (
-            <div className="flex items-center gap-2 px-3 py-1.5 mb-2">
-              <HardDrive className={cn("w-4 h-4 flex-shrink-0", theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400')} />
-              <span className={cn("text-xs uppercase tracking-wider truncate", theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400')}>
-                Data Backup
-              </span>
-            </div>
-          )}
-          <div className="space-y-1.5">
             <button
               onClick={() => setIsExportConfirmOpen(true)}
-              title={sidebarCollapsed ? 'Export Journal Backup' : undefined}
+              title={collapsed ? 'Export Journal Backup' : undefined}
               className={cn(
                 "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm",
-                sidebarCollapsed && 'justify-center px-0',
+                collapsed && 'justify-center px-0',
                 theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-900'
               )}
             >
               <Download className="w-4 h-4 flex-shrink-0" />
-              {!sidebarCollapsed && <span className="truncate">Export Journal Backup</span>}
+              {!collapsed && <span className="truncate">Export Journal Backup</span>}
             </button>
             <label
-              title={sidebarCollapsed ? 'Import & Restore Backup' : undefined}
+              title={collapsed ? 'Import & Restore Backup' : undefined}
               className={cn(
                 "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm cursor-pointer",
-                sidebarCollapsed && 'justify-center px-0',
+                collapsed && 'justify-center px-0',
                 theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-900'
               )}
             >
               <FolderSync className="w-4 h-4 flex-shrink-0" />
-              {!sidebarCollapsed && <span className="truncate">Import & Restore Backup</span>}
+              {!collapsed && <span className="truncate">Import & Restore Backup</span>}
               <input type="file" accept=".json,application/json" className="hidden" onChange={importBackup} />
             </label>
           </div>
         </div>
       </div>
-    </aside>
-  );
+    );
+  };
 
   const renderDashboard = () => (
     <div className="space-y-6 min-w-0">
@@ -6955,16 +6981,65 @@ function App() {
         .theme-light-fix [class~="bg-zinc-500"] { background-color: #d4d4d8 !important; }
       `}</style>
 
-      {renderSidebar()}
+      {/* MOBILE SIDEBAR (Drawer Mode) — its own isolated tree; only ever exists in the DOM while isMobileSidebarOpen is true, and only below md. */}
+      {isMobileSidebarOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          {/* Backdrop overlay */}
+          <div
+            className="fixed inset-0 bg-black/50"
+            onClick={() => setIsMobileSidebarOpen(false)}
+            aria-hidden="true"
+          />
+          {/* Actual Mobile Sidebar Panel */}
+          <aside className={cn(
+            "relative w-64 h-full flex flex-col",
+            theme === 'dark' ? 'bg-zinc-900 border-r border-zinc-800' : 'bg-white border-r border-zinc-200'
+          )}>
+            {renderSidebarContent(true)}
+          </aside>
+        </div>
+      )}
 
-      <main className={cn("flex-1 overflow-y-auto p-6 min-w-0 transition-colors duration-300", theme === 'dark' ? 'text-white' : 'text-zinc-900')}>
-        {view === 'dashboard' && renderDashboard()}
-        {view === 'trades' && renderTradeHistory()}
-        {view === 'discipline' && renderDisciplineTracker()}
-        {view === 'playbook' && renderPlaybook()}
-        {view === 'notices' && renderNotices()}
-        {view === 'wiki' && renderWiki()}
-        {view === 'calendar' && renderCalendar()}
+      {/* DESKTOP SIDEBAR (Permanent Layout) — separate tree, entirely unaware of isMobileSidebarOpen. Always rendered at md+; width follows sidebarCollapsed only. */}
+      <aside className={cn(
+        "hidden md:flex md:flex-col md:h-screen md:sticky md:top-0 md:flex-shrink-0 md:overflow-hidden transition-all duration-300",
+        theme === 'dark' ? 'bg-zinc-900 border-r border-zinc-800' : 'bg-white border-r border-zinc-200',
+        sidebarCollapsed ? "md:w-[72px]" : "md:w-64"
+      )}>
+        {renderSidebarContent(false)}
+      </aside>
+
+      <main className={cn("flex-1 overflow-y-auto min-w-0 transition-colors duration-300", theme === 'dark' ? 'text-white' : 'text-zinc-900')}>
+        {/* MOBILE STICKY TOP BAR: hidden at md+ where the permanent sidebar is always visible; provides the hamburger trigger on every page on mobile. */}
+        <div className={cn(
+          "md:hidden sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b backdrop-blur-sm",
+          theme === 'dark' ? 'bg-zinc-900/95 border-zinc-800' : 'bg-white/95 border-zinc-200'
+        )}>
+          <button
+            type="button"
+            onClick={() => setIsMobileSidebarOpen(true)}
+            aria-label="Open menu"
+            className={cn(
+              "p-2 -ml-2 rounded-lg transition-colors",
+              theme === 'dark' ? 'text-zinc-300 hover:text-white hover:bg-zinc-800' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+            )}
+          >
+            <PanelLeft className="w-5 h-5" />
+          </button>
+          <span className={cn("font-bold text-base uppercase tracking-wider", theme === 'dark' ? 'text-white' : 'text-zinc-900')}>
+            VSX
+          </span>
+        </div>
+
+        <div className="p-6">
+          {view === 'dashboard' && renderDashboard()}
+          {view === 'trades' && renderTradeHistory()}
+          {view === 'discipline' && renderDisciplineTracker()}
+          {view === 'playbook' && renderPlaybook()}
+          {view === 'notices' && renderNotices()}
+          {view === 'wiki' && renderWiki()}
+          {view === 'calendar' && renderCalendar()}
+        </div>
       </main>
 
       {renderAccountModal()}
