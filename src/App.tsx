@@ -58,6 +58,10 @@ import {
   PanelLeft,
   Flame,
   ClipboardPaste,
+  ZoomIn,
+  Send,
+  ImagePlus,
+  StickyNote,
 } from 'lucide-react';
 
 // Types
@@ -134,12 +138,25 @@ interface Rule {
   pillar: RulePillar;
 }
 
+interface ChatMessage {
+  id: string;
+  text: string;
+  timestamp: string;
+}
+
 interface MarketNotice {
   id: string;
   title: string;
-  description: string;
   imageUrl: string;
   timestamp: string;
+  messages: ChatMessage[];
+}
+
+interface ScenarioRow {
+  id: string;
+  scenario: string;
+  tags: string[];
+  lesson: string;
 }
 
 interface WikiEntry {
@@ -227,6 +244,37 @@ const tagMatchesRuleTitle = (tag: string, ruleTitle: string): boolean => {
 };
 
 // Utility functions
+// Fixed palette for known scenario tags so recurring labels (loss, FOMO,
+// overtrade, etc.) stay visually consistent across the table. Anything
+// outside this list still gets a color via a deterministic hash so new
+// tags never fall back to plain gray-on-gray.
+const SCENARIO_TAG_STYLES: Record<string, string> = {
+  overtrade: 'bg-red-500/10 text-red-400 border-red-500/30',
+  chase: 'bg-orange-500/10 text-orange-400 border-orange-500/30',
+  loss: 'bg-zinc-500/15 text-zinc-300 border-zinc-500/30',
+  fomo: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
+  discipline: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+  win: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+  patience: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
+  revenge: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
+};
+
+const SCENARIO_TAG_FALLBACK_PALETTE = [
+  'bg-cyan-500/10 text-cyan-400 border-cyan-500/30',
+  'bg-amber-500/10 text-amber-400 border-amber-500/30',
+  'bg-indigo-500/10 text-indigo-400 border-indigo-500/30',
+  'bg-pink-500/10 text-pink-400 border-pink-500/30',
+  'bg-lime-500/10 text-lime-400 border-lime-500/30',
+];
+
+const getScenarioTagStyle = (tag: string) => {
+  const key = tag.trim().toLowerCase();
+  if (SCENARIO_TAG_STYLES[key]) return SCENARIO_TAG_STYLES[key];
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  return SCENARIO_TAG_FALLBACK_PALETTE[hash % SCENARIO_TAG_FALLBACK_PALETTE.length];
+};
+
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 // ============================================================
@@ -247,7 +295,7 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 // always produce fully-shaped, current-version objects, so nothing in the
 // UI ever crashes on a field that "isn't there yet" in older data.
 // ============================================================
-const DATA_SCHEMA_VERSION = 3;
+const DATA_SCHEMA_VERSION = 4;
 
 const createEmptyTimeframes = (): TimeframeChart[] =>
   TIMEFRAMES.map(tf => ({ name: tf, images: [], notes: '' }));
@@ -348,12 +396,39 @@ const normalizeRule = (r: any): Rule => ({
   pillar: RULE_PILLARS.includes(r?.pillar) ? r.pillar : guessRulePillar(r),
 });
 
-const normalizeNotice = (n: any): MarketNotice => ({
-  id: typeof n?.id === 'string' ? n.id : generateId(),
-  title: normalizeStringField(n?.title),
-  description: normalizeStringField(n?.description),
-  imageUrl: normalizeStringField(n?.imageUrl),
-  timestamp: typeof n?.timestamp === 'string' ? n.timestamp : new Date().toISOString(),
+const normalizeChatMessage = (m: any): ChatMessage => ({
+  id: typeof m?.id === 'string' ? m.id : generateId(),
+  text: normalizeStringField(m?.text),
+  timestamp: typeof m?.timestamp === 'string' ? m.timestamp : new Date().toISOString(),
+});
+
+const normalizeNotice = (n: any): MarketNotice => {
+  const timestamp = typeof n?.timestamp === 'string' ? n.timestamp : new Date().toISOString();
+  // Older backups stored a single static "description" string per notice.
+  // Fold that into the chat log as the first entry so nothing is lost.
+  const legacyDescription = normalizeStringField(n?.description);
+  const messages = Array.isArray(n?.messages)
+    ? n.messages.map(normalizeChatMessage)
+    : legacyDescription
+      ? [{ id: generateId(), text: legacyDescription, timestamp }]
+      : [];
+  return {
+    id: typeof n?.id === 'string' ? n.id : generateId(),
+    title: normalizeStringField(n?.title),
+    imageUrl: normalizeStringField(n?.imageUrl),
+    timestamp,
+    messages,
+  };
+};
+
+const normalizeScenarioTags = (tags: any): string[] =>
+  Array.isArray(tags) ? tags.filter((t: any) => typeof t === 'string' && t.trim()) : [];
+
+const normalizeScenario = (s: any): ScenarioRow => ({
+  id: typeof s?.id === 'string' ? s.id : generateId(),
+  scenario: normalizeStringField(s?.scenario),
+  tags: normalizeScenarioTags(s?.tags),
+  lesson: normalizeStringField(s?.lesson),
 });
 
 const normalizeWiki = (w: any): WikiEntry => ({
@@ -374,6 +449,7 @@ interface StoredData {
   trades: Trade[];
   rules: Rule[];
   notices: MarketNotice[];
+  noticeScenarios: ScenarioRow[];
   wikiEntries: WikiEntry[];
   setupTypes: SetupType[];
   confluences: Confluence[];
@@ -393,6 +469,7 @@ const migrateStoredData = (raw: any): StoredData => {
     trades: Array.isArray(data.trades) ? normalizeTrades(data.trades) : [],
     rules: Array.isArray(data.rules) ? data.rules.map(normalizeRule) : [],
     notices: Array.isArray(data.notices) ? data.notices.map(normalizeNotice) : [],
+    noticeScenarios: Array.isArray(data.noticeScenarios) ? data.noticeScenarios.map(normalizeScenario) : [],
     wikiEntries: Array.isArray(data.wikiEntries) ? data.wikiEntries.map(normalizeWiki) : [],
     setupTypes: Array.isArray(data.setupTypes) ? data.setupTypes.map(normalizeNamedItem) : [],
     confluences: Array.isArray(data.confluences) ? data.confluences.map(normalizeNamedItem) : [],
@@ -1908,6 +1985,7 @@ function App() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [rules, setRules] = useState<Rule[]>([]);
   const [notices, setNotices] = useState<MarketNotice[]>([]);
+  const [noticeScenarios, setNoticeScenarios] = useState<ScenarioRow[]>([]);
   const [wikiEntries, setWikiEntries] = useState<WikiEntry[]>([]);
   const [setupTypes, setSetupTypes] = useState<SetupType[]>([]);
   const [confluences, setConfluences] = useState<Confluence[]>([]);
@@ -1926,6 +2004,10 @@ function App() {
   const [disciplineReviewDraft, setDisciplineReviewDraft] = useState<{ emotions: string[]; mistakes: string[]; notes: string }>({ emotions: [], mistakes: [], notes: '' });
   const [showAddRule, setShowAddRule] = useState(false);
   const [showAddNotice, setShowAddNotice] = useState(false);
+  const [activeNoticeId, setActiveNoticeId] = useState<string | null>(null);
+  const [noticeDraftMessage, setNoticeDraftMessage] = useState('');
+  const [showAddScenario, setShowAddScenario] = useState(false);
+  const [newScenario, setNewScenario] = useState<{ scenario: string; tags: string; lesson: string }>({ scenario: '', tags: '', lesson: '' });
   const [showAddWiki, setShowAddWiki] = useState(false);
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
@@ -1951,6 +2033,7 @@ function App() {
   const [showDeleteSelectedConfirm, setShowDeleteSelectedConfirm] = useState(false);
   const [accountPendingDelete, setAccountPendingDelete] = useState<string | null>(null);
 
+  const noticeImageInputRef = useRef<HTMLInputElement>(null);
   const accountDropdownRef = useRef<HTMLDivElement>(null);
   const tradingAccountTypeDropdownRef = useRef<HTMLDivElement>(null);
   const accountTypeDropdownRef = useRef<HTMLDivElement>(null);
@@ -2024,7 +2107,8 @@ function App() {
 
   const [newRule, setNewRule] = useState<Partial<Rule>>({ category: '', title: '', description: '', severity: 'warning', pillar: 'risk' });
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
-  const [newNotice, setNewNotice] = useState<Partial<MarketNotice>>({ title: '', description: '', imageUrl: '' });
+  const [newNotice, setNewNotice] = useState<{ title: string; imageUrl: string }>({ title: '', imageUrl: '' });
+  const [newNoticeNote, setNewNoticeNote] = useState('');
   const [newWiki, setNewWiki] = useState<Partial<WikiEntry>>({ title: '', content: '', category: '' });
 
   const [selectedTimeframeTab, setSelectedTimeframeTab] = useState<string>('Execution/Result');
@@ -2052,6 +2136,7 @@ function App() {
         setTrades(migrated.trades);
         setRules(migrated.rules);
         setNotices(migrated.notices);
+        setNoticeScenarios(migrated.noticeScenarios);
         setWikiEntries(migrated.wikiEntries);
         setSetupTypes(migrated.setupTypes);
         setConfluences(migrated.confluences);
@@ -2068,13 +2153,13 @@ function App() {
 
   // Save to localStorage
   useEffect(() => {
-    const data: StoredData = { version: DATA_SCHEMA_VERSION, accounts, trades, rules, notices, wikiEntries, setupTypes, confluences, mistakesList, customSymbols };
+    const data: StoredData = { version: DATA_SCHEMA_VERSION, accounts, trades, rules, notices, noticeScenarios, wikiEntries, setupTypes, confluences, mistakesList, customSymbols };
     try {
       localStorage.setItem('tradingJournal', JSON.stringify(data));
     } catch (e) {
       console.error('Failed to save data:', e);
     }
-  }, [accounts, trades, rules, notices, wikiEntries, setupTypes, confluences, mistakesList, customSymbols]);
+  }, [accounts, trades, rules, notices, noticeScenarios, wikiEntries, setupTypes, confluences, mistakesList, customSymbols]);
 
   // Initialize selected account
   useEffect(() => {
@@ -2640,14 +2725,50 @@ function App() {
 
   const handleDeleteRule = (id: string) => setRules(rules.filter(r => r.id !== id));
 
+  const handleNoticeImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setNewNotice(prev => ({ ...prev, imageUrl: ev.target?.result as string }));
+    reader.readAsDataURL(file);
+  };
+
   const handleAddNotice = () => {
     if (!newNotice.title) return;
-    setNotices([...notices, { id: generateId(), title: newNotice.title, description: newNotice.description || '', imageUrl: newNotice.imageUrl || '', timestamp: new Date().toISOString() }]);
-    setNewNotice({ title: '', description: '', imageUrl: '' });
+    const initialMessages: ChatMessage[] = newNoticeNote.trim()
+      ? [{ id: generateId(), text: newNoticeNote.trim(), timestamp: new Date().toISOString() }]
+      : [];
+    setNotices([...notices, { id: generateId(), title: newNotice.title, imageUrl: newNotice.imageUrl || '', timestamp: new Date().toISOString(), messages: initialMessages }]);
+    setNewNotice({ title: '', imageUrl: '' });
+    setNewNoticeNote('');
     setShowAddNotice(false);
   };
 
-  const handleDeleteNotice = (id: string) => setNotices(notices.filter(n => n.id !== id));
+  const handleDeleteNotice = (id: string) => {
+    setNotices(notices.filter(n => n.id !== id));
+    if (activeNoticeId === id) setActiveNoticeId(null);
+  };
+
+  const handleSendNoticeMessage = () => {
+    const text = noticeDraftMessage.trim();
+    if (!text || !activeNoticeId) return;
+    setNotices(prev => prev.map(n =>
+      n.id === activeNoticeId
+        ? { ...n, messages: [...n.messages, { id: generateId(), text, timestamp: new Date().toISOString() }] }
+        : n
+    ));
+    setNoticeDraftMessage('');
+  };
+
+  const handleAddScenario = () => {
+    if (!newScenario.scenario.trim()) return;
+    const tags = newScenario.tags.split(',').map(t => t.trim()).filter(Boolean);
+    setNoticeScenarios([...noticeScenarios, { id: generateId(), scenario: newScenario.scenario.trim(), tags, lesson: newScenario.lesson.trim() }]);
+    setNewScenario({ scenario: '', tags: '', lesson: '' });
+    setShowAddScenario(false);
+  };
+
+  const handleDeleteScenario = (id: string) => setNoticeScenarios(noticeScenarios.filter(s => s.id !== id));
 
   const handleAddWiki = () => {
     if (!newWiki.title) return;
@@ -2822,6 +2943,7 @@ function App() {
       trades,
       rules,
       notices,
+      noticeScenarios,
       wikiEntries,
       setupTypes,
       confluences,
@@ -2885,6 +3007,7 @@ function App() {
         setTrades(migrated.trades);
         setRules(migrated.rules);
         setNotices(migrated.notices);
+        setNoticeScenarios(migrated.noticeScenarios);
         setWikiEntries(migrated.wikiEntries);
         setSetupTypes(migrated.setupTypes);
         setConfluences(migrated.confluences);
@@ -4430,54 +4553,231 @@ function App() {
     </div>
   );
 
-  const renderNotices = () => (
-    <div className="space-y-6 min-w-0">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="min-w-0">
-          <h2 className="text-2xl font-bold text-white truncate">Market Notices</h2>
-          <p className="text-zinc-500 text-sm truncate">Document market observations and scenarios</p>
-        </div>
-        <button onClick={() => setShowAddNotice(true)} className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors flex-shrink-0">
-          <Plus className="w-4 h-4" />
-          <span>Add Notice</span>
-        </button>
-      </div>
+  const renderNotices = () => {
+    const activeNotice = notices.find(n => n.id === activeNoticeId) || null;
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {notices.map(notice => (
-          <div key={notice.id} className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4 group min-w-0">
-            <div className="flex items-start justify-between mb-3 gap-2">
-              <h3 className="font-semibold text-white truncate flex-1">{notice.title}</h3>
-              <button onClick={() => handleDeleteNotice(notice.id)} className="p-1 text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                <Trash2 className="w-4 h-4" />
+    return (
+      <div className="space-y-10 min-w-0">
+        {/* Gallery */}
+        <div className="space-y-4 min-w-0">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="min-w-0">
+              <h2 className="text-2xl font-bold text-white truncate">Market Notices</h2>
+              <p className="text-zinc-500 text-sm truncate">Document market observations and scenarios</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {notices.map(notice => (
+              <div
+                key={notice.id}
+                className="group relative text-left rounded-xl overflow-hidden border border-zinc-800 bg-zinc-900/50 hover:border-zinc-700 transition-all cursor-pointer min-w-0"
+                onClick={() => setActiveNoticeId(notice.id)}
+              >
+                <div className="aspect-video w-full overflow-hidden bg-zinc-800 flex items-center justify-center">
+                  {notice.imageUrl ? (
+                    <img
+                      src={notice.imageUrl}
+                      alt={notice.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <ImageIcon className="w-6 h-6 text-zinc-700" />
+                  )}
+                </div>
+                <div className="flex items-center justify-between px-3 py-2.5 border-t border-zinc-800 gap-2">
+                  <span className="text-sm text-zinc-200 truncate">{notice.title}</span>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setActiveNoticeId(notice.id); }}
+                      className="p-1 text-zinc-500 hover:text-zinc-200 transition-colors"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteNotice(notice.id); }}
+                      className="p-1 text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+                {notice.messages.length > 0 && (
+                  <div className="absolute top-2 right-2 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] text-zinc-300">
+                    <StickyNote className="w-3 h-3" />
+                    {notice.messages.length}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Add Notice card */}
+            <button
+              onClick={() => setShowAddNotice(true)}
+              className="flex flex-col items-center justify-center gap-2 aspect-video rounded-xl border border-dashed border-zinc-700 text-zinc-500 hover:text-zinc-300 hover:border-zinc-500 transition-all"
+            >
+              <Plus className="w-5 h-5" />
+              <span className="text-sm">New Notice</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Scenarios & Lessons table */}
+        <div className="min-w-0">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <h2 className="text-sm uppercase tracking-wider text-zinc-500">Scenarios &amp; Lessons</h2>
+            <button
+              onClick={() => setShowAddScenario(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs transition-colors flex-shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Row</span>
+            </button>
+          </div>
+
+          {noticeScenarios.length > 0 ? (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 overflow-x-auto">
+              <table className="w-full text-sm min-w-[640px]">
+                <thead>
+                  <tr className="border-b border-zinc-800 text-left text-xs uppercase tracking-wider text-zinc-500">
+                    <th className="px-4 py-3 w-12 font-medium">#</th>
+                    <th className="px-4 py-3 font-medium">Scenario</th>
+                    <th className="px-4 py-3 w-64 font-medium">Result / Tags</th>
+                    <th className="px-4 py-3 font-medium">Lesson</th>
+                    <th className="px-4 py-3 w-10 font-medium"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {noticeScenarios.map((row, idx) => (
+                    <tr
+                      key={row.id}
+                      className="group border-b border-zinc-800/70 last:border-b-0 hover:bg-zinc-800/30 transition-colors"
+                    >
+                      <td className="px-4 py-3 text-zinc-500 align-top">{idx + 1}</td>
+                      <td className="px-4 py-3 text-zinc-300 align-top">{row.scenario}</td>
+                      <td className="px-4 py-3 align-top">
+                        <div className="flex flex-wrap gap-1.5">
+                          {row.tags.map(tag => (
+                            <span
+                              key={tag}
+                              className={cn("px-2 py-0.5 rounded-full text-xs border", getScenarioTagStyle(tag))}
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-zinc-400 align-top">{row.lesson}</td>
+                      <td className="px-4 py-3 align-top">
+                        <button
+                          onClick={() => handleDeleteScenario(row.id)}
+                          className="p-1 text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-10 rounded-xl border border-zinc-800 bg-zinc-900/50">
+              <p className="text-zinc-500 text-sm mb-3">No scenarios logged yet</p>
+              <button
+                onClick={() => setShowAddScenario(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Add Scenario
               </button>
             </div>
-            {notice.imageUrl && (
-              <div className="aspect-video bg-zinc-800 rounded mb-3 overflow-hidden">
-                <img src={notice.imageUrl} alt="" className="w-full h-full object-cover cursor-pointer hover:opacity-90" onClick={() => setLightboxImage(notice.imageUrl)} />
-              </div>
-            )}
-            <p className="text-sm text-zinc-400 line-clamp-3">{notice.description}</p>
-            <p className="text-xs text-zinc-600 mt-2">{formatDate(notice.timestamp)}</p>
-          </div>
-        ))}
-      </div>
-
-      {notices.length === 0 && (
-        <div className="text-center py-12">
-          <div className="w-16 h-16 mx-auto rounded-full bg-zinc-800 flex items-center justify-center mb-4">
-            <FileText className="w-8 h-8 text-zinc-600" />
-          </div>
-          <h3 className="text-lg font-medium text-white mb-2">No notices yet</h3>
-          <p className="text-zinc-500 mb-4">Document your market observations</p>
-          <button onClick={() => setShowAddNotice(true)} className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors">
-            <Plus className="w-4 h-4" />
-            Add Notice
-          </button>
+          )}
         </div>
-      )}
-    </div>
-  );
+
+        {/* Slide-out drawer: chart + observation chat log */}
+        {activeNotice && (
+          <div className="fixed inset-0 z-50 flex justify-end">
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => { setActiveNoticeId(null); setNoticeDraftMessage(''); }}
+            />
+            <div className="relative w-full max-w-md h-full bg-zinc-900 border-l border-zinc-800 flex flex-col shadow-2xl min-w-0">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 flex-shrink-0">
+                <h3 className="text-sm font-medium text-white truncate pr-2">{activeNotice.title}</h3>
+                <button
+                  onClick={() => { setActiveNoticeId(null); setNoticeDraftMessage(''); }}
+                  className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors flex-shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {activeNotice.imageUrl && (
+                <div className="relative border-b border-zinc-800 bg-zinc-950 flex-shrink-0">
+                  <img
+                    src={activeNotice.imageUrl}
+                    alt={activeNotice.title}
+                    className="w-full max-h-64 object-contain cursor-zoom-in"
+                    onClick={() => setLightboxImage(activeNotice.imageUrl)}
+                  />
+                  <button
+                    onClick={() => setLightboxImage(activeNotice.imageUrl)}
+                    className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-white transition-colors"
+                  >
+                    <ZoomIn className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              <div className="flex flex-col flex-1 min-h-0">
+                <div className="px-4 py-2.5 border-b border-zinc-800 flex-shrink-0">
+                  <span className="text-xs uppercase tracking-wider text-zinc-500">Observation Chat Log</span>
+                </div>
+
+                <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+                  {activeNotice.messages.length === 0 && (
+                    <p className="text-sm text-zinc-600 italic">
+                      No observations yet. Start logging what you notice about this setup.
+                    </p>
+                  )}
+                  {activeNotice.messages.map(msg => (
+                    <div key={msg.id} className="rounded-lg border border-zinc-800 bg-zinc-800/40 px-3 py-2">
+                      <p className="text-sm text-zinc-200 whitespace-pre-wrap break-words">{msg.text}</p>
+                      <span className="block mt-1 text-[11px] text-zinc-500">{formatDate(msg.timestamp)}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="p-3 border-t border-zinc-800 flex items-end gap-2 flex-shrink-0">
+                  <textarea
+                    value={noticeDraftMessage}
+                    onChange={(e) => setNoticeDraftMessage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendNoticeMessage();
+                      }
+                    }}
+                    placeholder="What are you noticing right now?"
+                    rows={1}
+                    className="flex-1 resize-none bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500 max-h-28"
+                  />
+                  <button
+                    onClick={handleSendNoticeMessage}
+                    disabled={!noticeDraftMessage.trim()}
+                    className="p-2.5 rounded-lg bg-zinc-100 text-zinc-900 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all flex-shrink-0"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderWiki = () => (
     <div className="space-y-6 min-w-0">
@@ -6366,18 +6666,67 @@ function App() {
           </div>
           <div className="p-6 space-y-4">
             <div>
+              <label className="block text-sm text-zinc-400 mb-2">Chart Image</label>
+              <button
+                type="button"
+                onClick={() => noticeImageInputRef.current?.click()}
+                className="w-full aspect-video rounded-lg border border-dashed border-zinc-700 hover:border-zinc-500 flex flex-col items-center justify-center gap-2 text-zinc-500 hover:text-zinc-300 transition-all overflow-hidden bg-zinc-950"
+              >
+                {newNotice.imageUrl ? (
+                  <img src={newNotice.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                ) : (
+                  <>
+                    <ImagePlus className="w-5 h-5" />
+                    <span className="text-xs">Upload chart image</span>
+                  </>
+                )}
+              </button>
+              <input ref={noticeImageInputRef} type="file" accept="image/*" className="hidden" onChange={handleNoticeImagePick} />
+            </div>
+            <div>
               <label className="block text-sm text-zinc-400 mb-2">Title</label>
               <input type="text" value={newNotice.title || ''} onChange={(e) => setNewNotice(prev => ({ ...prev, title: e.target.value }))} placeholder="Market Observation" className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600" />
             </div>
             <div>
-              <label className="block text-sm text-zinc-400 mb-2">Description</label>
-              <textarea value={newNotice.description || ''} onChange={(e) => setNewNotice(prev => ({ ...prev, description: e.target.value }))} placeholder="Describe the market scenario..." rows={4} className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600 resize-none" />
+              <label className="block text-sm text-zinc-400 mb-2">Initial Observation (optional)</label>
+              <textarea value={newNoticeNote} onChange={(e) => setNewNoticeNote(e.target.value)} placeholder="What are you noticing about this setup..." rows={3} className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600 resize-none" />
+              <p className="text-xs text-zinc-600 mt-1.5">This becomes the first entry in the setup's Observation Chat Log. You can add more anytime.</p>
+            </div>
+            <button type="button" onClick={handleAddNotice} disabled={!newNotice.title.trim()} className="w-full py-2.5 bg-white hover:bg-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed text-black rounded-lg text-sm font-medium transition-colors">Add Notice</button>
+          </div>
+        </div>
+      </ModalBackdrop>
+    )
+  );
+
+  const renderAddScenarioModal = () => (
+    showAddScenario && (
+      <ModalBackdrop
+        onClose={() => setShowAddScenario(false)}
+        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
+      >
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+          <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
+            <h3 className="text-lg font-bold text-white truncate">Add Scenario</h3>
+            <button onClick={() => setShowAddScenario(false)} className="p-1 text-zinc-400 hover:text-white">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="p-6 space-y-4">
+            <div>
+              <label className="block text-sm text-zinc-400 mb-2">Scenario</label>
+              <textarea value={newScenario.scenario} onChange={(e) => setNewScenario(prev => ({ ...prev, scenario: e.target.value }))} placeholder="What happened..." rows={3} className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600 resize-none" />
             </div>
             <div>
-              <label className="block text-sm text-zinc-400 mb-2">Image URL (optional)</label>
-              <input type="text" value={newNotice.imageUrl || ''} onChange={(e) => setNewNotice(prev => ({ ...prev, imageUrl: e.target.value }))} placeholder="https://..." className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600" />
+              <label className="block text-sm text-zinc-400 mb-2">Tags</label>
+              <input type="text" value={newScenario.tags} onChange={(e) => setNewScenario(prev => ({ ...prev, tags: e.target.value }))} placeholder="overtrade, chase, FOMO" className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600" />
+              <p className="text-xs text-zinc-600 mt-1.5">Comma-separated. Each becomes a colored pill.</p>
             </div>
-            <button type="button" onClick={handleAddNotice} className="w-full py-2.5 bg-white hover:bg-zinc-200 text-black rounded-lg text-sm font-medium transition-colors">Add Notice</button>
+            <div>
+              <label className="block text-sm text-zinc-400 mb-2">Lesson</label>
+              <textarea value={newScenario.lesson} onChange={(e) => setNewScenario(prev => ({ ...prev, lesson: e.target.value }))} placeholder="What to do differently next time..." rows={2} className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600 resize-none" />
+            </div>
+            <button type="button" onClick={handleAddScenario} disabled={!newScenario.scenario.trim()} className="w-full py-2.5 bg-white hover:bg-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed text-black rounded-lg text-sm font-medium transition-colors">Add Scenario</button>
           </div>
         </div>
       </ModalBackdrop>
@@ -6626,6 +6975,7 @@ function App() {
       {renderExpandGallery()}
       {renderAddRuleModal()}
       {renderAddNoticeModal()}
+      {renderAddScenarioModal()}
       {renderAddWikiModal()}
       {renderDeleteSelectedConfirm()}
       {renderDeleteAccountConfirm()}
