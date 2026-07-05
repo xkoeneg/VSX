@@ -1367,6 +1367,24 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
         </h4>
         <div className="flex items-center gap-2">
           <span className="text-xs text-zinc-500">{images.length}</span>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleQuickPaste();
+              }}
+              className="p-1.5 hover:bg-zinc-700 rounded-lg text-zinc-400 hover:text-white transition-colors"
+              title="Quick Paste from Clipboard"
+            >
+              <ClipboardPaste className="w-3.5 h-3.5" />
+            </button>
+            {pasteFeedback && (
+              <div className="absolute right-0 top-full mt-1 px-2 py-1 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-20 whitespace-nowrap">
+                <p className="text-[11px] text-amber-400">{pasteFeedback}</p>
+              </div>
+            )}
+          </div>
           <div className="relative" ref={menuRef}>
             <button
               type="button"
@@ -1377,14 +1395,6 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
             </button>
             {showMenu && (
               <div className="absolute right-0 top-full mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden min-w-[160px]">
-                <button
-                  type="button"
-                  onClick={handleQuickPaste}
-                  title="Paste Link"
-                  className="w-full flex items-center justify-center py-2 text-zinc-300 hover:bg-zinc-700 transition-colors"
-                >
-                  <ClipboardPaste className="w-3.5 h-3.5" />
-                </button>
                 <button
                   type="button"
                   onClick={handleUrlSubmit}
@@ -1404,11 +1414,6 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
                     onChange={handleFileSelect}
                   />
                 </label>
-                {pasteFeedback && (
-                  <p className="px-3 py-1.5 text-[11px] text-amber-400 bg-zinc-900/60 border-t border-zinc-700">
-                    {pasteFeedback}
-                  </p>
-                )}
               </div>
             )}
           </div>
