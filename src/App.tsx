@@ -1766,6 +1766,7 @@ function App() {
   const [view, setView] = useState<ViewType>('dashboard');
   const [privacyMode, setPrivacyMode] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [isExportConfirmOpen, setIsExportConfirmOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [galleryView, setGalleryView] = useState<GalleryView>('gallery');
   const [tradeFilter, setTradeFilter] = useState<TradeFilter>('all');
@@ -2829,10 +2830,11 @@ function App() {
     };
 
     const jsonString = JSON.stringify(backupData, null, 2);
-    const defaultFileName = 'vsx_backup.json';
+    const defaultFileName = `vsx_backup_${new Date().toISOString().split('T')[0]}.json`;
 
-    // Chromium (Chrome/Edge/etc.): showSaveFilePicker natively forces the OS-level
-    // Save As dialog — the user always picks the destination folder and name.
+    // Prefer the browser's native "Save As" dialog (File System Access API)
+    // so YOU pick the filename and folder, instead of it silently landing
+    // in Downloads. Supported in Chrome, Edge, and other Chromium browsers.
     const showSaveFilePicker = (window as any).showSaveFilePicker;
     if (typeof showSaveFilePicker === 'function') {
       try {
@@ -2849,17 +2851,13 @@ function App() {
         // their mind", not an error. Don't fall back to auto-download.
         if (err?.name === 'AbortError') return;
         // Any other failure (e.g. permission issue): fall through to the
-        // universal fallback below rather than losing the export entirely.
+        // classic download below rather than losing the export entirely.
       }
     }
 
-    // Universal fallback (Safari, Firefox, and any browser without the File
-    // System Access API): a plain `application/json` blob is a type browsers
-    // know how to render/auto-handle, so it can silently auto-download instead
-    // of prompting. Serving it as `application/octet-stream` instead means the
-    // browser can't classify it as an openable/inline type, so it falls back
-    // to its native download manager's "Save As" / "Open with" prompt.
-    const blob = new Blob([jsonString], { type: 'application/octet-stream' });
+    // Fallback for browsers without Save-As support (Firefox, Safari, etc.)
+    // — this downloads straight to the default Downloads folder.
+    const blob = new Blob([jsonString], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -3219,7 +3217,7 @@ function App() {
           )}
           <div className="space-y-1.5">
             <button
-              onClick={exportBackup}
+              onClick={() => setIsExportConfirmOpen(true)}
               title={sidebarCollapsed ? 'Export Journal Backup' : undefined}
               className={cn(
                 "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm",
@@ -6632,6 +6630,38 @@ function App() {
       {renderDeleteSelectedConfirm()}
       {renderDeleteAccountConfirm()}
       {renderLightbox()}
+
+      {isExportConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-sm mx-4 rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl">
+            <div className="p-5">
+              <h2 className="text-base font-semibold text-white">
+                Export Journal Backup?
+              </h2>
+              <p className="mt-2 text-sm text-zinc-400">
+                This will create a backup file of your current journal data.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-zinc-800 px-5 py-3">
+              <button
+                onClick={() => setIsExportConfirmOpen(false)}
+                className="px-3 py-1.5 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  exportBackup();
+                  setIsExportConfirmOpen(false);
+                }}
+                className="px-3 py-1.5 rounded-lg text-sm bg-zinc-100 text-zinc-900 hover:bg-white transition-all font-medium"
+              >
+                Confirm Export
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
