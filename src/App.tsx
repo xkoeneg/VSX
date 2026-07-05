@@ -3326,8 +3326,8 @@ function App() {
         </div>
       </div>
 
-      {/* Hero overview + compact Discipline Tracker, side by side as the primary focus area */}
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_260px] gap-4 items-stretch">
+      {/* Hero overview: Total P&L, with the Discipline Tracker as a slim status banner beneath it */}
+      <div className="flex flex-col gap-4">
         {/* Total P&L */}
         <div className={cn(
           "relative overflow-hidden border rounded-2xl p-6 transition-colors duration-300 min-w-0",
@@ -3369,53 +3369,65 @@ function App() {
           </div>
         </div>
 
-        {/* Discipline Tracker — compact, same Green/Red logic, scaled down for the primary focus row */}
+        {/* Discipline Tracker — slim, high-contrast status banner. Discipline is the most
+            critical behavioral metric, so it gets a glowing accent treatment rather than
+            competing for space as a tall card. */}
         {(() => {
           const followed = filteredTrades.filter(t => t.rulesFollowed === 'followed').length;
           const broken = filteredTrades.filter(t => t.rulesFollowed === 'broken').length;
           const totalRuled = followed + broken;
           const followRate = totalRuled > 0 ? (followed / totalRuled) * 100 : 0;
+          const isElite = followRate === 100 && totalRuled > 0;
+          const isStrong = followRate >= 70 && !isElite;
           return (
-            <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-5 flex flex-col min-w-0 h-full">
-              {/* Header row stays pinned to the top regardless of card height */}
-              <div className="flex items-center justify-between gap-2 flex-shrink-0">
-                <div className="flex items-center gap-1.5 min-w-0">
+            <div
+              className={cn(
+                'relative flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-2xl border border-l-4 bg-zinc-900/40 border-zinc-800/80 px-5 py-3.5 min-w-0 transition-all duration-300',
+                isElite && 'border-l-emerald-500 shadow-[0_0_18px_rgba(16,185,129,0.12)]',
+                isStrong && 'border-l-emerald-500/50',
+                !isElite && !isStrong && 'border-l-red-500/50'
+              )}
+            >
+              {/* Left: label + headline follow rate */}
+              <div className="flex items-center gap-5 min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 flex-shrink-0">
                   <Brain className="w-4 h-4 text-violet-400 flex-shrink-0" />
                   <h3 className="text-sm font-semibold text-white tracking-tight truncate">Discipline</h3>
                 </div>
+
+                <div className="flex items-baseline gap-1.5 flex-shrink-0">
+                  <span className={cn('text-2xl font-bold tabular-nums leading-none', isElite ? 'text-emerald-400' : 'text-white')}>
+                    {followRate.toFixed(0)}%
+                  </span>
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-wider whitespace-nowrap">follow rate</span>
+                </div>
+
+                {/* Thin inline progress bar fills remaining space on wider screens */}
+                <div className="hidden sm:block flex-1 max-w-[220px] h-1.5 bg-red-500/20 rounded-full overflow-hidden">
+                  <div
+                    className={cn('h-full rounded-full transition-all duration-500', isElite ? 'bg-emerald-400' : 'bg-emerald-500')}
+                    style={{ width: `${followRate}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Right: minimal status pills + Full button */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400">
+                  <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span className="text-xs font-semibold tabular-nums">{followed}</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 text-red-400">
+                  <XCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span className="text-xs font-semibold tabular-nums">{broken}</span>
+                </div>
                 <button
                   onClick={() => setView('discipline')}
-                  className="group flex items-center gap-1 text-xs font-medium text-zinc-400 hover:text-white bg-zinc-800/50 hover:bg-zinc-700/50 transition-colors flex-shrink-0 pl-2.5 pr-2 py-1 rounded-full"
+                  className="group flex items-center gap-1 text-xs font-medium text-zinc-400 hover:text-white bg-zinc-800/50 hover:bg-zinc-700/50 transition-colors flex-shrink-0 pl-2.5 pr-2 py-1 rounded-full ml-1"
                 >
                   <span>Full</span>
                   <ChevronRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </button>
-              </div>
-
-              {/* Middle content absorbs the extra vertical space when the card stretches,
-                  rather than the follow-rate number or indicator boxes distorting */}
-              <div className="flex-1 flex flex-col justify-center gap-5 py-5 min-h-0">
-                <div className="flex items-baseline justify-center gap-1.5">
-                  <span className="text-3xl font-bold text-white tabular-nums leading-none">{followRate.toFixed(0)}%</span>
-                  <span className="text-[10px] text-zinc-500 uppercase tracking-wider">follow rate</span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex flex-col items-center justify-center gap-1.5 px-2.5 py-3 rounded-xl bg-emerald-500/10 min-w-0 aspect-[4/3]">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                    <p className="text-lg font-semibold text-emerald-400 tabular-nums leading-none">{followed}</p>
-                    <p className="text-[9px] text-zinc-500 uppercase tracking-wider truncate">Followed</p>
-                  </div>
-                  <div className="flex flex-col items-center justify-center gap-1.5 px-2.5 py-3 rounded-xl bg-red-500/10 min-w-0 aspect-[4/3]">
-                    <XCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
-                    <p className="text-lg font-semibold text-red-400 tabular-nums leading-none">{broken}</p>
-                    <p className="text-[9px] text-zinc-500 uppercase tracking-wider truncate">Broken</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="h-1.5 bg-red-500/30 rounded-full overflow-hidden flex-shrink-0">
-                <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${followRate}%` }} />
               </div>
             </div>
           );
