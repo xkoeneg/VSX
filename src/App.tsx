@@ -3376,41 +3376,45 @@ function App() {
           const totalRuled = followed + broken;
           const followRate = totalRuled > 0 ? (followed / totalRuled) * 100 : 0;
           return (
-            <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-5 flex flex-col min-w-0">
-              <div className="flex items-center justify-between gap-2 mb-4">
+            <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-5 flex flex-col min-w-0 h-full">
+              {/* Header row stays pinned to the top regardless of card height */}
+              <div className="flex items-center justify-between gap-2 flex-shrink-0">
                 <div className="flex items-center gap-1.5 min-w-0">
                   <Brain className="w-4 h-4 text-violet-400 flex-shrink-0" />
                   <h3 className="text-sm font-semibold text-white tracking-tight truncate">Discipline</h3>
                 </div>
-                <button onClick={() => setView('discipline')} className="flex items-center gap-1 text-xs text-zinc-400 hover:text-white transition-colors flex-shrink-0">
+                <button
+                  onClick={() => setView('discipline')}
+                  className="group flex items-center gap-1 text-xs font-medium text-zinc-400 hover:text-white bg-zinc-800/50 hover:bg-zinc-700/50 transition-colors flex-shrink-0 pl-2.5 pr-2 py-1 rounded-full"
+                >
                   <span>Full</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
+                  <ChevronRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </button>
               </div>
 
-              <div className="flex items-baseline justify-center gap-1.5 mb-4">
-                <span className="text-3xl font-bold text-white tabular-nums leading-none">{followRate.toFixed(0)}%</span>
-                <span className="text-[10px] text-zinc-500 uppercase tracking-wider">follow rate</span>
-              </div>
+              {/* Middle content absorbs the extra vertical space when the card stretches,
+                  rather than the follow-rate number or indicator boxes distorting */}
+              <div className="flex-1 flex flex-col justify-center gap-5 py-5 min-h-0">
+                <div className="flex items-baseline justify-center gap-1.5">
+                  <span className="text-3xl font-bold text-white tabular-nums leading-none">{followRate.toFixed(0)}%</span>
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-wider">follow rate</span>
+                </div>
 
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                <div className="flex items-center gap-2 px-2.5 py-2 rounded-xl bg-emerald-500/10 min-w-0">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                  <div className="min-w-0 leading-tight">
-                    <p className="text-sm font-semibold text-emerald-400 tabular-nums">{followed}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex flex-col items-center justify-center gap-1.5 px-2.5 py-3 rounded-xl bg-emerald-500/10 min-w-0 aspect-[4/3]">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                    <p className="text-lg font-semibold text-emerald-400 tabular-nums leading-none">{followed}</p>
                     <p className="text-[9px] text-zinc-500 uppercase tracking-wider truncate">Followed</p>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 px-2.5 py-2 rounded-xl bg-red-500/10 min-w-0">
-                  <XCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
-                  <div className="min-w-0 leading-tight">
-                    <p className="text-sm font-semibold text-red-400 tabular-nums">{broken}</p>
+                  <div className="flex flex-col items-center justify-center gap-1.5 px-2.5 py-3 rounded-xl bg-red-500/10 min-w-0 aspect-[4/3]">
+                    <XCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                    <p className="text-lg font-semibold text-red-400 tabular-nums leading-none">{broken}</p>
                     <p className="text-[9px] text-zinc-500 uppercase tracking-wider truncate">Broken</p>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-auto h-1.5 bg-red-500/30 rounded-full overflow-hidden">
+              <div className="h-1.5 bg-red-500/30 rounded-full overflow-hidden flex-shrink-0">
                 <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${followRate}%` }} />
               </div>
             </div>
