@@ -1390,7 +1390,7 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
                 draggable={false}
                 className={cn('w-full object-cover pointer-events-none', isExecution ? 'h-16' : 'h-12')}
               />
-              {index === 0 && (
+              {isExecution && index === 0 && (
                 <span className="absolute top-1 left-1 px-1.5 py-0.5 bg-black/70 rounded text-[9px] font-semibold text-sky-300 uppercase tracking-wide">
                   Cover
                 </span>
