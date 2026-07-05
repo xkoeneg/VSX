@@ -2829,7 +2829,7 @@ function App() {
     };
 
     const jsonString = JSON.stringify(backupData, null, 2);
-    const defaultFileName = `trading_journal_backup_${new Date().toISOString().split('T')[0]}.json`;
+    const defaultFileName = `vsx_backup_${new Date().toISOString().split('T')[0]}.json`;
 
     // Prefer the browser's native "Save As" dialog (File System Access API)
     // so YOU pick the filename and folder, instead of it silently landing
@@ -2839,7 +2839,7 @@ function App() {
       try {
         const handle = await showSaveFilePicker({
           suggestedName: defaultFileName,
-          types: [{ description: 'Trading Journal Backup', accept: { 'application/json': ['.json'] } }],
+          types: [{ description: 'VSX Backup', accept: { 'application/json': ['.json'] } }],
         });
         const writable = await handle.createWritable();
         await writable.write(jsonString);
@@ -3116,18 +3116,21 @@ function App() {
           <div className={cn("flex items-center", sidebarCollapsed ? "flex-col gap-2" : "justify-between")}>
             <div className={cn("flex items-center gap-3 min-w-0", sidebarCollapsed && "justify-center")}>
               <div className={cn(
-                "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0",
-                theme === 'dark' ? 'bg-gradient-to-br from-zinc-700 to-zinc-800' : 'bg-gradient-to-br from-zinc-100 to-zinc-200'
+                "relative w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0",
+                theme === 'dark' ? 'bg-gradient-to-br from-zinc-800 to-zinc-900 border border-emerald-500/20' : 'bg-gradient-to-br from-zinc-100 to-zinc-200'
               )}>
-                <BarChart3 className={cn("w-5 h-5", theme === 'dark' ? 'text-zinc-300' : 'text-zinc-600')} />
+                <Activity className={cn(
+                  "w-[18px] h-[18px]",
+                  theme === 'dark' ? 'text-emerald-400 drop-shadow-[0_0_6px_rgba(52,211,153,0.55)]' : 'text-emerald-600'
+                )} />
               </div>
               {!sidebarCollapsed && (
                 <div className="min-w-0 flex-1">
-                  <h1 className={cn("font-semibold text-sm truncate", theme === 'dark' ? 'text-white' : 'text-zinc-900')}>
-                    Trading Journal
+                  <h1 className={cn("font-bold text-lg uppercase tracking-wider leading-none truncate", theme === 'dark' ? 'text-white' : 'text-zinc-900')}>
+                    VSX
                   </h1>
-                  <p className={cn("text-xs truncate", theme === 'dark' ? 'text-zinc-500' : 'text-zinc-500')}>
-                    Professional Edition
+                  <p className={cn("text-[10px] font-medium uppercase tracking-widest truncate mt-0.5", theme === 'dark' ? 'text-zinc-500' : 'text-zinc-500')}>
+                    Trading Journal
                   </p>
                 </div>
               )}
