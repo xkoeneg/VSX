@@ -57,6 +57,7 @@ import {
   Moon,
   PanelLeft,
   Flame,
+  ClipboardPaste,
 } from 'lucide-react';
 
 // Types
@@ -1258,6 +1259,9 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
   // onReorderImages, which updates the trade's timeframes state.
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  // Brief inline feedback when a "Paste Link" attempt fails (empty/blocked
+  // clipboard, or clipboard content that doesn't look like an image link).
+  const [pasteFeedback, setPasteFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -1275,6 +1279,35 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
       onAddImage(url.trim());
     }
     setShowMenu(false);
+  };
+
+  // Reads the user's most recently copied text and, if it looks like an
+  // image link, adds it straight away via the same onAddImage handler used
+  // by the "Image URL" button — skipping the manual prompt + Ctrl+V step.
+  // Clipboard access is read-only text and only ever feeds the existing
+  // add-image-url state handler; nothing else about the trade is touched.
+  const handleQuickPaste = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text?.trim()) {
+        setPasteFeedback('Clipboard is empty');
+        setTimeout(() => setPasteFeedback(null), 2000);
+        return;
+      }
+      const trimmed = text.trim();
+      const isImage = /\.(jpeg|jpg|gif|png|webp)(\?.*)?$/i.test(trimmed) || trimmed.includes('tradingview.com/x/');
+      if (isImage) {
+        onAddImage(trimmed);
+        setShowMenu(false);
+      } else {
+        setPasteFeedback('Clipboard link doesn\'t look like an image');
+        setTimeout(() => setPasteFeedback(null), 2000);
+      }
+    } catch (err) {
+      console.error('Failed to read clipboard contents: ', err);
+      setPasteFeedback('Clipboard access blocked');
+      setTimeout(() => setPasteFeedback(null), 2000);
+    }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1343,7 +1376,15 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
               <Plus className="w-3.5 h-3.5" />
             </button>
             {showMenu && (
-              <div className="absolute right-0 top-full mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden min-w-[140px]">
+              <div className="absolute right-0 top-full mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden min-w-[160px]">
+                <button
+                  type="button"
+                  onClick={handleQuickPaste}
+                  title="Paste Link"
+                  className="w-full flex items-center justify-center py-2 text-zinc-300 hover:bg-zinc-700 transition-colors"
+                >
+                  <ClipboardPaste className="w-3.5 h-3.5" />
+                </button>
                 <button
                   type="button"
                   onClick={handleUrlSubmit}
@@ -1363,6 +1404,11 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
                     onChange={handleFileSelect}
                   />
                 </label>
+                {pasteFeedback && (
+                  <p className="px-3 py-1.5 text-[11px] text-amber-400 bg-zinc-900/60 border-t border-zinc-700">
+                    {pasteFeedback}
+                  </p>
+                )}
               </div>
             )}
           </div>
