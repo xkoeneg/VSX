@@ -1233,6 +1233,7 @@ interface TimeframeChartInputProps {
   onUploadImage: (file: File) => void;
   onRemoveImage: (imageId: string) => void;
   onReorderImages: (fromIndex: number, toIndex: number) => void;
+  onPreviewImage: (url: string) => void;
   onNotesChange: (notes: string) => void;
   isExecution?: boolean;
 }
@@ -1245,6 +1246,7 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
   onUploadImage,
   onRemoveImage,
   onReorderImages,
+  onPreviewImage,
   onNotesChange,
   isExecution = false,
 }) => {
@@ -1390,6 +1392,14 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
                 draggable={false}
                 className={cn('w-full object-cover pointer-events-none', isExecution ? 'h-16' : 'h-12')}
               />
+              <button
+                type="button"
+                onClick={() => onPreviewImage(img.url)}
+                className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 opacity-0 group-hover:opacity-100 transition-all"
+                title="View full size"
+              >
+                <Eye className="w-4 h-4 text-white drop-shadow" />
+              </button>
               {isExecution && index === 0 && (
                 <span className="absolute top-1 left-1 px-1.5 py-0.5 bg-black/70 rounded text-[9px] font-semibold text-sky-300 uppercase tracking-wide">
                   Cover
@@ -5728,6 +5738,7 @@ function App() {
                       onUploadImage={(file) => handleFileUpload(file, tf)}
                       onRemoveImage={(imageId) => handleRemoveImage(tf, imageId)}
                       onReorderImages={(fromIndex, toIndex) => handleReorderImages(tf, fromIndex, toIndex)}
+                      onPreviewImage={(url) => setLightboxImage(url)}
                       onNotesChange={(notes) => updateTimeframeNotes(tf, notes)}
                       isExecution={tf === 'Execution/Result'}
                     />
@@ -6132,6 +6143,7 @@ function App() {
                       onUploadImage={(file) => handleFileUpload(file, tf)}
                       onRemoveImage={(imageId) => handleRemoveImage(tf, imageId)}
                       onReorderImages={(fromIndex, toIndex) => handleReorderImages(tf, fromIndex, toIndex)}
+                      onPreviewImage={(url) => setLightboxImage(url)}
                       onNotesChange={(notes) => updateTimeframeNotes(tf, notes)}
                       isExecution={tf === 'Execution/Result'}
                     />
