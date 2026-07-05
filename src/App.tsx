@@ -2829,11 +2829,10 @@ function App() {
     };
 
     const jsonString = JSON.stringify(backupData, null, 2);
-    const defaultFileName = `vsx_backup_${new Date().toISOString().split('T')[0]}.json`;
+    const defaultFileName = 'vsx_backup.json';
 
-    // Prefer the browser's native "Save As" dialog (File System Access API)
-    // so YOU pick the filename and folder, instead of it silently landing
-    // in Downloads. Supported in Chrome, Edge, and other Chromium browsers.
+    // Chromium (Chrome/Edge/etc.): showSaveFilePicker natively forces the OS-level
+    // Save As dialog — the user always picks the destination folder and name.
     const showSaveFilePicker = (window as any).showSaveFilePicker;
     if (typeof showSaveFilePicker === 'function') {
       try {
@@ -2850,13 +2849,17 @@ function App() {
         // their mind", not an error. Don't fall back to auto-download.
         if (err?.name === 'AbortError') return;
         // Any other failure (e.g. permission issue): fall through to the
-        // classic download below rather than losing the export entirely.
+        // universal fallback below rather than losing the export entirely.
       }
     }
 
-    // Fallback for browsers without Save-As support (Firefox, Safari, etc.)
-    // — this downloads straight to the default Downloads folder.
-    const blob = new Blob([jsonString], { type: 'application/json' });
+    // Universal fallback (Safari, Firefox, and any browser without the File
+    // System Access API): a plain `application/json` blob is a type browsers
+    // know how to render/auto-handle, so it can silently auto-download instead
+    // of prompting. Serving it as `application/octet-stream` instead means the
+    // browser can't classify it as an openable/inline type, so it falls back
+    // to its native download manager's "Save As" / "Open with" prompt.
+    const blob = new Blob([jsonString], { type: 'application/octet-stream' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
