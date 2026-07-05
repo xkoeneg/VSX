@@ -3326,45 +3326,96 @@ function App() {
         </div>
       </div>
 
-      {/* Hero overview */}
-      <div className={cn(
-        "relative overflow-hidden border rounded-2xl p-6 transition-colors duration-300",
-        theme === 'dark'
-          ? 'bg-gradient-to-br from-zinc-900 via-zinc-900/90 to-zinc-900/60 border-zinc-800'
-          : 'bg-gradient-to-br from-white via-zinc-50 to-zinc-100 border-zinc-200'
-      )}>
-        <div className="absolute inset-0 bg-gradient-to-br from-violet-500/[0.06] via-transparent to-emerald-500/[0.05] pointer-events-none" />
-        <div className="relative flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-6">
-          <div className="min-w-0">
-            <p className={cn("text-xs uppercase tracking-wider font-medium mb-2", tc.textMuted)}>Total Profit &amp; Loss</p>
-            <div className="flex items-baseline gap-3 flex-wrap">
-              <span className={cn('text-4xl font-bold tracking-tight tabular-nums', stats.totalPnL >= 0 ? 'text-emerald-500' : 'text-red-500')}>
-                {formatCurrency(stats.totalPnL, privacyMode)}
-              </span>
-              <span className={cn('flex items-center gap-1 text-sm font-medium px-2.5 py-1 rounded-lg flex-shrink-0', stats.growth >= 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-500')}>
-                {stats.growth >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-                {stats.growth >= 0 ? '+' : ''}{stats.growth.toFixed(2)}%
-              </span>
+      {/* Hero overview + compact Discipline Tracker, side by side as the primary focus area */}
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_260px] gap-4 items-stretch">
+        {/* Total P&L */}
+        <div className={cn(
+          "relative overflow-hidden border rounded-2xl p-6 transition-colors duration-300 min-w-0",
+          theme === 'dark'
+            ? 'bg-gradient-to-br from-zinc-900 via-zinc-900/90 to-zinc-900/60 border-zinc-800'
+            : 'bg-gradient-to-br from-white via-zinc-50 to-zinc-100 border-zinc-200'
+        )}>
+          <div className="absolute inset-0 bg-gradient-to-br from-violet-500/[0.06] via-transparent to-emerald-500/[0.05] pointer-events-none" />
+          <div className="relative flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-6">
+            <div className="min-w-0">
+              <p className={cn("text-xs uppercase tracking-wider font-medium mb-2", tc.textMuted)}>Total Profit &amp; Loss</p>
+              <div className="flex items-baseline gap-3 flex-wrap">
+                <span className={cn('text-4xl font-bold tracking-tight tabular-nums', stats.totalPnL >= 0 ? 'text-emerald-500' : 'text-red-500')}>
+                  {formatCurrency(stats.totalPnL, privacyMode)}
+                </span>
+                <span className={cn('flex items-center gap-1 text-sm font-medium px-2.5 py-1 rounded-lg flex-shrink-0', stats.growth >= 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-500')}>
+                  {stats.growth >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                  {stats.growth >= 0 ? '+' : ''}{stats.growth.toFixed(2)}%
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 flex-shrink-0">
+              <div className={cn("px-3 py-2 rounded-xl min-w-[84px]", theme === 'dark' ? 'bg-zinc-800/50' : 'bg-zinc-100')}>
+                <p className={cn("text-[10px] uppercase tracking-wider", tc.textMuted)}>Trades</p>
+                <p className={cn("text-sm font-semibold tabular-nums", tc.text)}>{stats.totalTrades}</p>
+              </div>
+              <div className={cn("px-3 py-2 rounded-xl min-w-[84px]", theme === 'dark' ? 'bg-zinc-800/50' : 'bg-zinc-100')}>
+                <p className={cn("text-[10px] uppercase tracking-wider", tc.textMuted)}>Win Rate</p>
+                <p className={cn("text-sm font-semibold tabular-nums", tc.text)}>{stats.winRate.toFixed(1)}%</p>
+              </div>
+              <div className={cn("px-3 py-2 rounded-xl min-w-[84px]", theme === 'dark' ? 'bg-zinc-800/50' : 'bg-zinc-100')}>
+                <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Profit Factor</p>
+                <p className="text-sm font-semibold text-white tabular-nums">{isFinite(stats.profitFactor) ? stats.profitFactor.toFixed(2) : 'N/A'}</p>
+              </div>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2 flex-shrink-0">
-            <div className={cn("px-3 py-2 rounded-xl min-w-[84px]", theme === 'dark' ? 'bg-zinc-800/50' : 'bg-zinc-100')}>
-              <p className={cn("text-[10px] uppercase tracking-wider", tc.textMuted)}>Trades</p>
-              <p className={cn("text-sm font-semibold tabular-nums", tc.text)}>{stats.totalTrades}</p>
-            </div>
-            <div className={cn("px-3 py-2 rounded-xl min-w-[84px]", theme === 'dark' ? 'bg-zinc-800/50' : 'bg-zinc-100')}>
-              <p className={cn("text-[10px] uppercase tracking-wider", tc.textMuted)}>Win Rate</p>
-              <p className={cn("text-sm font-semibold tabular-nums", tc.text)}>{stats.winRate.toFixed(1)}%</p>
-            </div>
-            <div className={cn("px-3 py-2 rounded-xl min-w-[84px]", theme === 'dark' ? 'bg-zinc-800/50' : 'bg-zinc-100')}>
-              <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Profit Factor</p>
-              <p className="text-sm font-semibold text-white tabular-nums">{isFinite(stats.profitFactor) ? stats.profitFactor.toFixed(2) : 'N/A'}</p>
-            </div>
+          <div className="relative">
+            {renderEquityChart()}
           </div>
         </div>
-        <div className="relative">
-          {renderEquityChart()}
-        </div>
+
+        {/* Discipline Tracker — compact, same Green/Red logic, scaled down for the primary focus row */}
+        {(() => {
+          const followed = filteredTrades.filter(t => t.rulesFollowed === 'followed').length;
+          const broken = filteredTrades.filter(t => t.rulesFollowed === 'broken').length;
+          const totalRuled = followed + broken;
+          const followRate = totalRuled > 0 ? (followed / totalRuled) * 100 : 0;
+          return (
+            <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-5 flex flex-col min-w-0">
+              <div className="flex items-center justify-between gap-2 mb-4">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Brain className="w-4 h-4 text-violet-400 flex-shrink-0" />
+                  <h3 className="text-sm font-semibold text-white tracking-tight truncate">Discipline</h3>
+                </div>
+                <button onClick={() => setView('discipline')} className="flex items-center gap-1 text-xs text-zinc-400 hover:text-white transition-colors flex-shrink-0">
+                  <span>Full</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="flex items-baseline justify-center gap-1.5 mb-4">
+                <span className="text-3xl font-bold text-white tabular-nums leading-none">{followRate.toFixed(0)}%</span>
+                <span className="text-[10px] text-zinc-500 uppercase tracking-wider">follow rate</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                <div className="flex items-center gap-2 px-2.5 py-2 rounded-xl bg-emerald-500/10 min-w-0">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  <div className="min-w-0 leading-tight">
+                    <p className="text-sm font-semibold text-emerald-400 tabular-nums">{followed}</p>
+                    <p className="text-[9px] text-zinc-500 uppercase tracking-wider truncate">Followed</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 px-2.5 py-2 rounded-xl bg-red-500/10 min-w-0">
+                  <XCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                  <div className="min-w-0 leading-tight">
+                    <p className="text-sm font-semibold text-red-400 tabular-nums">{broken}</p>
+                    <p className="text-[9px] text-zinc-500 uppercase tracking-wider truncate">Broken</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-auto h-1.5 bg-red-500/30 rounded-full overflow-hidden">
+                <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${followRate}%` }} />
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Secondary stats */}
@@ -3457,45 +3508,6 @@ function App() {
           )}
         </div>
       </div>
-
-      {/* Discipline Tracker summary */}
-      {(() => {
-        const followed = filteredTrades.filter(t => t.rulesFollowed === 'followed').length;
-        const broken = filteredTrades.filter(t => t.rulesFollowed === 'broken').length;
-        const totalRuled = followed + broken;
-        const followRate = totalRuled > 0 ? (followed / totalRuled) * 100 : 0;
-        return (
-          <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <Brain className="w-5 h-5 text-violet-400 flex-shrink-0" />
-                <h3 className="text-lg font-semibold text-white tracking-tight truncate">Discipline Tracker</h3>
-              </div>
-              <button onClick={() => setView('discipline')} className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors flex-shrink-0">
-                <span>View Full Tracker</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="p-3 rounded-xl bg-zinc-800/50 min-w-0">
-                <p className="text-[10px] text-zinc-500 uppercase tracking-wider truncate">Follow Rate</p>
-                <p className="text-lg font-semibold text-white tabular-nums">{followRate.toFixed(1)}%</p>
-              </div>
-              <div className="p-3 rounded-xl bg-zinc-800/50 min-w-0">
-                <p className="text-[10px] text-zinc-500 uppercase tracking-wider truncate">Rules Followed</p>
-                <p className="text-lg font-semibold text-emerald-400 tabular-nums">{followed}</p>
-              </div>
-              <div className="p-3 rounded-xl bg-zinc-800/50 min-w-0">
-                <p className="text-[10px] text-zinc-500 uppercase tracking-wider truncate">Rules Broken</p>
-                <p className="text-lg font-semibold text-red-400 tabular-nums">{broken}</p>
-              </div>
-            </div>
-            <div className="mt-4 h-2 bg-gradient-to-r from-red-600 to-red-500 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-500" style={{ width: `${followRate}%` }} />
-            </div>
-          </div>
-        );
-      })()}
 
       {/* Recent trades */}
       <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-6">
