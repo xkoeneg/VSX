@@ -3377,15 +3377,14 @@ function App() {
           const broken = filteredTrades.filter(t => t.rulesFollowed === 'broken').length;
           const totalRuled = followed + broken;
           const followRate = totalRuled > 0 ? (followed / totalRuled) * 100 : 0;
-          const isElite = followRate === 100 && totalRuled > 0;
-          const isStrong = followRate >= 70 && !isElite;
+          const isHealthy = totalRuled > 0 && followRate >= 60;
+          const isDanger = totalRuled > 0 && followRate < 60;
           return (
             <div
               className={cn(
                 'relative flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-2xl border border-l-4 bg-zinc-900/40 border-zinc-800/80 px-5 py-3.5 min-w-0 transition-all duration-300',
-                isElite && 'border-l-emerald-500 shadow-[0_0_18px_rgba(16,185,129,0.12)]',
-                isStrong && 'border-l-emerald-500/50',
-                !isElite && !isStrong && 'border-l-red-500/50'
+                isHealthy && 'border-l-emerald-500 shadow-[0_0_18px_rgba(16,185,129,0.12)]',
+                isDanger && 'border-l-amber-500 shadow-[0_0_18px_rgba(245,158,11,0.10)]'
               )}
             >
               {/* Left: label + headline follow rate */}
@@ -3396,16 +3395,16 @@ function App() {
                 </div>
 
                 <div className="flex items-baseline gap-1.5 flex-shrink-0">
-                  <span className={cn('text-2xl font-bold tabular-nums leading-none', isElite ? 'text-emerald-400' : 'text-white')}>
+                  <span className={cn('text-2xl font-bold tabular-nums leading-none', isHealthy ? 'text-emerald-400' : isDanger ? 'text-amber-400' : 'text-white')}>
                     {followRate.toFixed(0)}%
                   </span>
                   <span className="text-[10px] text-zinc-500 uppercase tracking-wider whitespace-nowrap">follow rate</span>
                 </div>
 
                 {/* Thin inline progress bar fills remaining space on wider screens */}
-                <div className="hidden sm:block flex-1 max-w-[220px] h-1.5 bg-red-500/20 rounded-full overflow-hidden">
+                <div className="hidden sm:block flex-1 max-w-[220px] h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                   <div
-                    className={cn('h-full rounded-full transition-all duration-500', isElite ? 'bg-emerald-400' : 'bg-emerald-500')}
+                    className={cn('h-full rounded-full transition-all duration-500', isHealthy ? 'bg-emerald-500' : isDanger ? 'bg-amber-500' : 'bg-zinc-600')}
                     style={{ width: `${followRate}%` }}
                   />
                 </div>
