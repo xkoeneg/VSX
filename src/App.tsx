@@ -5123,7 +5123,7 @@ function App() {
     return (
       <ModalBackdrop
         onClose={() => setShowExpandGallery(false)}
-        className="fixed inset-0 bg-black/95 z-[70] flex flex-col p-4 md:p-8"
+        className="fixed inset-0 bg-black/95 z-[60] flex flex-col p-4 md:p-8"
       >
         <button onClick={() => setShowExpandGallery(false)} className="absolute top-4 right-4 p-2 bg-zinc-800 rounded-full text-white hover:bg-zinc-700 z-10">
           <X className="w-6 h-6" />
@@ -6470,7 +6470,7 @@ function App() {
     lightboxImage && (
       <ModalBackdrop
         onClose={() => setLightboxImage(null)}
-        className="fixed inset-0 bg-black/95 z-[60] flex items-center justify-center p-4"
+        className="fixed inset-0 bg-black/95 z-[100] flex items-center justify-center p-4"
       >
         <button onClick={() => setLightboxImage(null)} className="absolute top-4 right-4 p-2 bg-zinc-800 rounded-full text-white hover:bg-zinc-700">
           <X className="w-6 h-6" />
