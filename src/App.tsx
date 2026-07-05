@@ -1232,6 +1232,7 @@ interface TimeframeChartInputProps {
   onAddImage: (url: string) => void;
   onUploadImage: (file: File) => void;
   onRemoveImage: (imageId: string) => void;
+  onReorderImages: (fromIndex: number, toIndex: number) => void;
   onNotesChange: (notes: string) => void;
   isExecution?: boolean;
 }
@@ -1243,12 +1244,18 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
   onAddImage,
   onUploadImage,
   onRemoveImage,
+  onReorderImages,
   onNotesChange,
   isExecution = false,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  // Drag-and-drop reorder state — purely local UI state for showing which
+  // thumbnail is being dragged / hovered over. Actual reordering happens via
+  // onReorderImages, which updates the trade's timeframes state.
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -1273,6 +1280,45 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
     if (file) onUploadImage(file);
     setShowMenu(false);
     e.target.value = '';
+  };
+
+  // ---- Native HTML5 drag-and-drop reordering ----
+  // Each thumbnail carries its own index + the owning timeframe name via
+  // dataTransfer, so a drop is only honored when it lands back inside the
+  // same timeframe block (dragging between "Daily" and "1H", for example,
+  // is a no-op). This only reorders the images array for this timeframe —
+  // it never touches any other trade field.
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    e.dataTransfer.setData('draggedIndex', index.toString());
+    e.dataTransfer.setData('category', timeframe);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverIndex !== index) setDragOverIndex(index);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    const draggedIdx = parseInt(e.dataTransfer.getData('draggedIndex'), 10);
+    const originCategory = e.dataTransfer.getData('category');
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+    if (originCategory !== timeframe) return; // only reorder within the same timeframe block
+    if (Number.isNaN(draggedIdx)) return;
+    onReorderImages(draggedIdx, targetIndex);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
   };
 
   return (
@@ -1323,16 +1369,32 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
 
       {images.length > 0 && (
         <div className={cn('grid gap-1.5 mb-2', isExecution ? 'grid-cols-3' : 'grid-cols-2')}>
-          {images.map(img => (
+          {images.map((img, index) => (
             <div
               key={img.id}
-              className="relative rounded-lg overflow-hidden group"
+              draggable
+              onDragStart={(e) => handleDragStart(e, index)}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, index)}
+              onDragEnd={handleDragEnd}
+              className={cn(
+                'relative rounded-lg overflow-hidden group cursor-grab active:cursor-grabbing transition-all',
+                draggedIndex === index && 'opacity-40',
+                dragOverIndex === index && draggedIndex !== index && 'ring-2 ring-sky-400'
+              )}
             >
               <img
                 src={img.url}
                 alt={timeframe}
-                className={cn('w-full object-cover', isExecution ? 'h-16' : 'h-12')}
+                draggable={false}
+                className={cn('w-full object-cover pointer-events-none', isExecution ? 'h-16' : 'h-12')}
               />
+              {index === 0 && (
+                <span className="absolute top-1 left-1 px-1.5 py-0.5 bg-black/70 rounded text-[9px] font-semibold text-sky-300 uppercase tracking-wide">
+                  Cover
+                </span>
+              )}
               <button
                 type="button"
                 onClick={() => onRemoveImage(img.id)}
@@ -2621,6 +2683,43 @@ function App() {
       setNewTrade(prev => {
         const timeframes = (prev.timeframes || []).map(tf => {
           if (tf.name === timeframeName) return { ...tf, images: tf.images.filter(img => img.id !== imageId) };
+          return tf;
+        });
+        return { ...prev, timeframes };
+      });
+    }
+  };
+
+  // Reorders the images array for a single timeframe category (e.g. moving a
+  // later screenshot to index 0 so it becomes the new cover image). Mirrors
+  // the same isEditing branch pattern as handleRemoveImage/handleAddImageUrl
+  // above — only the `images` array for the matching timeframe is replaced,
+  // nothing else about the trade is touched.
+  const handleReorderImages = (key: string, fromIndex: number, toIndex: number, isEditing: boolean = false) => {
+    if (fromIndex === toIndex || Number.isNaN(fromIndex) || Number.isNaN(toIndex)) return;
+    const reorder = (images: TradeImage[]): TradeImage[] => {
+      if (fromIndex < 0 || fromIndex >= images.length) return images;
+      const updatedImages = [...images];
+      const [removed] = updatedImages.splice(fromIndex, 1);
+      const clampedTarget = Math.max(0, Math.min(toIndex, updatedImages.length));
+      updatedImages.splice(clampedTarget, 0, removed);
+      return updatedImages;
+    };
+
+    const timeframeName = key;
+    if (isEditing && editingTrade) {
+      setEditingTrade(prev => {
+        if (!prev) return prev;
+        const timeframes = prev.timeframes.map(tf => {
+          if (tf.name === timeframeName) return { ...tf, images: reorder(tf.images) };
+          return tf;
+        });
+        return { ...prev, timeframes };
+      });
+    } else {
+      setNewTrade(prev => {
+        const timeframes = (prev.timeframes || []).map(tf => {
+          if (tf.name === timeframeName) return { ...tf, images: reorder(tf.images) };
           return tf;
         });
         return { ...prev, timeframes };
@@ -5628,6 +5727,7 @@ function App() {
                       onAddImage={(url) => handleAddImageUrl(url, tf)}
                       onUploadImage={(file) => handleFileUpload(file, tf)}
                       onRemoveImage={(imageId) => handleRemoveImage(tf, imageId)}
+                      onReorderImages={(fromIndex, toIndex) => handleReorderImages(tf, fromIndex, toIndex)}
                       onNotesChange={(notes) => updateTimeframeNotes(tf, notes)}
                       isExecution={tf === 'Execution/Result'}
                     />
@@ -6031,6 +6131,7 @@ function App() {
                       onAddImage={(url) => handleAddImageUrl(url, tf)}
                       onUploadImage={(file) => handleFileUpload(file, tf)}
                       onRemoveImage={(imageId) => handleRemoveImage(tf, imageId)}
+                      onReorderImages={(fromIndex, toIndex) => handleReorderImages(tf, fromIndex, toIndex)}
                       onNotesChange={(notes) => updateTimeframeNotes(tf, notes)}
                       isExecution={tf === 'Execution/Result'}
                     />
