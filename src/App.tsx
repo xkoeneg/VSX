@@ -62,6 +62,7 @@ import {
   Send,
   ImagePlus,
   StickyNote,
+  type LucideIcon,
 } from 'lucide-react';
 
 // Types
@@ -182,7 +183,7 @@ interface Mistake {
 }
 
 type SessionOption = 'NYC' | 'London' | 'Asia' | 'Pre-market Open';
-type ViewType = 'dashboard' | 'trades' | 'discipline' | 'playbook' | 'notices' | 'wiki' | 'calendar';
+type ViewType = 'dashboard' | 'trades' | 'discipline' | 'lifeDiscipline' | 'playbook' | 'notices' | 'wiki' | 'calendar';
 type GalleryView = 'list' | 'preview' | 'gallery';
 type TradeFilter = 'all' | 'profit' | 'loss' | 'breakeven';
 type TradeSortField = 'date' | 'pnl' | 'symbol' | 'rr';
@@ -201,6 +202,25 @@ const PRESET_SYMBOLS = [
 ];
 
 const SESSION_OPTIONS: SessionOption[] = ['NYC', 'London', 'Asia', 'Pre-market Open'];
+
+// ---- Life Discipline Hub: daily habit checklist config ----
+// Each group renders as its own card of checkboxes. A day only counts as
+// "complete" on the Challenge Progress Grid when every item across every
+// group is checked for that date.
+interface HabitGroupConfig {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  items: string[];
+}
+
+const LIFE_DISCIPLINE_CHALLENGE_LENGTH = 100;
+
+const LIFE_DISCIPLINE_HABIT_GROUPS: HabitGroupConfig[] = [
+  { id: 'morning', label: 'Morning Routine', icon: Sun, items: ['Brush teeth twice a day', 'Face wash / Skincare', 'Hydrate'] },
+  { id: 'night', label: 'Night Routine', icon: Moon, items: ['Night shower', 'Brush teeth', 'Moisturize'] },
+  { id: 'physical', label: 'Physical & Mental Focus', icon: Activity, items: ['Gym / Workout', 'Clean eating', 'Sleep on time'] },
+];
 
 // Preset emotion tags for the Discipline & Psychology Review modal
 const EMOTION_OPTIONS = ['Calm', 'FOMO', 'Revenge Trading', 'Greed', 'Impatient', 'Anxious', 'Confident', 'Hesitant'];
@@ -1855,6 +1875,14 @@ function App() {
   const [view, setView] = useState<ViewType>('dashboard');
   const [privacyMode, setPrivacyMode] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+
+  // Keep the actual <body> background in sync with the active theme. Without
+  // this, the browser's default white background can peek through as a gap
+  // (e.g. mobile browser chrome resizing viewport height) since our app
+  // container is sized with h-dvh rather than covering the true document.
+  useEffect(() => {
+    document.body.style.backgroundColor = theme === 'dark' ? '#09090b' : '#fafafa';
+  }, [theme]);
   const [isExportConfirmOpen, setIsExportConfirmOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   // PHASE 0 (Mobile Instrumentation): tracks whether the off-canvas mobile
@@ -2176,6 +2204,56 @@ function App() {
       console.error('Failed to save data:', e);
     }
   }, [accounts, trades, rules, notices, noticeScenarios, wikiEntries, setupTypes, confluences, mistakesList, customSymbols]);
+
+  // ---- Life Discipline Hub persistence ----
+  // Kept in its own localStorage key, deliberately separate from the trading
+  // journal's versioned schema/migration pipeline above — this is a simple,
+  // self-contained habit tracker and shouldn't need to migrate alongside it.
+  // Shape: { startDate: 'YYYY-MM-DD', checks: { 'YYYY-MM-DD': boolean[][] } }
+  // checks[date][groupIndex][itemIndex] mirrors LIFE_DISCIPLINE_HABIT_GROUPS.
+  const [lifeDisciplineStartDate, setLifeDisciplineStartDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [lifeDisciplineChecks, setLifeDisciplineChecks] = useState<Record<string, boolean[][]>>({});
+
+  useEffect(() => {
+    const stored = localStorage.getItem('lifeDisciplineData');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (parsed?.startDate) setLifeDisciplineStartDate(parsed.startDate);
+        if (parsed?.checks) setLifeDisciplineChecks(parsed.checks);
+      } catch (e) {
+        console.error('Failed to load Life Discipline Hub data:', e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('lifeDisciplineData', JSON.stringify({ startDate: lifeDisciplineStartDate, checks: lifeDisciplineChecks }));
+    } catch (e) {
+      console.error('Failed to save Life Discipline Hub data:', e);
+    }
+  }, [lifeDisciplineStartDate, lifeDisciplineChecks]);
+
+  // Toggle a single habit checkbox for a given date.
+  const toggleLifeDisciplineItem = (dateKey: string, groupIdx: number, itemIdx: number) => {
+    setLifeDisciplineChecks(prev => {
+      const existing = prev[dateKey] || LIFE_DISCIPLINE_HABIT_GROUPS.map(g => g.items.map(() => false));
+      const nextForDate = existing.map((group, gI) =>
+        gI === groupIdx ? group.map((val, iI) => (iI === itemIdx ? !val : val)) : group
+      );
+      return { ...prev, [dateKey]: nextForDate };
+    });
+  };
+
+  // A date "counts" as complete only once every checkbox across every group is checked.
+  const isLifeDisciplineDayComplete = (dateKey: string) => {
+    const dayChecks = lifeDisciplineChecks[dateKey];
+    if (!dayChecks) return false;
+    return LIFE_DISCIPLINE_HABIT_GROUPS.every((group, gI) =>
+      group.items.every((_, iI) => dayChecks[gI]?.[iI])
+    );
+  };
 
   // Initialize selected account
   useEffect(() => {
@@ -3310,6 +3388,7 @@ function App() {
               { id: 'dashboard' as ViewType, icon: LayoutDashboard, label: 'Dashboard' },
               { id: 'trades' as ViewType, icon: TrendingUp, label: 'Trade History' },
               { id: 'discipline' as ViewType, icon: Shield, label: 'Discipline Tracker' },
+              { id: 'lifeDiscipline' as ViewType, icon: Flame, label: 'Life Discipline Hub' },
               { id: 'playbook' as ViewType, icon: BookOpen, label: 'Rules Playbook' },
               { id: 'notices' as ViewType, icon: FileText, label: 'Market Notices' },
               { id: 'wiki' as ViewType, icon: Lightbulb, label: 'Knowledge Wiki' },
@@ -4299,6 +4378,156 @@ function App() {
       )}
     </div>
   );
+
+  // ---- Life Discipline Hub ----
+  // A separate, self-contained daily-habit checklist + N-day challenge grid.
+  // Intentionally decoupled from the trading journal's trade/rule data.
+  const renderLifeDisciplineHub = () => {
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const todayChecks = lifeDisciplineChecks[todayKey] || LIFE_DISCIPLINE_HABIT_GROUPS.map(g => g.items.map(() => false));
+
+    const totalItems = LIFE_DISCIPLINE_HABIT_GROUPS.reduce((sum, g) => sum + g.items.length, 0);
+    const checkedItems = todayChecks.reduce((sum, group) => sum + group.filter(Boolean).length, 0);
+    const todayComplete = checkedItems === totalItems;
+
+    // Build the Day 1..N grid against the stored challenge start date.
+    const start = new Date(lifeDisciplineStartDate + 'T00:00:00');
+    const today = new Date(todayKey + 'T00:00:00');
+    const gridDays = Array.from({ length: LIFE_DISCIPLINE_CHALLENGE_LENGTH }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      const dateKey = d.toISOString().slice(0, 10);
+      const isFuture = d.getTime() > today.getTime();
+      const isToday = d.getTime() === today.getTime();
+      const complete = isLifeDisciplineDayComplete(dateKey);
+      let status: 'upcoming' | 'complete' | 'failed' | 'pending';
+      if (isFuture) status = 'upcoming';
+      else if (complete) status = 'complete';
+      else if (isToday) status = 'pending';
+      else status = 'failed';
+      return { day: i + 1, dateKey, status };
+    });
+
+    const completedCount = gridDays.filter(d => d.status === 'complete').length;
+    const failedCount = gridDays.filter(d => d.status === 'failed').length;
+
+    const statusStyles: Record<string, string> = {
+      complete: 'bg-emerald-500 border-emerald-400 text-white',
+      failed: 'bg-red-500/90 border-red-400 text-white',
+      pending: 'bg-amber-500/20 border-amber-500/50 text-amber-300',
+      upcoming: theme === 'dark' ? 'bg-zinc-800/50 border-zinc-800 text-zinc-600' : 'bg-zinc-100 border-zinc-200 text-zinc-400',
+    };
+
+    return (
+      <div className="space-y-4 min-w-0">
+        {/* PAGE HEADER */}
+        <div>
+          <h2 className="text-2xl font-bold text-white truncate flex items-center gap-2">
+            <Flame className="w-6 h-6 text-amber-400 flex-shrink-0" />
+            Life Discipline Hub
+          </h2>
+          <p className="text-zinc-500 text-sm truncate">Tracking daily execution, one habit at a time</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {renderStatCard('Today\'s Progress', `${checkedItems}/${totalItems}`, <CheckCircle2 className="w-4 h-4" />, todayComplete ? 'text-emerald-400' : 'text-amber-400')}
+          {renderStatCard('Days Completed', completedCount, <Flame className="w-4 h-4" />, 'text-emerald-400')}
+          {renderStatCard('Days Failed', failedCount, <XCircle className="w-4 h-4" />, 'text-red-400')}
+        </div>
+
+        {/* DAILY CHECKLIST SECTION */}
+        <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-5 min-w-0">
+          <h3 className="text-base font-semibold text-white flex items-center gap-2 mb-4">
+            <Shield className="w-4 h-4 text-zinc-400 flex-shrink-0" />
+            <span className="truncate">Daily Checklist — {formatDate(todayKey)}</span>
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {LIFE_DISCIPLINE_HABIT_GROUPS.map((group, gI) => {
+              const groupChecks = todayChecks[gI] || group.items.map(() => false);
+              const groupComplete = groupChecks.every(Boolean);
+              const GroupIcon = group.icon;
+              return (
+                <div
+                  key={group.id}
+                  className={cn(
+                    'rounded-xl border p-4 transition-colors',
+                    groupComplete ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-zinc-800/30 border-zinc-800/70'
+                  )}
+                >
+                  <div className="flex items-center gap-2 mb-3 pb-3 border-b border-zinc-800/60">
+                    <GroupIcon className={cn('w-4 h-4 flex-shrink-0', groupComplete ? 'text-emerald-400' : 'text-zinc-400')} />
+                    <span className="text-sm font-semibold text-white truncate">{group.label}</span>
+                    {groupComplete && <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 ml-auto" />}
+                  </div>
+                  <div className="space-y-2">
+                    {group.items.map((item, iI) => {
+                      const checked = !!groupChecks[iI];
+                      return (
+                        <label
+                          key={iI}
+                          className="flex items-center gap-2.5 cursor-pointer group select-none"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleLifeDisciplineItem(todayKey, gI, iI)}
+                            className="sr-only peer"
+                          />
+                          <span
+                            className={cn(
+                              'w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 transition-colors',
+                              checked ? 'bg-emerald-500 border-emerald-400' : 'border-zinc-600 group-hover:border-zinc-400'
+                            )}
+                          >
+                            {checked && <Check className="w-3.5 h-3.5 text-white" />}
+                          </span>
+                          <span className={cn('text-sm transition-colors', checked ? 'text-zinc-300 line-through decoration-zinc-600' : 'text-zinc-300')}>
+                            {item}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* DYNAMIC CHALLENGE PROGRESS GRID */}
+        <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-5 min-w-0">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <h3 className="text-base font-semibold text-white flex items-center gap-2">
+              <Target className="w-4 h-4 text-zinc-400 flex-shrink-0" />
+              <span className="truncate">{LIFE_DISCIPLINE_CHALLENGE_LENGTH}-Day Challenge Progress</span>
+            </h3>
+            <div className="flex items-center gap-3 text-xs text-zinc-400 flex-wrap">
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" /> Complete</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-red-500/90" /> Failed</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-amber-500/20 border border-amber-500/50" /> Today</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-zinc-800 border border-zinc-700" /> Upcoming</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-10 sm:grid-cols-10 md:grid-cols-[repeat(20,minmax(0,1fr))] gap-1.5">
+            {gridDays.map(({ day, status }) => (
+              <div
+                key={day}
+                title={`Day ${day}`}
+                className={cn(
+                  'aspect-square rounded-md border flex items-center justify-center text-[10px] font-mono font-medium transition-colors',
+                  statusStyles[status]
+                )}
+              >
+                {day}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const renderDisciplineTracker = () => {
     const followedTrades = filteredTrades.filter(t => t.rulesFollowed === 'followed');
@@ -7045,7 +7274,7 @@ function App() {
   );
 
   return (
-    <div className={cn("h-dvh flex overflow-hidden transition-colors duration-300", theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-50 theme-light-fix')}>
+    <div className={cn("min-h-screen w-full flex overflow-x-hidden transition-colors duration-300", theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-50 theme-light-fix')}>
       <style>{`
         * {
           scrollbar-width: none;
@@ -7057,7 +7286,14 @@ function App() {
           height: 0;
         }
         html, body {
+          margin: 0;
+          padding: 0;
+          height: 100%;
           scroll-behavior: smooth;
+          /* Matches the dark root background so mobile elastic/rubber-band
+             overscroll never reveals the browser's default white canvas
+             underneath tall pages (e.g. the 100-day grid). */
+          background-color: #09090b;
         }
         /* Trade History (List / Preview) tables force horizontal scroll on
            narrow screens — restore a slim, themed scrollbar here so users
@@ -7167,7 +7403,7 @@ function App() {
         {renderSidebarContent(false)}
       </aside>
 
-      <main className={cn("flex-1 overflow-y-auto min-w-0 transition-colors duration-300", theme === 'dark' ? 'text-white' : 'text-zinc-900')}>
+      <main className={cn("flex-1 min-w-0 flex flex-col min-h-screen overflow-y-auto transition-colors duration-300", theme === 'dark' ? 'bg-zinc-950 text-white' : 'bg-zinc-50 text-zinc-900')}>
         {/* MOBILE STICKY TOP BAR: hidden at md+ where the permanent sidebar is always visible; provides the hamburger trigger on every page on mobile. */}
         <div className={cn(
           "md:hidden sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b backdrop-blur-sm",
@@ -7193,6 +7429,7 @@ function App() {
           {view === 'dashboard' && renderDashboard()}
           {view === 'trades' && renderTradeHistory()}
           {view === 'discipline' && renderDisciplineTracker()}
+          {view === 'lifeDiscipline' && renderLifeDisciplineHub()}
           {view === 'playbook' && renderPlaybook()}
           {view === 'notices' && renderNotices()}
           {view === 'wiki' && renderWiki()}
