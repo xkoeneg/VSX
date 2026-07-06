@@ -7274,7 +7274,7 @@ function App() {
   );
 
   return (
-    <div className={cn("min-h-screen w-full flex overflow-x-hidden transition-colors duration-300", theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-50 theme-light-fix')}>
+    <div className="h-screen w-full flex overflow-hidden bg-[#0d0e12] text-white">
       <style>{`
         * {
           scrollbar-width: none;
@@ -7394,17 +7394,18 @@ function App() {
         </div>
       )}
 
-      {/* DESKTOP SIDEBAR (Permanent Layout) — separate tree, entirely unaware of isMobileSidebarOpen. Always rendered at md+; width follows sidebarCollapsed only. */}
+      {/* DESKTOP SIDEBAR (Permanent Layout) - FIXED HEIGHT */}
       <aside className={cn(
-        "hidden md:flex md:flex-col md:h-screen md:sticky md:top-0 md:flex-shrink-0 md:overflow-hidden transition-all duration-300",
+        "hidden md:flex flex-col h-screen flex-shrink-0 overflow-hidden transition-all duration-300",
         theme === 'dark' ? 'bg-zinc-900 border-r border-zinc-800' : 'bg-white border-r border-zinc-200',
-        sidebarCollapsed ? "md:w-[72px]" : "md:w-64"
+        sidebarCollapsed ? "w-[72px]" : "w-64"
       )}>
         {renderSidebarContent(false)}
       </aside>
 
-      <main className={cn("flex-1 min-w-0 flex flex-col min-h-screen overflow-y-auto transition-colors duration-300", theme === 'dark' ? 'bg-zinc-950 text-white' : 'bg-zinc-50 text-zinc-900')}>
-        {/* MOBILE STICKY TOP BAR: hidden at md+ where the permanent sidebar is always visible; provides the hamburger trigger on every page on mobile. */}
+      {/* MAIN WORKSPACE - ISOLATED SCROLL */}
+      <main className={cn("flex-1 min-w-0 h-screen flex flex-col overflow-y-auto transition-colors duration-300", theme === 'dark' ? 'bg-zinc-950 text-white' : 'bg-zinc-50 text-zinc-900')}>
+        {/* MOBILE STICKY TOP BAR */}
         <div className={cn(
           "md:hidden sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b backdrop-blur-sm",
           theme === 'dark' ? 'bg-zinc-900/95 border-zinc-800' : 'bg-white/95 border-zinc-200'
