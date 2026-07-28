@@ -4474,10 +4474,12 @@ function App() {
       {recentTrades.length > 0 && (
         <div>
           <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Recent Trades</h3>
-          {/* Outer wrapper — animated neon conic-gradient border frame */}
-          <div className="neon-frame">
-            {/* Inner content — dedicated "Gallery Card Frame" dark base, sits inside the glowing border */}
-            <div className="bg-[#0f1014] border border-white/10 rounded-2xl p-4 shadow-inner">
+          {/* Outer wrapper — provides positioning context for the ambient glow behind the frame */}
+          <div className="relative">
+            {/* Ambient backlight glow — soft colored aura behind the frame */}
+            <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500/20 via-indigo-500/20 to-cyan-500/20 rounded-3xl blur-2xl opacity-40 pointer-events-none -z-10" />
+            {/* Inner content — dedicated "Gallery Card Frame" dark base, sits cleanly on top of the glow */}
+            <div className="relative z-10 bg-[#0f1014] border border-white/10 rounded-2xl p-4 shadow-xl">
               <div className="max-h-[520px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                   {recentTrades.map(renderFeaturedCard)}
@@ -7814,44 +7816,6 @@ function App() {
     <div className={cn("h-screen w-full flex overflow-hidden bg-[#0b0c0e] text-white", theme === 'minecraft' && 'theme-minecraft')}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
-
-        @keyframes border-rotate {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        @keyframes neon-glow-cycle {
-          0%, 100% { box-shadow: 0 0 16px 2px rgba(0, 242, 255, 0.35); }
-          33% { box-shadow: 0 0 16px 2px rgba(57, 255, 20, 0.35); }
-          66% { box-shadow: 0 0 16px 2px rgba(255, 29, 88, 0.35); }
-        }
-        .neon-frame {
-          position: relative;
-          border-radius: 1rem;
-          padding: 2px;
-          isolation: isolate;
-          animation: neon-glow-cycle 10s linear infinite;
-        }
-        .neon-frame::before {
-          content: '';
-          position: absolute;
-          inset: -2px;
-          border-radius: 1rem;
-          background: conic-gradient(from 0deg, #00f2ff, #39ff14, #ff1d58, #00f2ff);
-          animation: border-rotate 10s linear infinite;
-          z-index: 0;
-        }
-        .neon-frame::after {
-          content: '';
-          position: absolute;
-          inset: 2px;
-          border-radius: calc(1rem - 2px);
-          background: #0f1014;
-          z-index: 1;
-        }
-        .neon-frame > * {
-          position: relative;
-          z-index: 2;
-        }
 
         * {
           scrollbar-width: none;
