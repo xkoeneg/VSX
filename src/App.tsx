@@ -4364,7 +4364,7 @@ function App() {
       <div
         key={trade.id}
         onClick={() => setShowTradeDetail(trade.id)}
-        className="group bg-[#1a1b22] border border-white/10 rounded-xl overflow-hidden cursor-pointer shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 min-w-0"
+        className="group bg-[#121318] border border-white/5 rounded-xl overflow-hidden cursor-pointer shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 min-w-0"
       >
         <div className="aspect-video bg-zinc-800 flex items-center justify-center relative overflow-hidden">
           <span className="absolute top-2 left-2 z-10 flex items-center justify-center w-5 h-5 rounded bg-black/70 backdrop-blur-sm text-[10px] font-mono text-zinc-300">
@@ -4380,16 +4380,16 @@ function App() {
           )}
           {/* Badge row at the bottom of the thumbnail */}
           <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-between gap-1.5 px-2.5 py-1.5 bg-gradient-to-t from-black/80 to-transparent">
-            <span className={cn('text-xs font-mono font-bold tracking-tight truncate', isWin ? 'text-emerald-400' : 'text-rose-400')}>
+            <span className={cn('text-xs font-mono font-bold tracking-tight truncate', isWin ? 'text-emerald-400' : 'text-rose-500')}>
               {formatCurrency(trade.profitLoss, privacyMode)}
             </span>
             <div className="flex items-center gap-1.5 flex-shrink-0">
               {cardRR !== null && (
-                <span className={cn('text-[10px] font-bold px-2 py-1 rounded border whitespace-nowrap leading-none', cardRR >= 1 ? 'text-emerald-300 border-emerald-500/40 bg-emerald-500/15' : cardRR >= 0 ? 'text-zinc-200 border-zinc-600 bg-zinc-800/80' : 'text-rose-300 border-rose-500/40 bg-rose-500/15')}>
+                <span className={cn('text-[10px] font-bold px-2 py-1 rounded border whitespace-nowrap leading-none', cardRR >= 1 ? 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10' : cardRR >= 0 ? 'text-zinc-200 border-zinc-600 bg-zinc-800/80' : 'text-rose-500 border-rose-500/40 bg-rose-500/10')}>
                   {cardRR >= 1 ? '+' : ''}{cardRR.toFixed(2)}R
                 </span>
               )}
-              <span className={cn('flex items-center justify-center w-4 h-4 rounded text-[9px] font-bold', trade.rulesFollowed === 'followed' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400')}>
+              <span className={cn('flex items-center justify-center w-4 h-4 rounded text-[9px] font-bold', trade.rulesFollowed === 'followed' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 text-rose-500')}>
                 {trade.rulesFollowed === 'followed' ? <Check className="w-2.5 h-2.5" /> : <X className="w-2.5 h-2.5" />}
               </span>
             </div>
@@ -4474,16 +4474,11 @@ function App() {
       {recentTrades.length > 0 && (
         <div>
           <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Recent Trades</h3>
-          {/* Outer wrapper — provides positioning context for the ambient glow behind the frame */}
-          <div className="relative">
-            {/* Ambient backlight glow — tight, faint white aura behind the frame */}
-            <div className="absolute -inset-2 z-0 bg-white rounded-3xl blur-lg opacity-10 pointer-events-none" />
-            {/* Inner content — dedicated "Gallery Card Frame" base, sits cleanly on top of the glow */}
-            <div className="relative z-10 bg-[#121318] border border-white/10 rounded-2xl p-4 shadow-xl">
-              <div className="max-h-[520px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                  {recentTrades.map(renderFeaturedCard)}
-                </div>
+          {/* Frame — matches the Discipline Tracker card tone/border exactly */}
+          <div className="bg-[#121318] border border-white/5 rounded-2xl p-4 shadow-xl">
+            <div className="max-h-[520px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                {recentTrades.map(renderFeaturedCard)}
               </div>
             </div>
           </div>
@@ -4504,12 +4499,12 @@ function App() {
           </button>
         </div>
 
-        <div className="bg-[#16171d] border border-white/10 rounded-xl overflow-hidden">
+        <div className="bg-[#121318] border border-white/5 rounded-xl overflow-hidden">
           {recentPreviewTrades.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px]">
                 <thead>
-                  <tr className="border-b border-white/5 text-left">
+                  <tr className="border-b border-zinc-800/50 text-left">
                     <th className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">#</th>
                     <th className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Date</th>
                     <th className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Symbol</th>
@@ -4526,7 +4521,7 @@ function App() {
                       <tr
                         key={trade.id}
                         onClick={() => tradeSelectMode ? toggleTradeSelected(trade.id) : setShowTradeDetail(trade.id)}
-                        className="border-b border-white/5 hover:bg-white/[0.02] cursor-pointer transition-colors"
+                        className="border-b border-zinc-800/50 hover:bg-white/[0.02] cursor-pointer transition-colors"
                       >
                         <td className="px-3 py-2 text-sm text-zinc-500 font-mono">{getDisplayTradeNumber(trade)}</td>
                         <td className="px-3 py-2 text-sm text-zinc-400 whitespace-nowrap">{formatDate(trade.date)}</td>
@@ -4536,13 +4531,13 @@ function App() {
                         </td>
                         <td className="px-3 py-2 text-xs font-medium text-right whitespace-nowrap">
                           {rowRR !== null ? (
-                            <span className={cn('px-1.5 py-0.5 rounded border', rowRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : rowRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-rose-400 border-rose-500/30 bg-rose-500/10')}>
+                            <span className={cn('px-1.5 py-0.5 rounded border', rowRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : rowRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-rose-500 border-rose-500/30 bg-rose-500/10')}>
                               {rowRR >= 1 ? '+' : ''}{rowRR.toFixed(2)}R
                             </span>
                           ) : '-'}
                         </td>
                         <td className="px-3 py-2 text-sm font-mono text-right font-bold whitespace-nowrap">
-                          <span className={isWin ? 'text-emerald-400' : 'text-rose-400'}>{formatCurrency(trade.profitLoss, privacyMode)}</span>
+                          <span className={isWin ? 'text-emerald-400' : 'text-rose-500'}>{formatCurrency(trade.profitLoss, privacyMode)}</span>
                         </td>
                       </tr>
                     );
@@ -4610,7 +4605,7 @@ function App() {
         </div>
 
         {/* Filter bar */}
-        <div className="flex items-center gap-2 flex-wrap p-3 bg-[#16171d] border border-white/10 rounded-xl">
+        <div className="flex items-center gap-2 flex-wrap p-3 bg-[#121318] border border-white/5 rounded-xl">
           <div className="relative flex-1 min-w-[180px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none" />
             <input
@@ -4681,11 +4676,11 @@ function App() {
 
         {/* Full-page table */}
         {dbPagedTrades.length > 0 ? (
-          <div className="bg-[#16171d] border border-white/10 rounded-xl overflow-hidden">
+          <div className="bg-[#121318] border border-white/5 rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1100px]">
                 <thead>
-                  <tr className="border-b border-white/10 text-left bg-white/[0.02]">
+                  <tr className="border-b border-zinc-800/50 text-left bg-white/[0.02]">
                     <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Outcome</th>
                     <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Date</th>
                     <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Trade #</th>
@@ -4710,12 +4705,12 @@ function App() {
                       <tr
                         key={trade.id}
                         onClick={() => setShowTradeDetail(trade.id)}
-                        className="border-b border-white/5 hover:bg-white/[0.02] cursor-pointer transition-colors"
+                        className="border-b border-zinc-800/50 hover:bg-white/[0.02] cursor-pointer transition-colors"
                       >
                         <td className="px-3 py-2.5">
                           <span className={cn(
                             'text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide',
-                            isBreakeven ? 'bg-zinc-700/40 text-zinc-300' : isWin ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'
+                            isBreakeven ? 'bg-zinc-700/40 text-zinc-300' : isWin ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/10 text-rose-500'
                           )}>
                             {isBreakeven ? 'B/E' : isWin ? 'Win' : 'Loss'}
                           </span>
@@ -4732,11 +4727,11 @@ function App() {
                         </td>
                         <td className="px-3 py-2.5 text-sm text-zinc-400">{position}</td>
                         <td className="px-3 py-2.5 text-sm font-mono text-right font-bold whitespace-nowrap">
-                          <span className={isWin ? 'text-emerald-400' : 'text-rose-400'}>{formatCurrency(trade.profitLoss, privacyMode)}</span>
+                          <span className={isWin ? 'text-emerald-400' : 'text-rose-500'}>{formatCurrency(trade.profitLoss, privacyMode)}</span>
                         </td>
                         <td className="px-3 py-2.5 text-xs font-medium text-right whitespace-nowrap">
                           {rowRR !== null ? (
-                            <span className={cn('px-1.5 py-0.5 rounded border', rowRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : rowRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-rose-400 border-rose-500/30 bg-rose-500/10')}>
+                            <span className={cn('px-1.5 py-0.5 rounded border', rowRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : rowRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-rose-500 border-rose-500/30 bg-rose-500/10')}>
                               {rowRR >= 1 ? '+' : ''}{rowRR.toFixed(2)}R
                             </span>
                           ) : '-'}
@@ -4785,7 +4780,7 @@ function App() {
             )}
           </div>
         ) : (
-          <div className="text-center py-12 bg-[#16171d] border border-white/10 rounded-xl">
+          <div className="text-center py-12 bg-[#121318] border border-white/5 rounded-xl">
             <div className="w-14 h-14 mx-auto rounded-full bg-zinc-800 flex items-center justify-center mb-3">
               <Database className="w-7 h-7 text-zinc-600" />
             </div>
@@ -4801,16 +4796,7 @@ function App() {
   };
 
   const renderTradeHistory = () => (
-    <div className="relative space-y-6 min-w-0">
-      <div className={cn("pointer-events-none fixed inset-0 -z-10 overflow-hidden", theme === 'light' && 'opacity-30', theme === 'minecraft' && 'opacity-0')}>
-        <div className="absolute -top-24 -left-32 w-[32rem] h-[32rem] rounded-full bg-emerald-500/[0.07] blur-[110px]" />
-        <div className="absolute top-1/3 -right-32 w-[28rem] h-[28rem] rounded-full bg-rose-500/[0.06] blur-[110px]" />
-        <div className="absolute bottom-0 left-1/4 w-[24rem] h-[24rem] rounded-full bg-violet-500/[0.05] blur-[110px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_0%,rgba(16,185,129,0.08),transparent_38%),radial-gradient(circle_at_85%_10%,rgba(239,68,68,0.06),transparent_35%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:36px_36px] [mask-image:radial-gradient(ellipse_90%_80%_at_50%_0%,black_50%,transparent_100%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:3px_3px] opacity-40" />
-      </div>
-
+    <div className="space-y-6 min-w-0">
       {tradeSubView === 'overview' ? renderOverviewView() : renderDatabaseView()}
     </div>
   );
