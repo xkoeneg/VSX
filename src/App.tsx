@@ -3039,12 +3039,18 @@ function App() {
     });
     setShowTradeTimeFields(!!(trade.startTime || trade.endTime));
     setShowTradePriceLevels(!!(trade.entryPrice || trade.stopLoss || trade.takeProfit));
+    setRulesAdherenceError(false);
     setEditingTrade(trade);
     setShowEditTrade(true);
   };
 
   const handleSaveEditedTrade = () => {
     if (!editingTrade || !newTrade.accountId || !newTrade.symbol) return;
+    if (newTrade.rulesFollowed !== 'followed' && newTrade.rulesFollowed !== 'broken') {
+      setRulesAdherenceError(true);
+      return;
+    }
+    setRulesAdherenceError(false);
     const chosenDate = newTrade.date || editingTrade.date;
     const updated: Trade = {
       ...editingTrade,
@@ -7093,7 +7099,7 @@ function App() {
             )}
 
             {/* Row 2: Symbol + Session + Trade # - sit side-by-side */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs text-zinc-400 mb-1.5">Symbol</label>
                 <div className="relative" ref={symbolDropdownRef}>
@@ -7190,8 +7196,8 @@ function App() {
               </div>
             </div>
 
-            {/* P&L + Risk - STRICT numeric validation */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* Row 2: P&L + Risk + R:R Ratio - STRICT numeric inputs, RR always visible */}
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs text-zinc-400 mb-1.5">P&L ($)</label>
                 <NumericInput
@@ -7219,6 +7225,18 @@ function App() {
                   allowNegative={false}
                 />
               </div>
+              <div>
+                <label className="block text-xs text-zinc-400 mb-1.5">R:R Ratio</label>
+                <div className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm">
+                  {calculatedRR !== null ? (
+                    <span className={cn('font-medium', calculatedRR >= 1 ? 'text-emerald-400' : calculatedRR >= 0 ? 'text-zinc-400' : 'text-red-400')}>
+                      {calculatedRR.toFixed(2)}R
+                    </span>
+                  ) : (
+                    <span className="text-zinc-500">--</span>
+                  )}
+                </div>
+              </div>
             </div>
 
             <button
@@ -7232,7 +7250,7 @@ function App() {
             </button>
 
             {showTradePriceLevels && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs text-zinc-400 mb-1.5">Entry</label>
                   <NumericInput
@@ -7282,73 +7300,79 @@ function App() {
                   />
                   {newTrade.tpPoints !== undefined && newTrade.tpPoints > 0 && <p className="text-[10px] text-zinc-500 mt-0.5">{newTrade.tpPoints} pts</p>}
                 </div>
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1.5">R:R Ratio</label>
-                  <div className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm">
-                    {calculatedRR !== null ? (
-                      <span className={cn('font-medium', calculatedRR >= 1 ? 'text-emerald-400' : calculatedRR >= 0 ? 'text-zinc-400' : 'text-red-400')}>
-                        {calculatedRR.toFixed(2)}R
-                      </span>
-                    ) : (
-                      <span className="text-zinc-500">--</span>
-                    )}
-                  </div>
-                </div>
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Rules Adherence</label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setNewTrade(prev => ({ ...prev, rulesFollowed: 'followed' }))}
-                    className={cn('flex-1 flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm transition-colors',
-                      newTrade.rulesFollowed === 'followed' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700')}
-                  >
-                    <Check className="w-3.5 h-3.5" /> Followed
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNewTrade(prev => ({ ...prev, rulesFollowed: 'broken' }))}
-                    className={cn('flex-1 flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm transition-colors',
-                      newTrade.rulesFollowed === 'broken' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700')}
-                  >
-                    <X className="w-3.5 h-3.5" /> Broken
-                  </button>
-                </div>
+            {/* Row 4: Rules Adherence - dedicated full-width row, required field */}
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1.5">Rules Adherence</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setNewTrade(prev => ({ ...prev, rulesFollowed: 'followed' })); setRulesAdherenceError(false); }}
+                  className={cn('flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm font-medium border transition-colors',
+                    newTrade.rulesFollowed === 'followed'
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                      : rulesAdherenceError
+                        ? 'bg-zinc-800/60 text-zinc-400 border-red-500/50 hover:bg-zinc-800 hover:border-red-500/70'
+                        : 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:bg-zinc-800 hover:border-zinc-600')}
+                >
+                  <Check className="w-3.5 h-3.5" /> Followed
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setNewTrade(prev => ({ ...prev, rulesFollowed: 'broken' })); setRulesAdherenceError(false); }}
+                  className={cn('flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm font-medium border transition-colors',
+                    newTrade.rulesFollowed === 'broken'
+                      ? 'bg-red-500/10 text-red-400 border-red-500/30'
+                      : rulesAdherenceError
+                        ? 'bg-zinc-800/60 text-zinc-400 border-red-500/50 hover:bg-zinc-800 hover:border-red-500/70'
+                        : 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:bg-zinc-800 hover:border-zinc-600')}
+                >
+                  <X className="w-3.5 h-3.5" /> Broken
+                </button>
               </div>
-              <MultiSelectDropdown
+              {rulesAdherenceError && (
+                <p className="text-xs text-red-400 mt-1.5">Please select whether rules were Followed or Broken</p>
+              )}
+            </div>
+
+            {/* Tag groups: Setup Types + Confluences side by side, Mistakes Made full width below */}
+            <div className="grid grid-cols-2 gap-4">
+              <TagSelectDropdown
                 label="Setup Types"
                 options={setupTypes}
                 selected={newTrade.setupTypes || []}
                 onChange={(selected) => setNewTrade(prev => ({ ...prev, setupTypes: selected }))}
                 onAddNew={(name) => setSetupTypes(prev => [...prev, { id: generateId(), name, color: 'gray' }])}
                 onDeleteOption={handleDeleteSetupType}
-                placeholder="Select setup types..."
+                onColorChange={handleChangeSetupTypeColor}
+                placeholder="Select Setup Types..."
+                colorScheme="emerald"
+              />
+              <TagSelectDropdown
+                label="Confluences"
+                options={confluences}
+                selected={newTrade.confluences || []}
+                onChange={(selected) => setNewTrade(prev => ({ ...prev, confluences: selected }))}
+                onAddNew={(name) => setConfluences(prev => [...prev, { id: generateId(), name, color: 'gray' }])}
+                onDeleteOption={handleDeleteConfluence}
+                onColorChange={handleChangeConfluenceColor}
+                placeholder="Select Confluences..."
+                colorScheme="emerald"
               />
             </div>
 
-            <MultiSelectDropdown
-              label="Confluences"
-              options={confluences}
-              selected={newTrade.confluences || []}
-              onChange={(selected) => setNewTrade(prev => ({ ...prev, confluences: selected }))}
-              onAddNew={(name) => setConfluences(prev => [...prev, { id: generateId(), name, color: 'gray' }])}
-              onDeleteOption={handleDeleteConfluence}
-              placeholder="Select confluences..."
-            />
-
-            <MultiSelectDropdown
+            <TagSelectDropdown
               label="Mistakes Made"
               options={mistakesList}
               selected={newTrade.mistakes || []}
               onChange={(selected) => setNewTrade(prev => ({ ...prev, mistakes: selected }))}
               onAddNew={(name) => setMistakesList(prev => [...prev, { id: generateId(), name, color: 'red' }])}
               onDeleteOption={handleDeleteMistakeType}
-              placeholder="Select mistakes..."
-              colorScheme="red"
+              onColorChange={handleChangeMistakeColor}
+              placeholder="Select Mistakes Made..."
+              colorScheme="rose"
             />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
