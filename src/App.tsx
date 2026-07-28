@@ -4352,8 +4352,8 @@ function App() {
   //    filter bar (search / account / session / outcome / rules), a dense
   //    table of all trades, and pagination.
 
-  const recentTrades = filteredTrades.slice(0, 6);
-  const recentPreviewTrades = filteredTrades.slice(0, 5);
+  const recentTrades = filteredTrades.slice(0, 10);
+  const recentPreviewTrades = filteredTrades.slice(0, 10);
 
   const renderFeaturedCard = (trade: Trade) => {
     const account = accounts.find(a => a.id === trade.accountId);
@@ -4474,7 +4474,7 @@ function App() {
       {recentTrades.length > 0 && (
         <div>
           <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Recent Trades</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {recentTrades.map(renderFeaturedCard)}
           </div>
         </div>
@@ -4500,12 +4500,12 @@ function App() {
               <table className="w-full min-w-[640px]">
                 <thead>
                   <tr className="border-b border-white/5 text-left">
-                    <th className="px-4 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">#</th>
-                    <th className="px-4 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Date</th>
-                    <th className="px-4 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Symbol</th>
-                    <th className="px-4 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Session</th>
-                    <th className="px-4 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium text-right">R</th>
-                    <th className="px-4 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium text-right">P&L</th>
+                    <th className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">#</th>
+                    <th className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Date</th>
+                    <th className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Symbol</th>
+                    <th className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Session</th>
+                    <th className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider font-medium text-right">R</th>
+                    <th className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider font-medium text-right">P&L</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -4518,20 +4518,20 @@ function App() {
                         onClick={() => tradeSelectMode ? toggleTradeSelected(trade.id) : setShowTradeDetail(trade.id)}
                         className="border-b border-white/5 hover:bg-white/[0.02] cursor-pointer transition-colors"
                       >
-                        <td className="px-4 py-2.5 text-sm text-zinc-500 font-mono">{getDisplayTradeNumber(trade)}</td>
-                        <td className="px-4 py-2.5 text-sm text-zinc-400 whitespace-nowrap">{formatDate(trade.date)}</td>
-                        <td className="px-4 py-2.5 text-sm text-white font-semibold truncate max-w-[120px]">{trade.symbol}</td>
-                        <td className="px-4 py-2.5 text-sm text-zinc-400">
+                        <td className="px-3 py-2 text-sm text-zinc-500 font-mono">{getDisplayTradeNumber(trade)}</td>
+                        <td className="px-3 py-2 text-sm text-zinc-400 whitespace-nowrap">{formatDate(trade.date)}</td>
+                        <td className="px-3 py-2 text-sm text-white font-semibold truncate max-w-[120px]">{trade.symbol}</td>
+                        <td className="px-3 py-2 text-sm text-zinc-400">
                           {trade.session ? (SESSION_SHORT_LABEL[trade.session] || trade.session.toLowerCase()) : '-'}
                         </td>
-                        <td className="px-4 py-2.5 text-xs font-medium text-right whitespace-nowrap">
+                        <td className="px-3 py-2 text-xs font-medium text-right whitespace-nowrap">
                           {rowRR !== null ? (
                             <span className={cn('px-1.5 py-0.5 rounded border', rowRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : rowRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-rose-400 border-rose-500/30 bg-rose-500/10')}>
                               {rowRR >= 1 ? '+' : ''}{rowRR.toFixed(2)}R
                             </span>
                           ) : '-'}
                         </td>
-                        <td className="px-4 py-2.5 text-sm font-mono text-right font-bold whitespace-nowrap">
+                        <td className="px-3 py-2 text-sm font-mono text-right font-bold whitespace-nowrap">
                           <span className={isWin ? 'text-emerald-400' : 'text-rose-400'}>{formatCurrency(trade.profitLoss, privacyMode)}</span>
                         </td>
                       </tr>
