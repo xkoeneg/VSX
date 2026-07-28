@@ -4364,7 +4364,7 @@ function App() {
       <div
         key={trade.id}
         onClick={() => setShowTradeDetail(trade.id)}
-        className="group bg-[#16171d] border border-white/10 rounded-xl overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 min-w-0"
+        className="group bg-[#1a1b22] border border-white/10 rounded-xl overflow-hidden cursor-pointer shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 min-w-0"
       >
         <div className="aspect-video bg-zinc-800 flex items-center justify-center relative overflow-hidden">
           <span className="absolute top-2 left-2 z-10 flex items-center justify-center w-5 h-5 rounded bg-black/70 backdrop-blur-sm text-[10px] font-mono text-zinc-300">
@@ -4475,7 +4475,7 @@ function App() {
         <div>
           <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Recent Trades</h3>
           {/* Outer frame — dedicated "Gallery Card Frame" separate from the page background */}
-          <div className="bg-[#121318] border border-white/10 rounded-2xl p-4 shadow-inner">
+          <div className="bg-[#0f1014] border border-white/10 rounded-2xl p-4 shadow-inner">
             <div className="max-h-[520px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                 {recentTrades.map(renderFeaturedCard)}
