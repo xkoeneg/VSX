@@ -62,6 +62,7 @@ import {
   Send,
   ImagePlus,
   StickyNote,
+  Box,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -815,7 +816,7 @@ const PopupCalculator: React.FC<CalculatorProps> = ({ value, onChange, onClose, 
       ref={calculatorRef}
       className={cn(
         "fixed z-[100] rounded-xl shadow-2xl p-2 w-52 select-none transition-colors",
-        theme === 'dark' ? 'bg-zinc-900 border border-zinc-700' : 'bg-white border border-zinc-200'
+        theme !== 'light' ? 'bg-zinc-900 border border-zinc-700' : 'bg-white border border-zinc-200'
       )}
       style={{ top: position.top, left: position.left, cursor: isDragging ? 'grabbing' : 'default' }}
       onClick={(e) => e.stopPropagation()}
@@ -826,20 +827,20 @@ const PopupCalculator: React.FC<CalculatorProps> = ({ value, onChange, onClose, 
         onMouseDown={handleMouseDown}
         className={cn(
           "flex items-center justify-between mb-2 px-1 py-1 rounded cursor-grab transition-colors",
-          theme === 'dark' ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-100'
+          theme !== 'light' ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-100'
         )}
       >
         <div className="flex items-center gap-2">
-          <GripVertical className={cn("w-3 h-3", theme === 'dark' ? 'text-zinc-600' : 'text-zinc-400')} />
-          <Calculator className={cn("w-3 h-3", theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400')} />
-          <span className={cn("text-xs", theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400')}>Calculator</span>
+          <GripVertical className={cn("w-3 h-3", theme !== 'light' ? 'text-zinc-600' : 'text-zinc-400')} />
+          <Calculator className={cn("w-3 h-3", theme !== 'light' ? 'text-zinc-500' : 'text-zinc-400')} />
+          <span className={cn("text-xs", theme !== 'light' ? 'text-zinc-500' : 'text-zinc-400')}>Calculator</span>
         </div>
         <button
           type="button"
           onClick={onClose}
           className={cn(
             "p-0.5 transition-colors rounded",
-            theme === 'dark' ? 'text-zinc-500 hover:text-white hover:bg-zinc-700' : 'text-zinc-400 hover:text-zinc-900 hover:bg-zinc-200'
+            theme !== 'light' ? 'text-zinc-500 hover:text-white hover:bg-zinc-700' : 'text-zinc-400 hover:text-zinc-900 hover:bg-zinc-200'
           )}
         >
           <X className="w-3.5 h-3.5" />
@@ -847,7 +848,7 @@ const PopupCalculator: React.FC<CalculatorProps> = ({ value, onChange, onClose, 
       </div>
       <div className={cn(
         "rounded-lg px-3 py-2 mb-2 text-right font-mono text-lg min-h-[40px] overflow-hidden",
-        theme === 'dark' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900'
+        theme !== 'light' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900'
       )}>
         {value || '0'}
       </div>
@@ -859,7 +860,7 @@ const PopupCalculator: React.FC<CalculatorProps> = ({ value, onChange, onClose, 
             onClick={() => handleInput(btn)}
             className={cn(
               "h-10 rounded-lg font-medium transition-colors",
-              theme === 'dark'
+              theme !== 'light'
                 ? 'bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 text-white'
                 : 'bg-zinc-100 hover:bg-zinc-200 active:bg-zinc-300 text-zinc-900'
             )}
@@ -881,7 +882,7 @@ const PopupCalculator: React.FC<CalculatorProps> = ({ value, onChange, onClose, 
           onClick={() => handleInput('backspace')}
           className={cn(
             "h-8 rounded-lg font-medium transition-colors flex items-center justify-center",
-            theme === 'dark'
+            theme !== 'light'
               ? 'bg-zinc-700 hover:bg-zinc-600 active:bg-zinc-500 text-white'
               : 'bg-zinc-200 hover:bg-zinc-300 active:bg-zinc-400 text-zinc-900'
           )}
@@ -1874,14 +1875,14 @@ function App() {
   // State
   const [view, setView] = useState<ViewType>('dashboard');
   const [privacyMode, setPrivacyMode] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [theme, setTheme] = useState<'light' | 'dark' | 'minecraft'>('dark');
 
   // Keep the actual <body> background in sync with the active theme. Without
   // this, the browser's default white background can peek through as a gap
   // (e.g. mobile browser chrome resizing viewport height) since our app
   // container is sized with h-dvh rather than covering the true document.
   useEffect(() => {
-    document.body.style.backgroundColor = theme === 'dark' ? '#09090b' : '#fafafa';
+    document.body.style.backgroundColor = theme === 'light' ? '#fafafa' : theme === 'minecraft' ? '#2b2b2b' : '#09090b';
   }, [theme]);
   const [isExportConfirmOpen, setIsExportConfirmOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -2123,7 +2124,7 @@ function App() {
   };
 
   const [newTrade, setNewTrade] = useState<Partial<Trade>>({
-    symbol: '',
+    symbol: 'NQ',
     profitLoss: 0,
     entryPrice: 0,
     stopLoss: 0,
@@ -2732,33 +2733,33 @@ function App() {
   // Theme-aware class helpers
   const tc = {
     // Background classes
-    bg: theme === 'dark' ? 'bg-zinc-900' : 'bg-white',
-    bgSecondary: theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100',
-    bgTertiary: theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-50',
-    bgHover: theme === 'dark' ? 'hover:bg-zinc-700' : 'hover:bg-zinc-200',
-    bgCard: theme === 'dark' ? 'bg-zinc-900/40' : 'bg-white',
-    bgCardHover: theme === 'dark' ? 'hover:bg-zinc-900/70' : 'hover:bg-zinc-50',
+    bg: theme !== 'light' ? 'bg-zinc-900' : 'bg-white',
+    bgSecondary: theme !== 'light' ? 'bg-zinc-800' : 'bg-zinc-100',
+    bgTertiary: theme !== 'light' ? 'bg-zinc-950' : 'bg-zinc-50',
+    bgHover: theme !== 'light' ? 'hover:bg-zinc-700' : 'hover:bg-zinc-200',
+    bgCard: theme !== 'light' ? 'bg-zinc-900/40' : 'bg-white',
+    bgCardHover: theme !== 'light' ? 'hover:bg-zinc-900/70' : 'hover:bg-zinc-50',
     // Border classes
-    border: theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200',
-    borderSecondary: theme === 'dark' ? 'border-zinc-700' : 'border-zinc-300',
-    borderHover: theme === 'dark' ? 'hover:border-zinc-700' : 'hover:border-zinc-300',
+    border: theme !== 'light' ? 'border-zinc-800' : 'border-zinc-200',
+    borderSecondary: theme !== 'light' ? 'border-zinc-700' : 'border-zinc-300',
+    borderHover: theme !== 'light' ? 'hover:border-zinc-700' : 'hover:border-zinc-300',
     // Text classes
-    text: theme === 'dark' ? 'text-white' : 'text-zinc-900',
-    textSecondary: theme === 'dark' ? 'text-zinc-400' : 'text-zinc-600',
-    textMuted: theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400',
+    text: theme !== 'light' ? 'text-white' : 'text-zinc-900',
+    textSecondary: theme !== 'light' ? 'text-zinc-400' : 'text-zinc-600',
+    textMuted: theme !== 'light' ? 'text-zinc-500' : 'text-zinc-400',
     // Input classes
-    input: theme === 'dark'
+    input: theme !== 'light'
       ? 'bg-zinc-900/50 border-zinc-800 text-white focus:border-zinc-600'
       : 'bg-white border-zinc-200 text-zinc-900 focus:border-zinc-400',
     // Button secondary
-    btnSecondary: theme === 'dark'
+    btnSecondary: theme !== 'light'
       ? 'bg-zinc-800 hover:bg-zinc-700 text-white'
       : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-900',
   };
 
   const resetTradeForm = () => {
     setNewTrade({
-      symbol: '',
+      symbol: 'NQ',
       profitLoss: 0,
       entryPrice: 0,
       stopLoss: 0,
@@ -3121,11 +3122,11 @@ function App() {
   const renderStatCard = (title: string, value: string | number, icon: React.ReactNode, color: string = 'text-zinc-400') => (
     <div className={cn(
       "group rounded-2xl p-4 flex items-center gap-3 min-w-0 transition-all duration-200",
-      theme === 'dark'
+      theme !== 'light'
         ? 'bg-zinc-900/40 border border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-900/70'
         : 'bg-white border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50'
     )}>
-      <div className={cn('p-2.5 rounded-xl flex-shrink-0', theme === 'dark' ? 'bg-zinc-800/60' : 'bg-zinc-100', color)}>{icon}</div>
+      <div className={cn('p-2.5 rounded-xl flex-shrink-0', theme !== 'light' ? 'bg-zinc-800/60' : 'bg-zinc-100', color)}>{icon}</div>
       <div className="min-w-0 flex-1">
         <p className={cn("text-[11px] uppercase tracking-wider truncate font-medium", tc.textMuted)}>{title}</p>
         <p className={cn('text-lg font-semibold truncate tabular-nums',
@@ -3332,24 +3333,24 @@ function App() {
       <div className="flex flex-col h-full w-full justify-between p-4">
         {/* TOP GROUP: logo/header row + primary nav items, strictly stacked */}
         <div className="flex flex-col gap-1 w-full min-h-0">
-          <div className={cn("pb-4 mb-2 border-b w-full", theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200')}>
+          <div className={cn("pb-4 mb-2 border-b w-full", theme !== 'light' ? 'border-zinc-800' : 'border-zinc-200')}>
             <div className={cn("flex items-center", collapsed ? "flex-col gap-2" : "justify-between")}>
               <div className={cn("flex items-center gap-3 min-w-0", collapsed && "justify-center")}>
                 <div className={cn(
                   "relative w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0",
-                  theme === 'dark' ? 'bg-gradient-to-br from-zinc-800 to-zinc-900 border border-emerald-500/20' : 'bg-gradient-to-br from-zinc-100 to-zinc-200'
+                  theme !== 'light' ? 'bg-gradient-to-br from-zinc-800 to-zinc-900 border border-emerald-500/20' : 'bg-gradient-to-br from-zinc-100 to-zinc-200'
                 )}>
                   <Activity className={cn(
                     "w-[18px] h-[18px]",
-                    theme === 'dark' ? 'text-emerald-400 drop-shadow-[0_0_6px_rgba(52,211,153,0.55)]' : 'text-emerald-600'
+                    theme !== 'light' ? 'text-emerald-400 drop-shadow-[0_0_6px_rgba(52,211,153,0.55)]' : 'text-emerald-600'
                   )} />
                 </div>
                 {!collapsed && (
                   <div className="min-w-0 flex-1">
-                    <h1 className={cn("font-bold text-lg uppercase tracking-wider leading-none truncate", theme === 'dark' ? 'text-white' : 'text-zinc-900')}>
+                    <h1 className={cn("font-bold text-lg uppercase tracking-wider leading-none truncate", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>
                       VSX
                     </h1>
-                    <p className={cn("text-[10px] font-medium uppercase tracking-widest truncate mt-0.5", theme === 'dark' ? 'text-zinc-500' : 'text-zinc-500')}>
+                    <p className={cn("text-[10px] font-medium uppercase tracking-widest truncate mt-0.5", theme !== 'light' ? 'text-zinc-500' : 'text-zinc-500')}>
                       Trading Journal
                     </p>
                   </div>
@@ -3362,7 +3363,7 @@ function App() {
                   aria-label="Close menu"
                   className={cn(
                     "p-1.5 rounded-lg transition-colors flex-shrink-0",
-                    theme === 'dark' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
+                    theme !== 'light' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
                   )}
                 >
                   <X className="w-4 h-4" />
@@ -3374,7 +3375,7 @@ function App() {
                   title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                   className={cn(
                     "p-1.5 rounded-lg transition-colors flex-shrink-0",
-                    theme === 'dark' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
+                    theme !== 'light' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
                   )}
                 >
                   {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
@@ -3405,8 +3406,8 @@ function App() {
                   'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm',
                   collapsed && 'justify-center px-0',
                   view === item.id
-                    ? theme === 'dark' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900'
-                    : theme === 'dark' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800/50' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50'
+                    ? theme !== 'light' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900'
+                    : theme !== 'light' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800/50' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50'
                 )}
               >
                 <item.icon className="w-4 h-4 flex-shrink-0" />
@@ -3418,18 +3419,18 @@ function App() {
 
         {/* BOTTOM GROUP: theme/privacy + data backup, pinned to the bottom, strictly stacked */}
         <div className="flex flex-col gap-4 mt-auto w-full">
-          <div className={cn("flex flex-col gap-1 w-full pt-4 border-t", theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200')}>
+          <div className={cn("flex flex-col gap-1 w-full pt-4 border-t", theme !== 'light' ? 'border-zinc-800' : 'border-zinc-200')}>
             <button
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              title={collapsed ? (theme === 'dark' ? 'Light Theme' : 'Dark Theme') : undefined}
+              onClick={() => setTheme(theme === 'dark' ? 'light' : theme === 'light' ? 'minecraft' : 'dark')}
+              title={collapsed ? (theme === 'dark' ? 'Light Theme' : theme === 'light' ? 'Minecraft Theme' : 'Dark Theme') : undefined}
               className={cn(
                 'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm',
                 collapsed && 'justify-center px-0',
-                theme === 'dark' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800/50' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+                theme !== 'light' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800/50' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
               )}
             >
-              {theme === 'dark' ? <Sun className="w-4 h-4 flex-shrink-0" /> : <Moon className="w-4 h-4 flex-shrink-0" />}
-              {!collapsed && <span className="truncate">{theme === 'dark' ? 'Light Theme' : 'Dark Theme'}</span>}
+              {theme === 'dark' ? <Sun className="w-4 h-4 flex-shrink-0" /> : theme === 'light' ? <Box className="w-4 h-4 flex-shrink-0" /> : <Moon className="w-4 h-4 flex-shrink-0" />}
+              {!collapsed && <span className="truncate">{theme === 'dark' ? 'Light Theme' : theme === 'light' ? 'Minecraft Theme' : 'Dark Theme'}</span>}
             </button>
             <button
               onClick={() => setPrivacyMode(!privacyMode)}
@@ -3439,7 +3440,7 @@ function App() {
                 collapsed && 'justify-center px-0',
                 privacyMode
                   ? 'bg-amber-500/10 text-amber-500'
-                  : theme === 'dark' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800/50' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+                  : theme !== 'light' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800/50' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
               )}
             >
               {privacyMode ? <EyeOff className="w-4 h-4 flex-shrink-0" /> : <Eye className="w-4 h-4 flex-shrink-0" />}
@@ -3447,11 +3448,11 @@ function App() {
             </button>
           </div>
 
-          <div className={cn("flex flex-col gap-1.5 w-full pt-4 border-t", theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200')}>
+          <div className={cn("flex flex-col gap-1.5 w-full pt-4 border-t", theme !== 'light' ? 'border-zinc-800' : 'border-zinc-200')}>
             {!collapsed && (
               <div className="flex items-center gap-2 px-3 py-1.5 mb-1">
-                <HardDrive className={cn("w-4 h-4 flex-shrink-0", theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400')} />
-                <span className={cn("text-xs uppercase tracking-wider truncate", theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400')}>
+                <HardDrive className={cn("w-4 h-4 flex-shrink-0", theme !== 'light' ? 'text-zinc-500' : 'text-zinc-400')} />
+                <span className={cn("text-xs uppercase tracking-wider truncate", theme !== 'light' ? 'text-zinc-500' : 'text-zinc-400')}>
                   Data Backup
                 </span>
               </div>
@@ -3462,7 +3463,7 @@ function App() {
               className={cn(
                 "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm",
                 collapsed && 'justify-center px-0',
-                theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-900'
+                theme !== 'light' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-900'
               )}
             >
               <Download className="w-4 h-4 flex-shrink-0" />
@@ -3473,7 +3474,7 @@ function App() {
               className={cn(
                 "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm cursor-pointer",
                 collapsed && 'justify-center px-0',
-                theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-900'
+                theme !== 'light' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-900'
               )}
             >
               <FolderSync className="w-4 h-4 flex-shrink-0" />
@@ -3500,7 +3501,7 @@ function App() {
               onClick={() => setShowAccountDropdown(!showAccountDropdown)}
               className={cn(
                 "flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors",
-                theme === 'dark'
+                theme !== 'light'
                   ? 'bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700'
                   : 'bg-zinc-100 border border-zinc-200 text-zinc-700 hover:bg-zinc-200'
               )}
@@ -3513,20 +3514,20 @@ function App() {
             {showAccountDropdown && (
               <div className={cn(
                 "absolute left-0 mt-2 min-w-[200px] w-64 rounded-lg shadow-xl z-50 p-2",
-                theme === 'dark' ? 'bg-zinc-900 border border-zinc-800' : 'bg-white border border-zinc-200'
+                theme !== 'light' ? 'bg-zinc-900 border border-zinc-800' : 'bg-white border border-zinc-200'
               )}>
                 <button
                   onClick={() => setSelectedAccounts(['all'])}
                   className={cn(
                     'w-full text-left px-3 py-2 rounded text-sm truncate transition-colors',
                     selectedAccounts.includes('all')
-                      ? theme === 'dark' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900'
-                      : theme === 'dark' ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-zinc-100'
+                      ? theme !== 'light' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900'
+                      : theme !== 'light' ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-zinc-100'
                   )}
                 >
                   All Accounts
                 </button>
-                <div className={cn("my-2", theme === 'dark' ? 'border-t border-zinc-800' : 'border-t border-zinc-200')} />
+                <div className={cn("my-2", theme !== 'light' ? 'border-t border-zinc-800' : 'border-t border-zinc-200')} />
                 {accounts.map(acc => (
                   <button
                     key={acc.id}
@@ -3543,8 +3544,8 @@ function App() {
                     className={cn(
                       'w-full text-left px-3 py-2 rounded text-sm flex items-center justify-between transition-colors',
                       selectedAccounts.includes(acc.id)
-                        ? theme === 'dark' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900'
-                        : theme === 'dark' ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-zinc-100'
+                        ? theme !== 'light' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900'
+                        : theme !== 'light' ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-zinc-100'
                     )}
                   >
                     <span className="truncate flex-1 mr-2">{acc.name}</span>
@@ -3559,7 +3560,7 @@ function App() {
             onClick={() => { resetCalculator(); setShowAddAccount(true); }}
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors flex-shrink-0",
-              theme === 'dark'
+              theme !== 'light'
                 ? 'bg-zinc-800 hover:bg-zinc-700 text-white'
                 : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-900'
             )}
@@ -3575,7 +3576,7 @@ function App() {
         {/* Total P&L */}
         <div className={cn(
           "relative overflow-hidden border rounded-2xl p-4 sm:p-6 transition-colors duration-300 min-w-0",
-          theme === 'dark'
+          theme !== 'light'
             ? 'bg-gradient-to-br from-zinc-900 via-zinc-900/90 to-zinc-900/60 border-zinc-800'
             : 'bg-gradient-to-br from-white via-zinc-50 to-zinc-100 border-zinc-200'
         )}>
@@ -3594,15 +3595,15 @@ function App() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2 flex-shrink-0">
-              <div className={cn("px-3 py-2 rounded-xl min-w-[84px]", theme === 'dark' ? 'bg-zinc-800/50' : 'bg-zinc-100')}>
+              <div className={cn("px-3 py-2 rounded-xl min-w-[84px]", theme !== 'light' ? 'bg-zinc-800/50' : 'bg-zinc-100')}>
                 <p className={cn("text-[10px] uppercase tracking-wider", tc.textMuted)}>Trades</p>
                 <p className={cn("text-sm font-semibold tabular-nums", tc.text)}>{stats.totalTrades}</p>
               </div>
-              <div className={cn("px-3 py-2 rounded-xl min-w-[84px]", theme === 'dark' ? 'bg-zinc-800/50' : 'bg-zinc-100')}>
+              <div className={cn("px-3 py-2 rounded-xl min-w-[84px]", theme !== 'light' ? 'bg-zinc-800/50' : 'bg-zinc-100')}>
                 <p className={cn("text-[10px] uppercase tracking-wider", tc.textMuted)}>Win Rate</p>
                 <p className={cn("text-sm font-semibold tabular-nums", tc.text)}>{stats.winRate.toFixed(1)}%</p>
               </div>
-              <div className={cn("px-3 py-2 rounded-xl min-w-[84px]", theme === 'dark' ? 'bg-zinc-800/50' : 'bg-zinc-100')}>
+              <div className={cn("px-3 py-2 rounded-xl min-w-[84px]", theme !== 'light' ? 'bg-zinc-800/50' : 'bg-zinc-100')}>
                 <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Profit Factor</p>
                 <p className="text-sm font-semibold text-white tabular-nums">{isFinite(stats.profitFactor) ? stats.profitFactor.toFixed(2) : 'N/A'}</p>
               </div>
@@ -3700,7 +3701,7 @@ function App() {
             return (
               <div key={account.id} className={cn(
                 'group relative rounded-2xl p-4 min-w-0 overflow-hidden transition-all duration-200',
-                theme === 'dark'
+                theme !== 'light'
                   ? 'bg-zinc-900/40 border border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-900/70'
                   : 'bg-white border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50',
                 metrics.isBreached && 'border-red-500/30'
@@ -3719,7 +3720,7 @@ function App() {
                           resetCalculator();
                           setShowEditAccount(account.id);
                         }}
-                        className={cn("p-1 opacity-0 group-hover:opacity-100 transition-opacity", theme === 'dark' ? 'text-zinc-600 hover:text-white' : 'text-zinc-400 hover:text-zinc-900')}
+                        className={cn("p-1 opacity-0 group-hover:opacity-100 transition-opacity", theme !== 'light' ? 'text-zinc-600 hover:text-white' : 'text-zinc-400 hover:text-zinc-900')}
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
@@ -3845,7 +3846,7 @@ function App() {
 
   const renderTradeHistory = () => (
     <div className="relative space-y-6 min-w-0">
-      <div className={cn("pointer-events-none fixed inset-0 -z-10 overflow-hidden", theme === 'light' && 'opacity-30')}>
+      <div className={cn("pointer-events-none fixed inset-0 -z-10 overflow-hidden", theme === 'light' && 'opacity-30', theme === 'minecraft' && 'opacity-0')}>
         <div className="absolute -top-24 -left-32 w-[32rem] h-[32rem] rounded-full bg-emerald-500/[0.07] blur-[110px]" />
         <div className="absolute top-1/3 -right-32 w-[28rem] h-[28rem] rounded-full bg-red-500/[0.06] blur-[110px]" />
         <div className="absolute bottom-0 left-1/4 w-[24rem] h-[24rem] rounded-full bg-violet-500/[0.05] blur-[110px]" />
@@ -3969,7 +3970,7 @@ function App() {
               'flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm transition-colors border',
               tradeSelectMode
                 ? 'bg-white text-black border-white hover:bg-zinc-200'
-                : theme === 'dark'
+                : theme !== 'light'
                   ? 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700'
                   : 'bg-zinc-100 border-zinc-200 text-zinc-700 hover:bg-zinc-200'
             )}
@@ -3988,7 +3989,7 @@ function App() {
       {tradeSelectMode && (
         <div className={cn(
           'flex items-center justify-between flex-wrap gap-3 px-4 py-3 rounded-xl border sticky top-0 z-20',
-          theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'
+          theme !== 'light' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'
         )}>
           <div className="flex items-center gap-3">
             <button
@@ -3996,7 +3997,7 @@ function App() {
               onClick={toggleSelectAllTrades}
               className={cn(
                 'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border',
-                theme === 'dark' ? 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700' : 'bg-zinc-100 border-zinc-200 text-zinc-700 hover:bg-zinc-200'
+                theme !== 'light' ? 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700' : 'bg-zinc-100 border-zinc-200 text-zinc-700 hover:bg-zinc-200'
               )}
             >
               {selectedTradeIds.length === filteredTrades.length && filteredTrades.length > 0 ? 'Deselect All' : 'Select All'}
@@ -4415,7 +4416,7 @@ function App() {
       complete: 'bg-emerald-500 border-emerald-400 text-white',
       failed: 'bg-red-500/90 border-red-400 text-white',
       pending: 'bg-amber-500/20 border-amber-500/50 text-amber-300',
-      upcoming: theme === 'dark' ? 'bg-zinc-800/50 border-zinc-800 text-zinc-600' : 'bg-zinc-100 border-zinc-200 text-zinc-400',
+      upcoming: theme !== 'light' ? 'bg-zinc-800/50 border-zinc-800 text-zinc-600' : 'bg-zinc-100 border-zinc-200 text-zinc-400',
     };
 
     return (
@@ -4802,7 +4803,7 @@ function App() {
     <div className="space-y-4 min-w-0">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="min-w-0">
-          <h2 className={cn("text-2xl font-bold truncate", theme === 'dark' ? 'text-white' : 'text-zinc-900')}>Rules Playbook</h2>
+          <h2 className={cn("text-2xl font-bold truncate", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>Rules Playbook</h2>
           <p className="text-zinc-500 text-sm truncate">Your command center — logged trades passively track violations, no checklists required</p>
         </div>
         <button onClick={() => openAddRuleModal('risk')} className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors flex-shrink-0">
@@ -4821,19 +4822,19 @@ function App() {
               className={cn(
                 "rounded-xl border-t-4 flex flex-col min-w-0",
                 meta.accent,
-                theme === 'dark' ? 'bg-zinc-900/40 border-x border-b border-zinc-800' : 'bg-white border-x border-b border-zinc-200'
+                theme !== 'light' ? 'bg-zinc-900/40 border-x border-b border-zinc-800' : 'bg-white border-x border-b border-zinc-200'
               )}
             >
-              <div className={cn("flex items-center justify-between gap-2 px-3 py-2.5 border-b", theme === 'dark' ? 'border-zinc-800/60' : 'border-zinc-200')}>
+              <div className={cn("flex items-center justify-between gap-2 px-3 py-2.5 border-b", theme !== 'light' ? 'border-zinc-800/60' : 'border-zinc-200')}>
                 <div className="flex items-center gap-2 min-w-0">
                   <span className={cn("w-6 h-6 rounded-md flex items-center justify-center text-sm flex-shrink-0", meta.iconBg)}>{meta.icon}</span>
-                  <h3 className={cn("text-sm font-bold truncate", theme === 'dark' ? 'text-white' : 'text-zinc-900')}>{meta.label}</h3>
+                  <h3 className={cn("text-sm font-bold truncate", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>{meta.label}</h3>
                   <span className="text-[10px] text-zinc-500 flex-shrink-0">{pillarRules.length}</span>
                 </div>
                 <button
                   onClick={() => openAddRuleModal(pillar)}
                   title={`Add ${meta.label}`}
-                  className={cn("p-1 rounded transition-colors flex-shrink-0", theme === 'dark' ? 'text-zinc-500 hover:text-white hover:bg-zinc-800' : 'text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100')}
+                  className={cn("p-1 rounded transition-colors flex-shrink-0", theme !== 'light' ? 'text-zinc-500 hover:text-white hover:bg-zinc-800' : 'text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100')}
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </button>
@@ -4845,7 +4846,7 @@ function App() {
                     onClick={() => openAddRuleModal(pillar)}
                     className={cn(
                       "w-full text-center py-6 px-2 text-xs rounded-lg border border-dashed transition-colors",
-                      theme === 'dark' ? 'text-zinc-600 hover:text-zinc-400 border-zinc-800 hover:border-zinc-700' : 'text-zinc-400 hover:text-zinc-600 border-zinc-300 hover:border-zinc-400'
+                      theme !== 'light' ? 'text-zinc-600 hover:text-zinc-400 border-zinc-800 hover:border-zinc-700' : 'text-zinc-400 hover:text-zinc-600 border-zinc-300 hover:border-zinc-400'
                     )}
                   >
                     + Add your first rule
@@ -4858,16 +4859,16 @@ function App() {
                       key={rule.id}
                       className={cn(
                         "group relative rounded-lg p-2.5 border transition-colors",
-                        theme === 'dark' ? 'bg-zinc-900/60 border-zinc-800 hover:border-zinc-700' : 'bg-zinc-50 border-zinc-200 hover:border-zinc-300'
+                        theme !== 'light' ? 'bg-zinc-900/60 border-zinc-800 hover:border-zinc-700' : 'bg-zinc-50 border-zinc-200 hover:border-zinc-300'
                       )}
                     >
                       <div className="flex items-start justify-between gap-2 mb-1">
                         <div className="min-w-0 flex-1 flex items-center gap-1.5">
                           <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", severityMeta.dot)} title={severityMeta.label} />
-                          <h4 className={cn("text-sm font-semibold truncate", theme === 'dark' ? 'text-white' : 'text-zinc-900')}>{rule.title}</h4>
+                          <h4 className={cn("text-sm font-semibold truncate", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>{rule.title}</h4>
                         </div>
                         <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => openEditRuleModal(rule)} className={cn("p-1 rounded", theme === 'dark' ? 'text-zinc-500 hover:text-white' : 'text-zinc-400 hover:text-zinc-900')}>
+                          <button onClick={() => openEditRuleModal(rule)} className={cn("p-1 rounded", theme !== 'light' ? 'text-zinc-500 hover:text-white' : 'text-zinc-400 hover:text-zinc-900')}>
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button onClick={() => handleDeleteRule(rule.id)} className="p-1 rounded text-zinc-500 hover:text-red-400">
@@ -4877,13 +4878,13 @@ function App() {
                       </div>
 
                       {rule.description && (
-                        <p className={cn("text-xs line-clamp-2 mb-2", theme === 'dark' ? 'text-zinc-500' : 'text-zinc-500')}>{rule.description}</p>
+                        <p className={cn("text-xs line-clamp-2 mb-2", theme !== 'light' ? 'text-zinc-500' : 'text-zinc-500')}>{rule.description}</p>
                       )}
 
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium", severityMeta.badge)}>{severityMeta.label}</span>
                         {rule.category && (
-                          <span className={cn("text-[10px] px-1.5 py-0.5 rounded truncate max-w-[8rem]", theme === 'dark' ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-200 text-zinc-600')}>{rule.category}</span>
+                          <span className={cn("text-[10px] px-1.5 py-0.5 rounded truncate max-w-[8rem]", theme !== 'light' ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-200 text-zinc-600')}>{rule.category}</span>
                         )}
                         {violations > 0 && (
                           <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/20 font-semibold flex items-center gap-0.5">
@@ -6332,8 +6333,8 @@ function App() {
               </div>
             </div>
 
-            {/* Row 2: P&L + Risk - STRICT numeric inputs */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* Row 2: P&L + Risk + R:R Ratio - STRICT numeric inputs, RR always visible */}
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className="block text-xs text-zinc-400 mb-1.5">P&L ($)</label>
                 <NumericInput
@@ -6361,6 +6362,18 @@ function App() {
                   allowNegative={false}
                 />
               </div>
+              <div>
+                <label className="block text-xs text-zinc-400 mb-1.5">R:R Ratio</label>
+                <div className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm">
+                  {calculatedRR !== null ? (
+                    <span className={cn('font-medium', calculatedRR >= 1 ? 'text-emerald-400' : calculatedRR >= 0 ? 'text-zinc-400' : 'text-red-400')}>
+                      {calculatedRR.toFixed(2)}R
+                    </span>
+                  ) : (
+                    <span className="text-zinc-500">--</span>
+                  )}
+                </div>
+              </div>
             </div>
 
             <button
@@ -6374,7 +6387,7 @@ function App() {
             </button>
 
             {showTradePriceLevels && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs text-zinc-400 mb-1.5">Entry</label>
                   <NumericInput
@@ -6423,18 +6436,6 @@ function App() {
                     allowNegative={false}
                   />
                   {newTrade.tpPoints !== undefined && newTrade.tpPoints > 0 && <p className="text-[10px] text-zinc-500 mt-0.5">{newTrade.tpPoints} pts</p>}
-                </div>
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1.5">R:R Ratio</label>
-                  <div className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm">
-                    {calculatedRR !== null ? (
-                      <span className={cn('font-medium', calculatedRR >= 1 ? 'text-emerald-400' : calculatedRR >= 0 ? 'text-zinc-400' : 'text-red-400')}>
-                        {calculatedRR.toFixed(2)}R
-                      </span>
-                    ) : (
-                      <span className="text-zinc-500">--</span>
-                    )}
-                  </div>
                 </div>
               </div>
             )}
@@ -7274,8 +7275,10 @@ function App() {
   );
 
   return (
-    <div className="h-screen w-full flex overflow-hidden bg-[#0d0e12] text-white">
+    <div className={cn("h-screen w-full flex overflow-hidden bg-[#0d0e12] text-white", theme === 'minecraft' && 'theme-minecraft')}>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
         * {
           scrollbar-width: none;
           -ms-overflow-style: none;
@@ -7373,6 +7376,159 @@ function App() {
         .theme-light-fix [class~="border-zinc-500"] { border-color: #d4d4d8 !important; }
         .theme-light-fix [class~="hover:border-zinc-500"]:hover { border-color: #71717a !important; }
         .theme-light-fix [class~="bg-zinc-500"] { background-color: #d4d4d8 !important; }
+
+        /* ---- Minecraft theme ----
+           The base markup is authored with dark zinc-* utility classes.
+           Rather than thread a third branch through every ternary in the
+           file, we reskin those same classes here (same pattern as the
+           light-fix block above) whenever the root wrapper carries
+           .theme-minecraft. Every theme === 'dark' check in the component
+           tree was widened to theme !== 'light', so Minecraft mode renders
+           the existing dark-styled markup, and this stylesheet retextures it
+           into a Minecraft inventory-GUI look. */
+
+        .theme-minecraft, .theme-minecraft * {
+          font-family: 'VT323', monospace !important;
+          letter-spacing: 0.02em;
+        }
+        .theme-minecraft [class*="rounded"] { border-radius: 0 !important; }
+        .theme-minecraft [class*="blur"] { filter: none !important; }
+        .theme-minecraft [class*="backdrop-blur"] { backdrop-filter: none !important; }
+        .theme-minecraft * { transition-duration: 60ms !important; }
+
+        /* Main page canvas: pixelated deepslate/stone grid, not a flat color */
+        .theme-minecraft {
+          background-color: #2b2b2b;
+          background-image:
+            repeating-linear-gradient(0deg, rgba(0,0,0,0.28) 0px, rgba(0,0,0,0.28) 4px, transparent 4px, transparent 16px),
+            repeating-linear-gradient(90deg, rgba(0,0,0,0.28) 0px, rgba(0,0,0,0.28) 4px, transparent 4px, transparent 16px),
+            repeating-linear-gradient(45deg, #363636 0px, #363636 16px, #2f2f2f 16px, #2f2f2f 32px);
+        }
+        .theme-minecraft [class~="bg-zinc-950"],
+        .theme-minecraft [class~="bg-zinc-950/80"] {
+          background-color: #2b2b2b !important;
+          background-image:
+            repeating-linear-gradient(0deg, rgba(0,0,0,0.28) 0px, rgba(0,0,0,0.28) 4px, transparent 4px, transparent 16px),
+            repeating-linear-gradient(90deg, rgba(0,0,0,0.28) 0px, rgba(0,0,0,0.28) 4px, transparent 4px, transparent 16px),
+            repeating-linear-gradient(45deg, #363636 0px, #363636 16px, #2f2f2f 16px, #2f2f2f 32px) !important;
+        }
+
+        /* Cards / panels / sidebar: solid stone slab with a 2px beveled edge
+           (light highlight top-left, dark shadow bottom-right) */
+        .theme-minecraft [class~="bg-zinc-900"],
+        .theme-minecraft [class~="bg-zinc-900/40"],
+        .theme-minecraft [class~="bg-zinc-900/50"],
+        .theme-minecraft [class~="bg-zinc-900/60"],
+        .theme-minecraft [class~="bg-zinc-900/70"],
+        .theme-minecraft [class~="bg-zinc-900/95"],
+        .theme-minecraft [class~="bg-zinc-800"],
+        .theme-minecraft [class~="bg-zinc-800/30"],
+        .theme-minecraft [class~="bg-zinc-800/40"],
+        .theme-minecraft [class~="bg-zinc-800/50"],
+        .theme-minecraft [class~="bg-zinc-800/60"],
+        .theme-minecraft [class~="bg-zinc-800/70"],
+        .theme-minecraft [class~="bg-zinc-800/80"],
+        .theme-minecraft [class~="bg-zinc-700"],
+        .theme-minecraft [class~="bg-zinc-700/50"],
+        .theme-minecraft [class~="bg-zinc-600"],
+        .theme-minecraft [class*="from-zinc-"],
+        .theme-minecraft [class*="to-zinc-"],
+        .theme-minecraft [class*="via-zinc-"] {
+          background-color: #4a4a4a !important;
+          background-image: none !important;
+          border-color: transparent !important;
+          box-shadow:
+            inset 2px 2px 0 0 #7a7a7a,
+            inset -2px -2px 0 0 #1e1e1e !important;
+        }
+
+        /* Standalone borders (no bg override above) still read as a bevel */
+        .theme-minecraft [class~="border-zinc-800"],
+        .theme-minecraft [class~="border-zinc-800/50"],
+        .theme-minecraft [class~="border-zinc-800/60"],
+        .theme-minecraft [class~="border-zinc-800/70"],
+        .theme-minecraft [class~="border-zinc-800/80"],
+        .theme-minecraft [class~="border-zinc-700"],
+        .theme-minecraft [class~="border-zinc-700/50"],
+        .theme-minecraft [class~="border-zinc-700/60"],
+        .theme-minecraft [class~="border-zinc-700/80"],
+        .theme-minecraft [class~="border-zinc-600"],
+        .theme-minecraft [class~="border-zinc-600/50"],
+        .theme-minecraft [class~="border-zinc-500"] {
+          border-color: #1e1e1e !important;
+          border-style: solid !important;
+        }
+
+        /* Inputs render as a recessed Minecraft text-field slot */
+        .theme-minecraft input,
+        .theme-minecraft select,
+        .theme-minecraft textarea {
+          background-color: #2b2b2b !important;
+          border: none !important;
+          border-radius: 0 !important;
+          color: #ffffff !important;
+          box-shadow:
+            inset 2px 2px 0 0 #1e1e1e,
+            inset -2px -2px 0 0 #6b6b6b !important;
+        }
+
+        /* Buttons: blocky Minecraft menu-button styling with a hard 3D
+           drop shadow, brightening border + white text on hover */
+        .theme-minecraft button {
+          border-radius: 0 !important;
+          background-color: #4a4a4a;
+          box-shadow:
+            inset 2px 2px 0 0 #7a7a7a,
+            inset -2px -2px 0 0 #1e1e1e,
+            3px 3px 0 0 #000000;
+        }
+        .theme-minecraft button:hover {
+          color: #ffffff !important;
+          box-shadow:
+            inset 2px 2px 0 0 #a3a3a3,
+            inset -2px -2px 0 0 #1e1e1e,
+            0 0 0 2px #e6e6e6,
+            3px 3px 0 0 #000000;
+        }
+        .theme-minecraft button:active {
+          box-shadow:
+            inset 2px 2px 0 0 #1e1e1e,
+            inset -2px -2px 0 0 #7a7a7a;
+          transform: translate(2px, 2px);
+        }
+
+        /* Text palette: chat off-white / light gray labels, Diamond Blue and
+           Emerald Green for important + active states */
+        .theme-minecraft [class~="text-white"] { color: #ffffff !important; }
+        .theme-minecraft [class~="text-zinc-300"],
+        .theme-minecraft [class~="text-zinc-400"],
+        .theme-minecraft [class~="text-zinc-500"] { color: #aaaaaa !important; }
+        .theme-minecraft [class*="text-emerald"],
+        .theme-minecraft [class*="text-green"] { color: #55ff55 !important; }
+        .theme-minecraft [class*="text-blue"],
+        .theme-minecraft [class*="text-cyan"],
+        .theme-minecraft [class*="text-violet"],
+        .theme-minecraft [class*="text-indigo"] { color: #55ffff !important; }
+        .theme-minecraft [class*="text-red"],
+        .theme-minecraft [class*="text-rose"] { color: #ff5555 !important; }
+        .theme-minecraft [class*="text-amber"],
+        .theme-minecraft [class*="text-yellow"] { color: #ffff55 !important; }
+
+        /* Headings, stat numbers and button labels lean on the pixel font
+           at a slightly larger size so they read the way Minecraft's GUI
+           text does (VT323 is narrow/small at 1:1) */
+        .theme-minecraft h1, .theme-minecraft h2, .theme-minecraft h3,
+        .theme-minecraft h4, .theme-minecraft button, .theme-minecraft [class*="text-2xl"],
+        .theme-minecraft [class*="text-3xl"], .theme-minecraft [class*="text-xl"] {
+          font-family: 'VT323', monospace !important;
+          letter-spacing: 0.04em;
+        }
+
+        /* Scrollbar reskin so it doesn't look like a stray glassy sliver */
+        .theme-minecraft ::-webkit-scrollbar-thumb {
+          background-color: #6b6b6b !important;
+          border-radius: 0 !important;
+        }
       `}</style>
 
       {/* MOBILE SIDEBAR (Drawer Mode) — its own isolated tree; only ever exists in the DOM while isMobileSidebarOpen is true, and only below md. */}
@@ -7387,7 +7543,7 @@ function App() {
           {/* Actual Mobile Sidebar Panel */}
           <aside className={cn(
             "relative w-64 h-full flex flex-col",
-            theme === 'dark' ? 'bg-zinc-900 border-r border-zinc-800' : 'bg-white border-r border-zinc-200'
+            theme !== 'light' ? 'bg-zinc-900 border-r border-zinc-800' : 'bg-white border-r border-zinc-200'
           )}>
             {renderSidebarContent(true)}
           </aside>
@@ -7397,18 +7553,18 @@ function App() {
       {/* DESKTOP SIDEBAR (Permanent Layout) - FIXED HEIGHT */}
       <aside className={cn(
         "hidden md:flex flex-col h-screen flex-shrink-0 overflow-hidden transition-all duration-300",
-        theme === 'dark' ? 'bg-zinc-900 border-r border-zinc-800' : 'bg-white border-r border-zinc-200',
+        theme !== 'light' ? 'bg-zinc-900 border-r border-zinc-800' : 'bg-white border-r border-zinc-200',
         sidebarCollapsed ? "w-[72px]" : "w-64"
       )}>
         {renderSidebarContent(false)}
       </aside>
 
       {/* MAIN WORKSPACE - ISOLATED SCROLL */}
-      <main className={cn("flex-1 min-w-0 h-screen flex flex-col overflow-y-auto transition-colors duration-300", theme === 'dark' ? 'bg-zinc-950 text-white' : 'bg-zinc-50 text-zinc-900')}>
+      <main className={cn("flex-1 min-w-0 h-screen flex flex-col overflow-y-auto transition-colors duration-300", theme !== 'light' ? 'bg-zinc-950 text-white' : 'bg-zinc-50 text-zinc-900')}>
         {/* MOBILE STICKY TOP BAR */}
         <div className={cn(
           "md:hidden sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b backdrop-blur-sm",
-          theme === 'dark' ? 'bg-zinc-900/95 border-zinc-800' : 'bg-white/95 border-zinc-200'
+          theme !== 'light' ? 'bg-zinc-900/95 border-zinc-800' : 'bg-white/95 border-zinc-200'
         )}>
           <button
             type="button"
@@ -7416,12 +7572,12 @@ function App() {
             aria-label="Open menu"
             className={cn(
               "p-2 -ml-2 rounded-lg transition-colors",
-              theme === 'dark' ? 'text-zinc-300 hover:text-white hover:bg-zinc-800' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+              theme !== 'light' ? 'text-zinc-300 hover:text-white hover:bg-zinc-800' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
             )}
           >
             <PanelLeft className="w-5 h-5" />
           </button>
-          <span className={cn("font-bold text-base uppercase tracking-wider", theme === 'dark' ? 'text-white' : 'text-zinc-900')}>
+          <span className={cn("font-bold text-base uppercase tracking-wider", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>
             VSX
           </span>
         </div>
