@@ -4390,13 +4390,15 @@ function App() {
             </span>
           </div>
         </div>
-        <div className={cn('p-3 min-w-0 flex items-end justify-between gap-2 transition-colors duration-200', outcomeCardClass)}>
+        <div className={cn('relative p-3 min-w-0 flex items-end justify-between gap-2 transition-colors duration-200', outcomeCardClass)}>
+          {trade.trackingNumber && (
+            <span className="absolute top-2 right-2 z-10">
+              <TrackingBadge value={trade.trackingNumber} size="sm" />
+            </span>
+          )}
           <div className="min-w-0 flex-1">
             <h4 className="font-semibold text-white truncate tracking-tight text-sm">{trade.symbol}</h4>
-            <p className="text-xs text-zinc-500 truncate mt-0.5 flex items-center gap-1.5">
-              <span className="truncate">{account?.name} · {formatDate(trade.date)}</span>
-              {trade.trackingNumber && <TrackingBadge value={trade.trackingNumber} size="sm" />}
-            </p>
+            <p className="text-xs text-zinc-500 truncate mt-0.5">{account?.name} · {formatDate(trade.date)}</p>
             <div className="flex items-center gap-1.5 flex-wrap mt-2">
               {trade.session && <SessionBadge value={trade.session} size="sm" />}
               {trade.setupTypes.slice(0, 1).map(s => (
