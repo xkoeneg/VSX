@@ -63,6 +63,9 @@ import {
   ImagePlus,
   StickyNote,
   Box,
+  Search,
+  ArrowLeft,
+  Database,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -2317,6 +2320,14 @@ function App() {
   // remains the desktop-only expand/collapse control.
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [galleryView, setGalleryView] = useState<GalleryView>('gallery');
+  const [tradeSubView, setTradeSubView] = useState<'overview' | 'database'>('overview');
+  const [dbSearch, setDbSearch] = useState('');
+  const [dbAccountFilter, setDbAccountFilter] = useState<string>('all');
+  const [dbSessionFilter, setDbSessionFilter] = useState<string>('all');
+  const [dbOutcomeFilter, setDbOutcomeFilter] = useState<TradeFilter>('all');
+  const [dbRulesFilter, setDbRulesFilter] = useState<'all' | 'followed' | 'broken'>('all');
+  const [dbPage, setDbPage] = useState(0);
+  const DB_PAGE_SIZE = 25;
   const [tradeFilter, setTradeFilter] = useState<TradeFilter>('all');
   const [tradeSortField, setTradeSortField] = useState<TradeSortField>('date');
   const [tradeSortOrder, setTradeSortOrder] = useState<SortOrder>('desc');
@@ -2861,6 +2872,39 @@ function App() {
       }
     });
   }, [trades, selectedAccounts, tradeFilter, tradeSortField, tradeSortOrder]);
+
+  // Database sub-page: applies its own independent filter set on top of the
+  // already account/outcome-filtered trades, then paginates the result.
+  const dbFilteredTrades = useMemo(() => {
+    let result = filteredTrades;
+    if (dbSearch.trim()) {
+      const q = dbSearch.trim().toLowerCase();
+      result = result.filter(t =>
+        t.symbol.toLowerCase().includes(q) ||
+        (t.trackingNumber || '').toLowerCase().includes(q) ||
+        String(t.absoluteTradeNumber).includes(q) ||
+        (t.setupTypes || []).some(s => s.toLowerCase().includes(q)) ||
+        (t.confluences || []).some(c => c.toLowerCase().includes(q)) ||
+        (t.mistakes || []).some(m => m.toLowerCase().includes(q)) ||
+        (t.notes || '').toLowerCase().includes(q)
+      );
+    }
+    if (dbAccountFilter !== 'all') result = result.filter(t => t.accountId === dbAccountFilter);
+    if (dbSessionFilter !== 'all') result = result.filter(t => t.session === dbSessionFilter);
+    if (dbOutcomeFilter !== 'all') {
+      if (dbOutcomeFilter === 'profit') result = result.filter(t => t.profitLoss > 0);
+      else if (dbOutcomeFilter === 'loss') result = result.filter(t => t.profitLoss < 0);
+      else result = result.filter(t => Math.abs(t.profitLoss) < 10);
+    }
+    if (dbRulesFilter !== 'all') result = result.filter(t => t.rulesFollowed === dbRulesFilter);
+    return result;
+  }, [filteredTrades, dbSearch, dbAccountFilter, dbSessionFilter, dbOutcomeFilter, dbRulesFilter]);
+
+  const dbPageCount = Math.max(1, Math.ceil(dbFilteredTrades.length / DB_PAGE_SIZE));
+  const dbPagedTrades = useMemo(() => {
+    const start = dbPage * DB_PAGE_SIZE;
+    return dbFilteredTrades.slice(start, start + DB_PAGE_SIZE);
+  }, [dbFilteredTrades, dbPage]);
 
   // Returns the trade's permanent chronological identity number — its absolute creation
   // position in the master trades array. This is intentionally independent of the current
@@ -3852,6 +3896,7 @@ function App() {
               <button
                 key={item.id}
                 onClick={() => {
+                  if (item.id !== 'trades') setTradeSubView('overview');
                   setView(item.id);
                   setIsMobileSidebarOpen(false);
                 }}
@@ -4298,125 +4343,81 @@ function App() {
     setTradeSortOrder('desc');
   };
 
-  const renderTradeHistory = () => (
-    <div className="relative space-y-6 min-w-0">
-      <div className={cn("pointer-events-none fixed inset-0 -z-10 overflow-hidden", theme === 'light' && 'opacity-30', theme === 'minecraft' && 'opacity-0')}>
-        <div className="absolute -top-24 -left-32 w-[32rem] h-[32rem] rounded-full bg-emerald-500/[0.07] blur-[110px]" />
-        <div className="absolute top-1/3 -right-32 w-[28rem] h-[28rem] rounded-full bg-rose-500/[0.06] blur-[110px]" />
-        <div className="absolute bottom-0 left-1/4 w-[24rem] h-[24rem] rounded-full bg-violet-500/[0.05] blur-[110px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_0%,rgba(16,185,129,0.08),transparent_38%),radial-gradient(circle_at_85%_10%,rgba(239,68,68,0.06),transparent_35%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:36px_36px] [mask-image:radial-gradient(ellipse_90%_80%_at_50%_0%,black_50%,transparent_100%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:3px_3px] opacity-40" />
-      </div>
+  // ---- Notion-style Trade History ----
+  // Two sub-views share the same sidebar entry (no new menu items):
+  // 1. "overview" — a lightweight inline page: a 6-card featured gallery on
+  //    top, then a 5-row "RECENT ENTRIES" preview with an "Open Full Database"
+  //    button that swaps to the database sub-view.
+  // 2. "database" — a full-width Notion-spreadsheet view with breadcrumbs, a
+  //    filter bar (search / account / session / outcome / rules), a dense
+  //    table of all trades, and pagination.
 
+  const recentTrades = filteredTrades.slice(0, 6);
+  const recentPreviewTrades = filteredTrades.slice(0, 5);
+
+  const renderFeaturedCard = (trade: Trade) => {
+    const account = accounts.find(a => a.id === trade.accountId);
+    const coverImage = trade.executionImages[0]?.url || trade.timeframes.flatMap(tf => tf.images)[0]?.url;
+    const isWin = trade.profitLoss >= 0;
+    const cardRR = trade.riskAmount > 0 ? trade.profitLoss / trade.riskAmount : null;
+    return (
+      <div
+        key={trade.id}
+        onClick={() => setShowTradeDetail(trade.id)}
+        className="group bg-[#16171d] border border-white/10 rounded-xl overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 min-w-0"
+      >
+        <div className="aspect-video bg-zinc-800 flex items-center justify-center relative overflow-hidden">
+          <span className="absolute top-2 left-2 z-10 flex items-center justify-center w-5 h-5 rounded bg-black/70 backdrop-blur-sm text-[10px] font-mono text-zinc-300">
+            {getDisplayTradeNumber(trade)}
+          </span>
+          {coverImage ? (
+            <img src={coverImage} alt="" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+          ) : (
+            <div className="flex flex-col items-center gap-1.5 text-zinc-600">
+              <ImageIcon className="w-7 h-7" />
+              <span className="text-[10px]">No image</span>
+            </div>
+          )}
+          {/* Badge row at the bottom of the thumbnail */}
+          <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-between gap-1.5 px-2.5 py-1.5 bg-gradient-to-t from-black/80 to-transparent">
+            <span className={cn('text-xs font-mono font-bold tracking-tight truncate', isWin ? 'text-emerald-400' : 'text-rose-400')}>
+              {formatCurrency(trade.profitLoss, privacyMode)}
+            </span>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {cardRR !== null && (
+                <span className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded border whitespace-nowrap', cardRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : cardRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-rose-400 border-rose-500/30 bg-rose-500/10')}>
+                  {cardRR >= 1 ? '+' : ''}{cardRR.toFixed(2)}R
+                </span>
+              )}
+              <span className={cn('flex items-center justify-center w-4 h-4 rounded text-[9px] font-bold', trade.rulesFollowed === 'followed' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400')}>
+                {trade.rulesFollowed === 'followed' ? <Check className="w-2.5 h-2.5" /> : <X className="w-2.5 h-2.5" />}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="p-3 min-w-0">
+          <h4 className="font-semibold text-white truncate tracking-tight text-sm">{trade.symbol}</h4>
+          <p className="text-xs text-zinc-500 truncate mt-0.5">{account?.name} · {formatDate(trade.date)}</p>
+          <div className="flex items-center gap-1.5 flex-wrap mt-2">
+            {trade.session && <SessionBadge value={trade.session} size="sm" />}
+            {trade.setupTypes.slice(0, 1).map(s => (
+              <span key={s} className="px-1.5 py-0.5 bg-zinc-800/80 border border-zinc-700/50 rounded text-[10px] text-zinc-300 truncate max-w-[70px]">{s}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderOverviewView = () => (
+    <div className="space-y-8 min-w-0">
+      {/* Page header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="min-w-0">
           <h2 className={cn("text-2xl font-bold truncate", tc.text)}>Trade History</h2>
           <p className={cn("text-sm truncate", tc.textMuted)}>{filteredTrades.length} trades</p>
         </div>
-        <div className="flex items-center flex-wrap gap-2 flex-shrink-0">
-          <div className="relative" ref={tradeControlsPanelRef}>
-            <button
-              type="button"
-              onClick={() => setShowTradeControlsPanel(!showTradeControlsPanel)}
-              className={cn(
-                'flex items-center gap-2 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-zinc-300 hover:bg-zinc-700 transition-colors',
-                showTradeControlsPanel && 'bg-zinc-700 border-zinc-600 text-white'
-              )}
-            >
-              <SlidersHorizontal className="w-4 h-4 flex-shrink-0" />
-              <span>Filters<span className="hidden sm:inline"> & View</span></span>
-              {activeTradeFilterCount > 0 && (
-                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-white text-black text-[10px] font-bold flex-shrink-0">
-                  {activeTradeFilterCount}
-                </span>
-              )}
-              <ChevronDown className={cn('w-4 h-4 flex-shrink-0 transition-transform', showTradeControlsPanel && 'rotate-180')} />
-            </button>
-
-            {showTradeControlsPanel && (
-              <div className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl z-50 p-4 space-y-4 max-h-[80vh] overflow-y-auto">
-                <div>
-                  <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Result</p>
-                  <div className="flex items-center bg-zinc-800 rounded-lg p-1">
-                    {[
-                      { id: 'all' as TradeFilter, label: 'All' },
-                      { id: 'profit' as TradeFilter, label: 'Profit' },
-                      { id: 'loss' as TradeFilter, label: 'Loss' },
-                      { id: 'breakeven' as TradeFilter, label: 'B/E' },
-                    ].map(item => (
-                      <button key={item.id} onClick={() => setTradeFilter(item.id)} className={cn('flex-1 px-2 py-1.5 rounded text-xs font-medium transition-colors', tradeFilter === item.id ? 'bg-white text-black' : 'text-zinc-400 hover:text-white')}>
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="border-t border-zinc-800" />
-
-                <div>
-                  <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Sort By</p>
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center bg-zinc-800 rounded-lg p-1 flex-1">
-                      {(Object.keys(SORT_FIELD_LABELS) as TradeSortField[]).map(field => (
-                        <button key={field} onClick={() => setTradeSortField(field)} className={cn('flex-1 px-2 py-1.5 rounded text-xs font-medium transition-colors', tradeSortField === field ? 'bg-white text-black' : 'text-zinc-400 hover:text-white')}>
-                          {SORT_FIELD_LABELS[field]}
-                        </button>
-                      ))}
-                    </div>
-                    <button
-                      onClick={() => setTradeSortOrder(tradeSortOrder === 'asc' ? 'desc' : 'asc')}
-                      title={tradeSortOrder === 'asc' ? 'Ascending' : 'Descending'}
-                      className="flex items-center justify-center p-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-300 hover:text-white transition-colors flex-shrink-0"
-                    >
-                      <ArrowUpDown className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-zinc-500 mt-1.5">
-                    {SORT_FIELD_LABELS[tradeSortField as keyof typeof SORT_FIELD_LABELS] ?? 'Date'} &middot; {tradeSortOrder === 'asc' ? 'Ascending' : 'Descending'}
-                  </p>
-                </div>
-
-                <div className="border-t border-zinc-800" />
-
-                <div>
-                  <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">View</p>
-                  <div className="flex items-center bg-zinc-800 rounded-lg p-1">
-                    {[
-                      { id: 'list' as GalleryView, icon: List, label: 'List' },
-                      { id: 'preview' as GalleryView, icon: LayoutGrid, label: 'Preview' },
-                      { id: 'gallery' as GalleryView, icon: Grid, label: 'Gallery' },
-                    ].map(item => (
-                      <button key={item.id} onClick={() => setGalleryView(item.id)} className={cn('flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded text-xs font-medium transition-colors', galleryView === item.id ? 'bg-white text-black' : 'text-zinc-400 hover:text-white')}>
-                        <item.icon className="w-3.5 h-3.5" />
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {galleryView === 'gallery' && (
-                  <div>
-                    <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Card Size</p>
-                    <div className="flex items-center bg-zinc-800 rounded-lg p-1">
-                      {(Object.keys(GALLERY_SIZE_LABELS) as GallerySize[]).map(size => (
-                        <button type="button" key={size} onClick={() => setGallerySize(size)} className={cn('flex-1 py-1.5 rounded text-xs font-medium transition-colors', gallerySize === size ? 'bg-white text-black' : 'text-zinc-400 hover:text-white')}>
-                          {GALLERY_SIZE_LABELS[size]}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="border-t border-zinc-800" />
-
-                <button onClick={resetTradeControls} className="w-full py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">
-                  Reset filters & sorting
-                </button>
-              </div>
-            )}
-          </div>
-
+        <div className="flex items-center gap-2 flex-shrink-0">
           <button
             type="button"
             onClick={toggleTradeSelectMode}
@@ -4432,7 +4433,6 @@ function App() {
             <Check className="w-4 h-4" />
             <span className="hidden sm:inline">{tradeSelectMode ? 'Cancel' : 'Select'}</span>
           </button>
-
           <button onClick={() => { resetTradeForm(); resetCalculator(); setShowAddTrade(true); }} className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors">
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">Add Trade</span>
@@ -4470,367 +4470,338 @@ function App() {
         </div>
       )}
 
-      {galleryView === 'list' && (
-        <>
-        {/* Desktop/tablet: full data table. Kept as-is at md+ where 950px of columns fits comfortably. */}
-        <div className="hidden md:block relative bg-gradient-to-b from-zinc-900/70 to-zinc-900/30 border border-zinc-800 rounded-xl overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-500/0 via-zinc-500/60 to-rose-500/0" />
-          <div className="trade-table-scroll w-full overflow-x-auto block clear-both">
-            <table className="w-full min-w-[950px]" style={{ minWidth: '950px' }}>
-              <thead>
-                <tr className="border-b border-zinc-800 text-left bg-zinc-900/40">
-                  {tradeSelectMode && <th className="px-4 py-3 w-10"></th>}
-                  <th className="px-4 py-3 text-xs text-zinc-500 uppercase tracking-wider w-10">#</th>
-                  <th className="px-4 py-3 text-xs text-zinc-500 uppercase tracking-wider">Date</th>
-                  <th className="px-4 py-3 text-xs text-zinc-500 uppercase tracking-wider">Symbol</th>
-                  <th className="px-4 py-3 text-xs text-zinc-500 uppercase tracking-wider">Account</th>
-                  <th className="px-4 py-3 text-xs text-zinc-500 uppercase tracking-wider">Setup</th>
-                  <th className="px-4 py-3 text-xs text-zinc-500 uppercase tracking-wider">Session</th>
-                  <th className="px-4 py-3 text-xs text-zinc-500 uppercase tracking-wider">Trade #</th>
-                  <th className="px-4 py-3 text-xs text-zinc-500 uppercase tracking-wider">Rules</th>
-                  <th className="px-4 py-3 text-xs text-zinc-500 uppercase tracking-wider text-right">R:R</th>
-                  <th className="px-4 py-3 text-xs text-zinc-500 uppercase tracking-wider text-right">P&L</th>
-                  <th className="px-4 py-3 text-xs text-zinc-500 uppercase tracking-wider"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-800/70">
-                {filteredTrades.map((trade) => {
-                  const account = accounts.find(a => a.id === trade.accountId);
-                  const isWin = trade.profitLoss >= 0;
-                  const rowRR = trade.riskAmount > 0 ? trade.profitLoss / trade.riskAmount : null;
-                  const isSelected = selectedTradeIds.includes(trade.id);
-                  return (
-                    <tr
-                      key={trade.id}
-                      className={cn(
-                        'relative group cursor-pointer transition-colors',
-                        isSelected ? 'bg-white/[0.06]' : (isWin ? 'hover:bg-emerald-500/[0.05]' : 'hover:bg-rose-500/[0.05]')
-                      )}
-                      onClick={() => tradeSelectMode ? toggleTradeSelected(trade.id) : setShowTradeDetail(trade.id)}
-                    >
-                      {tradeSelectMode && (
-                        <td className="px-4 py-3" onClick={(e) => { e.stopPropagation(); toggleTradeSelected(trade.id); }}>
-                          <span className={cn(
-                            'flex items-center justify-center w-5 h-5 rounded border transition-colors',
-                            isSelected ? 'bg-white border-white text-black' : 'border-zinc-600 text-transparent hover:border-zinc-400'
-                          )}>
-                            <Check className="w-3.5 h-3.5" />
-                          </span>
-                        </td>
-                      )}
-                      <td className="px-4 py-3 relative">
-                        <span className={cn('absolute left-0 top-0 bottom-0 w-[3px] opacity-0 group-hover:opacity-100 transition-opacity', isWin ? 'bg-emerald-400' : 'bg-rose-400')} />
-                        <span className="text-sm text-zinc-500 font-mono">{getDisplayTradeNumber(trade)}</span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-zinc-400 whitespace-nowrap">{formatDate(trade.date)}</td>
-                      <td className="px-4 py-3 text-sm text-white font-semibold tracking-tight truncate max-w-[100px]">{trade.symbol}</td>
-                      <td className="px-4 py-3 text-sm text-zinc-400 truncate max-w-[120px]">{account?.name}</td>
-                      <td className="px-4 py-3 text-sm text-zinc-400 truncate max-w-[100px]">{trade.setupTypes.join(', ') || '-'}</td>
-                      <td className="px-4 py-3 text-sm text-zinc-400">
-                        {trade.session ? (SESSION_SHORT_LABEL[trade.session] || trade.session.toLowerCase()) : '-'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <TrackingBadge value={trade.trackingNumber} size="sm" />
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={cn('text-xs px-2 py-0.5 rounded flex items-center gap-1 w-fit', trade.rulesFollowed === 'followed' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400')}>
-                          {trade.rulesFollowed === 'followed' ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
-                          <span className="truncate">{trade.rulesFollowed}</span>
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-xs font-medium text-right whitespace-nowrap">
-                        {rowRR !== null ? (
-                          <span className={cn('px-1.5 py-0.5 rounded border', rowRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : rowRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-rose-400 border-rose-500/30 bg-rose-500/10')}>
-                            {rowRR >= 1 ? '+' : ''}{rowRR.toFixed(2)}R
-                          </span>
-                        ) : '-'}
-                      </td>
-                      <td className="px-4 py-3 text-sm font-mono text-right font-bold whitespace-nowrap">
-                        <span className={isWin ? 'text-emerald-400' : 'text-rose-400'}>{formatCurrency(trade.profitLoss, privacyMode)}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <button onClick={(e) => { e.stopPropagation(); openEditTrade(trade); }} className="p-1 text-zinc-600 hover:text-white transition-colors">
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+      {/* TOP SECTION — Featured Gallery Grid (max 6 cards) */}
+      {recentTrades.length > 0 && (
+        <div>
+          <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Recent Trades</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+            {recentTrades.map(renderFeaturedCard)}
           </div>
         </div>
+      )}
 
-        {/* Mobile: stacked cards carrying the same fields as the table above
-            (trade #, date, symbol, account, P&L, R:R, rules, setup, session,
-            tracking #, edit) instead of forcing horizontal scroll through
-            12 columns on a narrow screen. */}
-        <div className="md:hidden space-y-2.5">
-          {filteredTrades.map((trade) => {
-            const account = accounts.find(a => a.id === trade.accountId);
-            const isWin = trade.profitLoss >= 0;
-            const rowRR = trade.riskAmount > 0 ? trade.profitLoss / trade.riskAmount : null;
-            const isSelected = selectedTradeIds.includes(trade.id);
-            return (
-              <div
-                key={trade.id}
-                onClick={() => tradeSelectMode ? toggleTradeSelected(trade.id) : setShowTradeDetail(trade.id)}
-                className={cn(
-                  'relative flex flex-col gap-2 p-3.5 pl-4 bg-gradient-to-r from-zinc-900/70 to-zinc-900/30 border rounded-xl cursor-pointer transition-colors min-w-0 overflow-hidden',
-                  isSelected ? 'border-white/60' : 'border-zinc-800'
-                )}
-              >
-                <div className={cn('absolute left-0 top-0 bottom-0 w-1', isWin ? 'bg-emerald-500/60' : 'bg-rose-500/60')} />
+      {/* BOTTOM SECTION — Recent Entry Log Preview */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Recent Entries</h3>
+          <button
+            type="button"
+            onClick={() => setTradeSubView('database')}
+            className="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
+          >
+            <Expand className="w-3.5 h-3.5" />
+            Open Full Database
+          </button>
+        </div>
 
-                {tradeSelectMode && (
-                  <div
-                    className="absolute top-3 right-3 z-10"
-                    onClick={(e) => { e.stopPropagation(); toggleTradeSelected(trade.id); }}
-                  >
-                    <span className={cn(
-                      'flex items-center justify-center w-6 h-6 rounded border transition-colors bg-zinc-950/80',
-                      isSelected ? 'bg-white border-white text-black' : 'border-zinc-600 text-transparent hover:border-zinc-400'
-                    )}>
-                      <Check className="w-4 h-4" />
-                    </span>
-                  </div>
-                )}
+        <div className="bg-[#16171d] border border-white/10 rounded-xl overflow-hidden">
+          {recentPreviewTrades.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px]">
+                <thead>
+                  <tr className="border-b border-white/5 text-left">
+                    <th className="px-4 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">#</th>
+                    <th className="px-4 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Date</th>
+                    <th className="px-4 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Symbol</th>
+                    <th className="px-4 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Session</th>
+                    <th className="px-4 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium text-right">R</th>
+                    <th className="px-4 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium text-right">P&L</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentPreviewTrades.map(trade => {
+                    const isWin = trade.profitLoss >= 0;
+                    const rowRR = trade.riskAmount > 0 ? trade.profitLoss / trade.riskAmount : null;
+                    return (
+                      <tr
+                        key={trade.id}
+                        onClick={() => tradeSelectMode ? toggleTradeSelected(trade.id) : setShowTradeDetail(trade.id)}
+                        className="border-b border-white/5 hover:bg-white/[0.02] cursor-pointer transition-colors"
+                      >
+                        <td className="px-4 py-2.5 text-sm text-zinc-500 font-mono">{getDisplayTradeNumber(trade)}</td>
+                        <td className="px-4 py-2.5 text-sm text-zinc-400 whitespace-nowrap">{formatDate(trade.date)}</td>
+                        <td className="px-4 py-2.5 text-sm text-white font-semibold truncate max-w-[120px]">{trade.symbol}</td>
+                        <td className="px-4 py-2.5 text-sm text-zinc-400">
+                          {trade.session ? (SESSION_SHORT_LABEL[trade.session] || trade.session.toLowerCase()) : '-'}
+                        </td>
+                        <td className="px-4 py-2.5 text-xs font-medium text-right whitespace-nowrap">
+                          {rowRR !== null ? (
+                            <span className={cn('px-1.5 py-0.5 rounded border', rowRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : rowRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-rose-400 border-rose-500/30 bg-rose-500/10')}>
+                              {rowRR >= 1 ? '+' : ''}{rowRR.toFixed(2)}R
+                            </span>
+                          ) : '-'}
+                        </td>
+                        <td className="px-4 py-2.5 text-sm font-mono text-right font-bold whitespace-nowrap">
+                          <span className={isWin ? 'text-emerald-400' : 'text-rose-400'}>{formatCurrency(trade.profitLoss, privacyMode)}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-10">
+              <div className="w-14 h-14 mx-auto rounded-full bg-zinc-800 flex items-center justify-center mb-3">
+                <TrendingUp className="w-7 h-7 text-zinc-600" />
+              </div>
+              <h3 className="text-base font-medium text-white mb-1.5">No trades yet</h3>
+              <p className="text-zinc-500 mb-3 text-sm">Add your first trade to get started</p>
+              <button onClick={() => { resetTradeForm(); setShowAddTrade(true); }} className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors">
+                <Plus className="w-4 h-4" />
+                Add Trade
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
-                <div className="flex items-start justify-between gap-3 min-w-0">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-xs text-zinc-500 font-mono flex-shrink-0">{getDisplayTradeNumber(trade)}</span>
-                      <h4 className="font-semibold text-white truncate tracking-tight">{trade.symbol}</h4>
-                    </div>
-                    <p className="text-xs text-zinc-500 truncate mt-0.5">{account?.name} · {formatDate(trade.date)}</p>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className={cn('font-mono font-bold', isWin ? 'text-emerald-400' : 'text-rose-400')}>
-                      {formatCurrency(trade.profitLoss, privacyMode)}
-                    </p>
-                    {rowRR !== null && (
-                      <span className={cn('inline-block mt-1 text-xs font-medium px-1.5 py-0.5 rounded border whitespace-nowrap', rowRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : rowRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-rose-400 border-rose-500/30 bg-rose-500/10')}>
-                        {rowRR >= 1 ? '+' : ''}{rowRR.toFixed(2)}R
-                      </span>
-                    )}
-                  </div>
-                </div>
+  const renderDatabaseView = () => {
+    const activeDbFilterCount =
+      (dbSearch.trim() ? 1 : 0) +
+      (dbAccountFilter !== 'all' ? 1 : 0) +
+      (dbSessionFilter !== 'all' ? 1 : 0) +
+      (dbOutcomeFilter !== 'all' ? 1 : 0) +
+      (dbRulesFilter !== 'all' ? 1 : 0);
 
-                <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-zinc-800/70">
-                  <span className={cn('text-xs px-2 py-0.5 rounded flex items-center gap-1', trade.rulesFollowed === 'followed' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400')}>
-                    {trade.rulesFollowed === 'followed' ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
-                    <span className="truncate">{trade.rulesFollowed}</span>
-                  </span>
-                  {trade.setupTypes.length > 0 && (
-                    <span className="px-2 py-0.5 bg-zinc-800/80 border border-zinc-700/50 rounded text-xs text-zinc-300 truncate max-w-[100px]">{trade.setupTypes[0]}</span>
-                  )}
-                  {trade.session && <SessionBadge value={trade.session} size="sm" />}
-                  {trade.trackingNumber && <TrackingBadge value={trade.trackingNumber} size="sm" />}
+    const resetDbFilters = () => {
+      setDbSearch('');
+      setDbAccountFilter('all');
+      setDbSessionFilter('all');
+      setDbOutcomeFilter('all');
+      setDbRulesFilter('all');
+      setDbPage(0);
+    };
+
+    return (
+      <div className="space-y-5 min-w-0">
+        {/* Breadcrumbs + back button */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-2 text-sm min-w-0">
+            <button
+              type="button"
+              onClick={() => setTradeSubView('overview')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-white/5 transition-colors flex-shrink-0"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Back to Overview</span>
+            </button>
+            <span className="text-zinc-700">/</span>
+            <span className="text-zinc-500 truncate">Trade History</span>
+            <span className="text-zinc-700">/</span>
+            <span className="text-white font-medium truncate">All Trades Database</span>
+          </div>
+          <button onClick={() => { resetTradeForm(); resetCalculator(); setShowAddTrade(true); }} className="flex items-center gap-2 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors flex-shrink-0">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Add Trade</span>
+          </button>
+        </div>
+
+        {/* Filter bar */}
+        <div className="flex items-center gap-2 flex-wrap p-3 bg-[#16171d] border border-white/10 rounded-xl">
+          <div className="relative flex-1 min-w-[180px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none" />
+            <input
+              type="text"
+              value={dbSearch}
+              onChange={(e) => { setDbSearch(e.target.value); setDbPage(0); }}
+              placeholder="Search trades..."
+              className="w-full pl-9 pr-3 py-2 bg-zinc-900 border border-white/10 rounded-lg text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500/50 transition-colors"
+            />
+          </div>
+          <select
+            value={dbAccountFilter}
+            onChange={(e) => { setDbAccountFilter(e.target.value); setDbPage(0); }}
+            className="px-3 py-2 bg-zinc-900 border border-white/10 rounded-lg text-sm text-zinc-300 focus:outline-none focus:border-indigo-500/50 transition-colors cursor-pointer"
+          >
+            <option value="all">All Accounts</option>
+            {accounts.map(a => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+          <select
+            value={dbSessionFilter}
+            onChange={(e) => { setDbSessionFilter(e.target.value); setDbPage(0); }}
+            className="px-3 py-2 bg-zinc-900 border border-white/10 rounded-lg text-sm text-zinc-300 focus:outline-none focus:border-indigo-500/50 transition-colors cursor-pointer"
+          >
+            <option value="all">All Sessions</option>
+            {SESSION_OPTIONS.map(s => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+          <select
+            value={dbOutcomeFilter}
+            onChange={(e) => { setDbOutcomeFilter(e.target.value as TradeFilter); setDbPage(0); }}
+            className="px-3 py-2 bg-zinc-900 border border-white/10 rounded-lg text-sm text-zinc-300 focus:outline-none focus:border-indigo-500/50 transition-colors cursor-pointer"
+          >
+            <option value="all">All Outcomes</option>
+            <option value="profit">Profit</option>
+            <option value="loss">Loss</option>
+            <option value="breakeven">Breakeven</option>
+          </select>
+          <select
+            value={dbRulesFilter}
+            onChange={(e) => { setDbRulesFilter(e.target.value as 'all' | 'followed' | 'broken'); setDbPage(0); }}
+            className="px-3 py-2 bg-zinc-900 border border-white/10 rounded-lg text-sm text-zinc-300 focus:outline-none focus:border-indigo-500/50 transition-colors cursor-pointer"
+          >
+            <option value="all">All Rules</option>
+            <option value="followed">Rules Followed</option>
+            <option value="broken">Rules Broken</option>
+          </select>
+          {activeDbFilterCount > 0 && (
+            <button
+              type="button"
+              onClick={resetDbFilters}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs text-zinc-400 hover:text-white transition-colors flex-shrink-0"
+            >
+              <X className="w-3.5 h-3.5" />
+              Clear ({activeDbFilterCount})
+            </button>
+          )}
+        </div>
+
+        {/* Result count */}
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <p className="text-sm text-zinc-500">
+            {dbFilteredTrades.length} {dbFilteredTrades.length === 1 ? 'trade' : 'trades'}
+          </p>
+        </div>
+
+        {/* Full-page table */}
+        {dbPagedTrades.length > 0 ? (
+          <div className="bg-[#16171d] border border-white/10 rounded-xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1100px]">
+                <thead>
+                  <tr className="border-b border-white/10 text-left bg-white/[0.02]">
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Outcome</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Date</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Trade #</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Session</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Position</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium text-right">Net P&L</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium text-right">R Multiple</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium text-right">Risk ($)</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Symbol</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Strategy</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Account</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dbPagedTrades.map(trade => {
+                    const account = accounts.find(a => a.id === trade.accountId);
+                    const isWin = trade.profitLoss >= 0;
+                    const isBreakeven = Math.abs(trade.profitLoss) < 10;
+                    const rowRR = trade.riskAmount > 0 ? trade.profitLoss / trade.riskAmount : null;
+                    const position = trade.profitLoss >= 0 ? 'Long' : 'Short';
+                    return (
+                      <tr
+                        key={trade.id}
+                        onClick={() => setShowTradeDetail(trade.id)}
+                        className="border-b border-white/5 hover:bg-white/[0.02] cursor-pointer transition-colors"
+                      >
+                        <td className="px-3 py-2.5">
+                          <span className={cn(
+                            'text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide',
+                            isBreakeven ? 'bg-zinc-700/40 text-zinc-300' : isWin ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'
+                          )}>
+                            {isBreakeven ? 'B/E' : isWin ? 'Win' : 'Loss'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5 text-sm text-zinc-400 whitespace-nowrap">{formatDate(trade.date)}</td>
+                        <td className="px-3 py-2.5">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-sm text-zinc-500 font-mono flex-shrink-0">{getDisplayTradeNumber(trade)}</span>
+                            {trade.trackingNumber && <TrackingBadge value={trade.trackingNumber} size="sm" />}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2.5 text-sm text-zinc-400">
+                          {trade.session ? (SESSION_SHORT_LABEL[trade.session] || trade.session.toLowerCase()) : '-'}
+                        </td>
+                        <td className="px-3 py-2.5 text-sm text-zinc-400">{position}</td>
+                        <td className="px-3 py-2.5 text-sm font-mono text-right font-bold whitespace-nowrap">
+                          <span className={isWin ? 'text-emerald-400' : 'text-rose-400'}>{formatCurrency(trade.profitLoss, privacyMode)}</span>
+                        </td>
+                        <td className="px-3 py-2.5 text-xs font-medium text-right whitespace-nowrap">
+                          {rowRR !== null ? (
+                            <span className={cn('px-1.5 py-0.5 rounded border', rowRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : rowRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-rose-400 border-rose-500/30 bg-rose-500/10')}>
+                              {rowRR >= 1 ? '+' : ''}{rowRR.toFixed(2)}R
+                            </span>
+                          ) : '-'}
+                        </td>
+                        <td className="px-3 py-2.5 text-sm text-zinc-400 text-right whitespace-nowrap">
+                          {trade.riskAmount > 0 ? formatCurrencyAbsolute(trade.riskAmount, privacyMode) : '-'}
+                        </td>
+                        <td className="px-3 py-2.5 text-sm text-white font-semibold truncate max-w-[100px]">{trade.symbol}</td>
+                        <td className="px-3 py-2.5 text-sm text-zinc-400 truncate max-w-[120px]">{trade.setupTypes.join(', ') || '-'}</td>
+                        <td className="px-3 py-2.5 text-sm text-zinc-400 truncate max-w-[120px]">{account?.name || '-'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {dbPageCount > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-white/10 flex-wrap gap-2">
+                <p className="text-xs text-zinc-500">
+                  Page {dbPage + 1} of {dbPageCount} · {dbFilteredTrades.length} total
+                </p>
+                <div className="flex items-center gap-1.5">
                   <button
-                    onClick={(e) => { e.stopPropagation(); openEditTrade(trade); }}
-                    className="ml-auto p-1 text-zinc-600 hover:text-white transition-colors flex-shrink-0"
+                    type="button"
+                    onClick={() => setDbPage(p => Math.max(0, p - 1))}
+                    disabled={dbPage === 0}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                   >
-                    <Edit2 className="w-4 h-4" />
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    Prev
+                  </button>
+                  <span className="text-xs text-zinc-500 px-2">{dbPage + 1} / {dbPageCount}</span>
+                  <button
+                    type="button"
+                    onClick={() => setDbPage(p => Math.min(dbPageCount - 1, p + 1))}
+                    disabled={dbPage >= dbPageCount - 1}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next
+                    <ChevronRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
-            );
-          })}
-        </div>
-        </>
-      )}
-
-      {galleryView === 'preview' && (
-        <div className="trade-table-scroll md:overflow-x-auto w-full">
-        <div className="space-y-2.5 md:min-w-[850px]">
-          {filteredTrades.map((trade) => {
-            const account = accounts.find(a => a.id === trade.accountId);
-            const coverImage = trade.executionImages[0]?.url || trade.timeframes.flatMap(tf => tf.images)[0]?.url;
-            const isWin = trade.profitLoss >= 0;
-            const rowRR = trade.riskAmount > 0 ? trade.profitLoss / trade.riskAmount : null;
-            const isSelected = selectedTradeIds.includes(trade.id);
-            return (
-              <div
-                key={trade.id}
-                onClick={() => tradeSelectMode ? toggleTradeSelected(trade.id) : setShowTradeDetail(trade.id)}
-                className={cn(
-                  'group relative flex gap-4 p-4 pl-5 bg-gradient-to-r from-zinc-900/70 to-zinc-900/30 border rounded-xl cursor-pointer transition-all duration-200 min-w-0 overflow-hidden hover:-translate-y-0.5',
-                  isSelected ? 'border-white/60' : (isWin ? 'border-zinc-800 hover:border-emerald-500/40 hover:shadow-[0_8px_24px_-8px_rgba(16,185,129,0.25)]' : 'border-zinc-800 hover:border-rose-500/40 hover:shadow-[0_8px_24px_-8px_rgba(239,68,68,0.25)]')
-                )}
-              >
-                <div className={cn('absolute left-0 top-0 bottom-0 w-1', isWin ? 'bg-gradient-to-b from-emerald-500/70 to-emerald-500/20' : 'bg-gradient-to-b from-rose-500/70 to-rose-500/20')} />
-                <div className={cn('absolute top-0 left-5 right-0 h-[2px]', isWin ? 'bg-gradient-to-r from-emerald-500/0 via-emerald-400/60 to-emerald-500/0' : 'bg-gradient-to-r from-rose-500/0 via-rose-400/60 to-rose-500/0')} />
-
-                {tradeSelectMode && (
-                  <div
-                    className="absolute top-3 right-3 z-10"
-                    onClick={(e) => { e.stopPropagation(); toggleTradeSelected(trade.id); }}
-                  >
-                    <span className={cn(
-                      'flex items-center justify-center w-6 h-6 rounded border transition-colors bg-zinc-950/80',
-                      isSelected ? 'bg-white border-white text-black' : 'border-zinc-600 text-transparent hover:border-zinc-400'
-                    )}>
-                      <Check className="w-4 h-4" />
-                    </span>
-                  </div>
-                )}
-
-                <div className="w-16 h-12 sm:w-24 sm:h-16 bg-zinc-800 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden border border-zinc-800 relative">
-                  <span className="absolute top-1 left-1 z-10 flex items-center justify-center w-4 h-4 rounded bg-black/70 backdrop-blur-sm text-[9px] font-mono text-zinc-300">
-                    {getDisplayTradeNumber(trade)}
-                  </span>
-                  <span className={cn('absolute top-1 right-1 z-10 w-1.5 h-1.5 rounded-full', isWin ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]' : 'bg-rose-400 shadow-[0_0_6px_rgba(248,113,113,0.8)]')} />
-                  {coverImage ? (
-                    <img src={coverImage} alt="" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                  ) : (
-                    <ImageIcon className="w-6 h-6 text-zinc-600" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-x-4 gap-y-1 mb-1.5 flex-wrap">
-                    <div className="min-w-0 flex-1">
-                      <h4 className="font-semibold text-white truncate tracking-tight">{trade.symbol}</h4>
-                      <p className="text-xs text-zinc-500 truncate">{account?.name} · {formatDate(trade.date)}</p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {rowRR !== null && (
-                        <span className={cn('text-xs font-medium px-2 py-0.5 rounded border whitespace-nowrap', rowRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : rowRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-rose-400 border-rose-500/30 bg-rose-500/10')}>
-                          {rowRR >= 1 ? '+' : ''}{rowRR.toFixed(2)}R
-                        </span>
-                      )}
-                      <p className={cn('font-mono font-bold', isWin ? 'text-emerald-400' : 'text-rose-400')}>
-                        {formatCurrency(trade.profitLoss, privacyMode)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="h-px bg-zinc-800/70 mb-2" />
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {trade.setupTypes.length > 0 ? trade.setupTypes.slice(0, 2).map(s => (
-                      <span key={s} className="px-2 py-0.5 bg-zinc-800/80 border border-zinc-700/50 rounded text-xs text-zinc-300 truncate max-w-[80px]">{s}</span>
-                    )) : (
-                      <span className="text-xs text-zinc-600 italic">No setup tagged</span>
-                    )}
-                    <span className={cn('text-xs px-2 py-0.5 rounded flex items-center gap-1', trade.rulesFollowed === 'followed' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400')}>
-                      {trade.rulesFollowed === 'followed' ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
-                    </span>
-                    {trade.session && <SessionBadge value={trade.session} size="sm" />}
-                    {trade.trackingNumber && <TrackingBadge value={trade.trackingNumber} size="sm" />}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        </div>
-      )}
-
-      {galleryView === 'gallery' && (
-        <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${galleryColumnCount}, minmax(0, 1fr))` }}>
-          {filteredTrades.map((trade) => {
-            const account = accounts.find(a => a.id === trade.accountId);
-            const coverImage = trade.executionImages[0]?.url || trade.timeframes.flatMap(tf => tf.images)[0]?.url;
-            const cardRR = trade.riskAmount > 0 ? trade.profitLoss / trade.riskAmount : null;
-            const isWin = trade.profitLoss >= 0;
-            const isSelected = selectedTradeIds.includes(trade.id);
-            return (
-              <div
-                key={trade.id}
-                onClick={() => tradeSelectMode ? toggleTradeSelected(trade.id) : setShowTradeDetail(trade.id)}
-                className={cn(
-                  'group relative bg-gradient-to-b from-zinc-900/70 to-zinc-900/30 border rounded-xl overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-0.5 min-w-0',
-                  isSelected ? 'border-white/60' : (isWin ? 'border-zinc-800 hover:border-emerald-500/40 hover:shadow-[0_8px_24px_-8px_rgba(16,185,129,0.25)]' : 'border-zinc-800 hover:border-rose-500/40 hover:shadow-[0_8px_24px_-8px_rgba(239,68,68,0.25)]')
-                )}
-              >
-                <div className={cn('absolute top-0 left-0 right-0 h-[2px] z-10', isWin ? 'bg-gradient-to-r from-emerald-500/0 via-emerald-400 to-emerald-500/0' : 'bg-gradient-to-r from-rose-500/0 via-rose-400 to-rose-500/0')} />
-
-                {tradeSelectMode && (
-                  <div
-                    className="absolute top-2 right-2 z-20"
-                    onClick={(e) => { e.stopPropagation(); toggleTradeSelected(trade.id); }}
-                  >
-                    <span className={cn(
-                      'flex items-center justify-center w-6 h-6 rounded border transition-colors bg-zinc-950/80',
-                      isSelected ? 'bg-white border-white text-black' : 'border-zinc-600 text-transparent hover:border-zinc-400'
-                    )}>
-                      <Check className="w-4 h-4" />
-                    </span>
-                  </div>
-                )}
-
-                <div className="aspect-video bg-zinc-800 flex items-center justify-center relative overflow-hidden">
-                  <span className="absolute top-2 left-2 z-10 flex items-center justify-center w-5 h-5 rounded bg-black/70 backdrop-blur-sm text-[10px] font-mono text-zinc-300">
-                    {getDisplayTradeNumber(trade)}
-                  </span>
-                  <span className={cn('absolute top-2 right-2 z-10 w-2 h-2 rounded-full', isWin ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-rose-400 shadow-[0_0_8px_rgba(248,113,113,0.8)]')} />
-                  {coverImage ? (
-                    <img src={coverImage} alt="" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                  ) : (
-                    <div className="flex flex-col items-center gap-2 text-zinc-600">
-                      <ImageIcon className="w-8 h-8" />
-                      <span className="text-xs">No image</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="p-3.5 min-w-0 overflow-hidden">
-                  <div className="mb-1.5 flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <h4 className="font-semibold text-white truncate tracking-tight">{trade.symbol}</h4>
-                      <p className="text-xs text-zinc-500 truncate">{account?.name}</p>
-                    </div>
-                    {trade.trackingNumber && <TrackingBadge value={trade.trackingNumber} size="sm" />}
-                  </div>
-
-                  <div className="flex items-center gap-1.5 flex-wrap mb-2.5">
-                    {trade.session && <SessionBadge value={trade.session} size="sm" />}
-                    <span className={cn('text-xs px-2 py-0.5 rounded flex items-center gap-1', trade.rulesFollowed === 'followed' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400')}>
-                      {trade.rulesFollowed === 'followed' ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 mb-2.5">
-                    <p className="text-[11px] text-zinc-500 whitespace-nowrap">{formatDate(trade.date)}</p>
-                    <div className="flex-1 h-px bg-gradient-to-r from-zinc-800 to-transparent" />
-                  </div>
-
-                  <div className="flex items-center justify-between gap-1.5 mb-2.5 min-w-0 flex-wrap">
-                    <span className={cn('text-sm sm:text-base font-mono font-bold tracking-tight truncate min-w-0', isWin ? 'text-emerald-400' : 'text-rose-400')}>
-                      {formatCurrency(trade.profitLoss, privacyMode)}
-                    </span>
-                    {cardRR !== null && (
-                      <span className={cn('text-xs font-medium px-2 py-0.5 rounded border flex-shrink-0 whitespace-nowrap', cardRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : cardRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-rose-400 border-rose-500/30 bg-rose-500/10')}>
-                        {cardRR >= 1 ? '+' : ''}{cardRR.toFixed(2)}R
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-1 flex-wrap pt-2.5 border-t border-zinc-800/70">
-                    {trade.setupTypes.length > 0 ? trade.setupTypes.slice(0, 2).map(s => (
-                      <span key={s} className="px-2 py-0.5 bg-zinc-800/80 border border-zinc-700/50 rounded text-xs text-zinc-300 truncate max-w-[70px]">{s}</span>
-                    )) : (
-                      <span className="text-xs text-zinc-600 italic">No setup tagged</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {filteredTrades.length === 0 && (
-        <div className="text-center py-12">
-          <div className="w-16 h-16 mx-auto rounded-full bg-zinc-800 flex items-center justify-center mb-4">
-            <TrendingUp className="w-8 h-8 text-zinc-600" />
+            )}
           </div>
-          <h3 className="text-lg font-medium text-white mb-2">No trades found</h3>
-          <p className="text-zinc-500 mb-4">Add your first trade or adjust your filters</p>
-          <button onClick={() => { resetTradeForm(); setShowAddTrade(true); }} className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors">
-            <Plus className="w-4 h-4" />
-            Add Trade
-          </button>
-        </div>
-      )}
+        ) : (
+          <div className="text-center py-12 bg-[#16171d] border border-white/10 rounded-xl">
+            <div className="w-14 h-14 mx-auto rounded-full bg-zinc-800 flex items-center justify-center mb-3">
+              <Database className="w-7 h-7 text-zinc-600" />
+            </div>
+            <h3 className="text-base font-medium text-white mb-1.5">No trades match your filters</h3>
+            <p className="text-zinc-500 mb-3 text-sm">Try adjusting or clearing your filters</p>
+            <button onClick={resetDbFilters} className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors">
+              Clear Filters
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderTradeHistory = () => (
+    <div className="relative space-y-6 min-w-0">
+      <div className={cn("pointer-events-none fixed inset-0 -z-10 overflow-hidden", theme === 'light' && 'opacity-30', theme === 'minecraft' && 'opacity-0')}>
+        <div className="absolute -top-24 -left-32 w-[32rem] h-[32rem] rounded-full bg-emerald-500/[0.07] blur-[110px]" />
+        <div className="absolute top-1/3 -right-32 w-[28rem] h-[28rem] rounded-full bg-rose-500/[0.06] blur-[110px]" />
+        <div className="absolute bottom-0 left-1/4 w-[24rem] h-[24rem] rounded-full bg-violet-500/[0.05] blur-[110px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_0%,rgba(16,185,129,0.08),transparent_38%),radial-gradient(circle_at_85%_10%,rgba(239,68,68,0.06),transparent_35%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:36px_36px] [mask-image:radial-gradient(ellipse_90%_80%_at_50%_0%,black_50%,transparent_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:3px_3px] opacity-40" />
+      </div>
+
+      {tradeSubView === 'overview' ? renderOverviewView() : renderDatabaseView()}
     </div>
   );
 
