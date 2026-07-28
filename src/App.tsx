@@ -4369,9 +4369,9 @@ function App() {
       <div
         key={trade.id}
         onClick={() => setShowTradeDetail(trade.id)}
-        className="group border border-zinc-800/70 rounded-xl overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:border-zinc-700 min-w-0"
+        className="group h-full flex flex-col border border-zinc-800/70 rounded-xl overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:border-zinc-700 min-w-0"
       >
-        <div className="aspect-video bg-zinc-800 flex items-center justify-center relative overflow-hidden">
+        <div className="aspect-video bg-zinc-800 flex items-center justify-center relative overflow-hidden flex-shrink-0">
           <span className="absolute top-2 left-2 z-10 flex items-center justify-center w-5 h-5 rounded bg-white text-[10px] font-mono font-bold text-black shadow-[0_1px_4px_rgba(0,0,0,0.6)] ring-1 ring-black/20">
             {getDisplayTradeNumber(trade)}
           </span>
@@ -4390,25 +4390,27 @@ function App() {
             </span>
           </div>
         </div>
-        <div className={cn('relative p-3 min-w-0 flex items-end justify-between gap-2 transition-colors duration-200', outcomeCardClass)}>
+        <div className={cn('relative p-3 min-w-0 flex-1 flex flex-col justify-between gap-2 transition-colors duration-200', outcomeCardClass)}>
           {trade.trackingNumber && (
             <span className="absolute top-2 right-2 z-10">
               <TrackingBadge value={trade.trackingNumber} size="sm" />
             </span>
           )}
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0">
             <h4 className="font-semibold text-white truncate tracking-tight text-sm">{trade.symbol}</h4>
             <p className="text-xs text-zinc-500 truncate mt-0.5">{account?.name} · {formatDate(trade.date)}</p>
-            <div className="flex items-center gap-1.5 flex-wrap mt-2">
+            <div className="flex flex-col items-start gap-1.5 mt-2">
               {trade.session && <SessionBadge value={trade.session} size="sm" />}
               {trade.setupTypes.slice(0, 1).map(s => (
-                <span key={s} className="px-1.5 py-0.5 bg-zinc-800/80 border border-zinc-700/50 rounded text-[10px] text-zinc-300 truncate max-w-[70px]">{s}</span>
+                <span key={s} className="px-1.5 py-0.5 bg-zinc-800/80 border border-zinc-700/50 rounded text-[10px] text-zinc-300 whitespace-nowrap">{s}</span>
               ))}
             </div>
           </div>
-          <span className={cn('text-sm font-mono font-bold tracking-tight whitespace-nowrap flex-shrink-0', isWin ? 'text-emerald-400' : 'text-rose-500')}>
-            {formatCurrency(trade.profitLoss, privacyMode)}
-          </span>
+          <div className="flex justify-end">
+            <span className={cn('text-sm font-mono font-bold tracking-tight whitespace-nowrap flex-shrink-0', isWin ? 'text-emerald-400' : 'text-rose-500')}>
+              {formatCurrency(trade.profitLoss, privacyMode)}
+            </span>
+          </div>
         </div>
       </div>
     );
