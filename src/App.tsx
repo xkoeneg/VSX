@@ -4483,7 +4483,6 @@ function App() {
       {/* TOP SECTION — Featured Gallery Grid (scrollable frame, all trades) */}
       {recentTrades.length > 0 && (
         <div>
-          <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Recent Trades</h3>
           {/* Frame — matches the Discipline Tracker card tone/border exactly */}
           <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl pl-4 pr-2 py-4 shadow-[0_0_40px_-8px_rgba(255,255,255,0.15)]">
             <div className="max-h-[520px] overflow-y-auto pt-2 pr-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
