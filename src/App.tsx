@@ -1883,17 +1883,17 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
 
   return (
     <div className="bg-zinc-800/50 rounded-xl p-3 border border-zinc-700/50">
-      <div className="flex items-center justify-between mb-2">
-        <h4 className={cn('text-sm font-semibold', isExecution ? 'text-white' : 'text-zinc-300')}>
-          {timeframe}
+      <div className="flex items-center justify-between gap-1 overflow-hidden mb-2">
+        <h4 title={timeframe} className={cn('text-sm font-semibold truncate', isExecution ? 'text-white' : 'text-zinc-300')}>
+          {isExecution ? 'Exec / Result' : timeframe}
         </h4>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-zinc-500">{images.length}</span>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-xs text-zinc-500 shrink-0">{images.length}</span>
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); setShowNotes(v => !v); }}
             className={cn(
-              'flex items-center gap-1 p-1.5 rounded-lg transition-colors',
+              'flex items-center gap-1 p-1.5 rounded-lg transition-colors shrink-0',
               showNotes ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:bg-zinc-700 hover:text-white',
               notes.trim() && !showNotes && 'text-sky-400'
             )}
@@ -1902,7 +1902,7 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
             <StickyNote className="w-3.5 h-3.5" />
             <ChevronDown className={cn('w-3 h-3 transition-transform', showNotes && 'rotate-180')} />
           </button>
-          <div className="relative">
+          <div className="relative shrink-0">
             <button
               type="button"
               onClick={(e) => {
@@ -1920,7 +1920,7 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
               </div>
             )}
           </div>
-          <div className="relative" ref={menuRef}>
+          <div className="relative shrink-0" ref={menuRef}>
             <button
               type="button"
               onClick={() => setShowMenu(!showMenu)}
