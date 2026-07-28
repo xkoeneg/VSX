@@ -4474,9 +4474,12 @@ function App() {
       {recentTrades.length > 0 && (
         <div>
           <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Recent Trades</h3>
-          <div className="max-h-[540px] overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent pr-1">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-              {recentTrades.map(renderFeaturedCard)}
+          {/* Outer frame — dedicated "Gallery Card Frame" separate from the page background */}
+          <div className="bg-[#121318] border border-white/10 rounded-2xl p-4 shadow-inner">
+            <div className="max-h-[520px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                {recentTrades.map(renderFeaturedCard)}
+              </div>
             </div>
           </div>
         </div>
