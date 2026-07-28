@@ -57,6 +57,16 @@ import {
   Moon,
   PanelLeft,
   Flame,
+  ClipboardPaste,
+  ZoomIn,
+  Send,
+  ImagePlus,
+  StickyNote,
+  Box,
+  Search,
+  ArrowLeft,
+  Database,
+  type LucideIcon,
 } from 'lucide-react';
 
 // Types
@@ -133,12 +143,25 @@ interface Rule {
   pillar: RulePillar;
 }
 
+interface ChatMessage {
+  id: string;
+  text: string;
+  timestamp: string;
+}
+
 interface MarketNotice {
   id: string;
   title: string;
-  description: string;
   imageUrl: string;
   timestamp: string;
+  messages: ChatMessage[];
+}
+
+interface ScenarioRow {
+  id: string;
+  scenario: string;
+  tags: string[];
+  lesson: string;
 }
 
 interface WikiEntry {
@@ -151,20 +174,52 @@ interface WikiEntry {
 interface SetupType {
   id: string;
   name: string;
+  color: TagColor;
 }
 
 interface Confluence {
   id: string;
   name: string;
+  color: TagColor;
 }
 
 interface Mistake {
   id: string;
   name: string;
+  color: TagColor;
 }
 
+// Notion-style tag color system — shared by Setup Types, Confluences, and
+// Mistakes Made tags. Each preset pairs a subtle tinted chip style (used for
+// selected badges/options) with a solid dot swatch (used in the color picker
+// and dropdown checkbox).
+type TagColor = 'gray' | 'blue' | 'purple' | 'green' | 'yellow' | 'orange' | 'red' | 'pink';
+
+interface TagColorStyle {
+  id: TagColor;
+  label: string;
+  swatch: string; // solid dot used in the color picker + active checkbox
+  chip: string; // subtle tinted badge used for selected chips/options
+}
+
+const TAG_COLOR_PALETTE: TagColorStyle[] = [
+  { id: 'gray', label: 'Gray', swatch: 'bg-zinc-400', chip: 'bg-[#1f202c] text-zinc-300 border border-[#303245]' },
+  { id: 'blue', label: 'Blue', swatch: 'bg-blue-500', chip: 'bg-blue-950/40 text-blue-300 border border-blue-500/50' },
+  { id: 'purple', label: 'Purple', swatch: 'bg-purple-500', chip: 'bg-purple-950/40 text-purple-300 border border-purple-500/50' },
+  { id: 'green', label: 'Green', swatch: 'bg-emerald-500', chip: 'bg-emerald-950/40 text-emerald-300 border border-emerald-500/50' },
+  { id: 'yellow', label: 'Yellow', swatch: 'bg-yellow-500', chip: 'bg-yellow-950/40 text-yellow-300 border border-yellow-500/50' },
+  { id: 'orange', label: 'Orange', swatch: 'bg-orange-500', chip: 'bg-orange-950/40 text-orange-300 border border-orange-500/50' },
+  { id: 'red', label: 'Red', swatch: 'bg-rose-500', chip: 'bg-rose-950/40 text-rose-300 border border-rose-500/50' },
+  { id: 'pink', label: 'Pink', swatch: 'bg-pink-500', chip: 'bg-pink-950/40 text-pink-300 border border-pink-500/50' },
+];
+
+const DEFAULT_TAG_COLOR: TagColor = 'gray';
+
+const getTagColorStyle = (color?: string): TagColorStyle =>
+  TAG_COLOR_PALETTE.find(c => c.id === color) || TAG_COLOR_PALETTE[0];
+
 type SessionOption = 'NYC' | 'London' | 'Asia' | 'Pre-market Open';
-type ViewType = 'dashboard' | 'trades' | 'discipline' | 'playbook' | 'notices' | 'wiki' | 'calendar';
+type ViewType = 'dashboard' | 'trades' | 'discipline' | 'lifeDiscipline' | 'playbook' | 'notices' | 'wiki' | 'calendar';
 type GalleryView = 'list' | 'preview' | 'gallery';
 type TradeFilter = 'all' | 'profit' | 'loss' | 'breakeven';
 type TradeSortField = 'date' | 'pnl' | 'symbol' | 'rr';
@@ -183,6 +238,25 @@ const PRESET_SYMBOLS = [
 ];
 
 const SESSION_OPTIONS: SessionOption[] = ['NYC', 'London', 'Asia', 'Pre-market Open'];
+
+// ---- Life Discipline Hub: daily habit checklist config ----
+// Each group renders as its own card of checkboxes. A day only counts as
+// "complete" on the Challenge Progress Grid when every item across every
+// group is checked for that date.
+interface HabitGroupConfig {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  items: string[];
+}
+
+const LIFE_DISCIPLINE_CHALLENGE_LENGTH = 100;
+
+const LIFE_DISCIPLINE_HABIT_GROUPS: HabitGroupConfig[] = [
+  { id: 'morning', label: 'Morning Routine', icon: Sun, items: ['Brush teeth twice a day', 'Face wash / Skincare', 'Hydrate'] },
+  { id: 'night', label: 'Night Routine', icon: Moon, items: ['Night shower', 'Brush teeth', 'Moisturize'] },
+  { id: 'physical', label: 'Physical & Mental Focus', icon: Activity, items: ['Gym / Workout', 'Clean eating', 'Sleep on time'] },
+];
 
 // Preset emotion tags for the Discipline & Psychology Review modal
 const EMOTION_OPTIONS = ['Calm', 'FOMO', 'Revenge Trading', 'Greed', 'Impatient', 'Anxious', 'Confident', 'Hesitant'];
@@ -209,7 +283,7 @@ const RULE_PILLAR_META: Record<RulePillar, { label: string; icon: string; accent
 const RULE_SEVERITIES: RuleSeverity[] = ['critical', 'warning', 'guide'];
 
 const RULE_SEVERITY_META: Record<RuleSeverity, { label: string; dot: string; badge: string }> = {
-  critical: { label: 'Critical', dot: 'bg-red-500', badge: 'bg-red-500/15 text-red-400 border border-red-500/20' },
+  critical: { label: 'Critical', dot: 'bg-rose-500', badge: 'bg-rose-500/15 text-rose-400 border border-rose-500/20' },
   warning: { label: 'Warning', dot: 'bg-amber-400', badge: 'bg-amber-400/15 text-amber-400 border border-amber-400/20' },
   guide: { label: 'Guide', dot: 'bg-sky-400', badge: 'bg-sky-400/15 text-sky-400 border border-sky-400/20' },
 };
@@ -226,6 +300,37 @@ const tagMatchesRuleTitle = (tag: string, ruleTitle: string): boolean => {
 };
 
 // Utility functions
+// Fixed palette for known scenario tags so recurring labels (loss, FOMO,
+// overtrade, etc.) stay visually consistent across the table. Anything
+// outside this list still gets a color via a deterministic hash so new
+// tags never fall back to plain gray-on-gray.
+const SCENARIO_TAG_STYLES: Record<string, string> = {
+  overtrade: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
+  chase: 'bg-orange-500/10 text-orange-400 border-orange-500/30',
+  loss: 'bg-zinc-500/15 text-zinc-300 border-zinc-500/30',
+  fomo: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
+  discipline: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+  win: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+  patience: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
+  revenge: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
+};
+
+const SCENARIO_TAG_FALLBACK_PALETTE = [
+  'bg-cyan-500/10 text-cyan-400 border-cyan-500/30',
+  'bg-amber-500/10 text-amber-400 border-amber-500/30',
+  'bg-indigo-500/10 text-indigo-400 border-indigo-500/30',
+  'bg-pink-500/10 text-pink-400 border-pink-500/30',
+  'bg-lime-500/10 text-lime-400 border-lime-500/30',
+];
+
+const getScenarioTagStyle = (tag: string) => {
+  const key = tag.trim().toLowerCase();
+  if (SCENARIO_TAG_STYLES[key]) return SCENARIO_TAG_STYLES[key];
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  return SCENARIO_TAG_FALLBACK_PALETTE[hash % SCENARIO_TAG_FALLBACK_PALETTE.length];
+};
+
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 // ============================================================
@@ -246,7 +351,7 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 // always produce fully-shaped, current-version objects, so nothing in the
 // UI ever crashes on a field that "isn't there yet" in older data.
 // ============================================================
-const DATA_SCHEMA_VERSION = 3;
+const DATA_SCHEMA_VERSION = 4;
 
 const createEmptyTimeframes = (): TimeframeChart[] =>
   TIMEFRAMES.map(tf => ({ name: tf, images: [], notes: '' }));
@@ -347,12 +452,39 @@ const normalizeRule = (r: any): Rule => ({
   pillar: RULE_PILLARS.includes(r?.pillar) ? r.pillar : guessRulePillar(r),
 });
 
-const normalizeNotice = (n: any): MarketNotice => ({
-  id: typeof n?.id === 'string' ? n.id : generateId(),
-  title: normalizeStringField(n?.title),
-  description: normalizeStringField(n?.description),
-  imageUrl: normalizeStringField(n?.imageUrl),
-  timestamp: typeof n?.timestamp === 'string' ? n.timestamp : new Date().toISOString(),
+const normalizeChatMessage = (m: any): ChatMessage => ({
+  id: typeof m?.id === 'string' ? m.id : generateId(),
+  text: normalizeStringField(m?.text),
+  timestamp: typeof m?.timestamp === 'string' ? m.timestamp : new Date().toISOString(),
+});
+
+const normalizeNotice = (n: any): MarketNotice => {
+  const timestamp = typeof n?.timestamp === 'string' ? n.timestamp : new Date().toISOString();
+  // Older backups stored a single static "description" string per notice.
+  // Fold that into the chat log as the first entry so nothing is lost.
+  const legacyDescription = normalizeStringField(n?.description);
+  const messages = Array.isArray(n?.messages)
+    ? n.messages.map(normalizeChatMessage)
+    : legacyDescription
+      ? [{ id: generateId(), text: legacyDescription, timestamp }]
+      : [];
+  return {
+    id: typeof n?.id === 'string' ? n.id : generateId(),
+    title: normalizeStringField(n?.title),
+    imageUrl: normalizeStringField(n?.imageUrl),
+    timestamp,
+    messages,
+  };
+};
+
+const normalizeScenarioTags = (tags: any): string[] =>
+  Array.isArray(tags) ? tags.filter((t: any) => typeof t === 'string' && t.trim()) : [];
+
+const normalizeScenario = (s: any): ScenarioRow => ({
+  id: typeof s?.id === 'string' ? s.id : generateId(),
+  scenario: normalizeStringField(s?.scenario),
+  tags: normalizeScenarioTags(s?.tags),
+  lesson: normalizeStringField(s?.lesson),
 });
 
 const normalizeWiki = (w: any): WikiEntry => ({
@@ -362,9 +494,10 @@ const normalizeWiki = (w: any): WikiEntry => ({
   category: normalizeStringField(w?.category),
 });
 
-const normalizeNamedItem = (item: any): { id: string; name: string } => ({
+const normalizeNamedItem = (item: any, defaultColor: TagColor = DEFAULT_TAG_COLOR): { id: string; name: string; color: TagColor } => ({
   id: typeof item?.id === 'string' ? item.id : generateId(),
   name: normalizeStringField(item?.name),
+  color: TAG_COLOR_PALETTE.some(c => c.id === item?.color) ? item.color : defaultColor,
 });
 
 interface StoredData {
@@ -373,6 +506,7 @@ interface StoredData {
   trades: Trade[];
   rules: Rule[];
   notices: MarketNotice[];
+  noticeScenarios: ScenarioRow[];
   wikiEntries: WikiEntry[];
   setupTypes: SetupType[];
   confluences: Confluence[];
@@ -392,10 +526,11 @@ const migrateStoredData = (raw: any): StoredData => {
     trades: Array.isArray(data.trades) ? normalizeTrades(data.trades) : [],
     rules: Array.isArray(data.rules) ? data.rules.map(normalizeRule) : [],
     notices: Array.isArray(data.notices) ? data.notices.map(normalizeNotice) : [],
+    noticeScenarios: Array.isArray(data.noticeScenarios) ? data.noticeScenarios.map(normalizeScenario) : [],
     wikiEntries: Array.isArray(data.wikiEntries) ? data.wikiEntries.map(normalizeWiki) : [],
-    setupTypes: Array.isArray(data.setupTypes) ? data.setupTypes.map(normalizeNamedItem) : [],
-    confluences: Array.isArray(data.confluences) ? data.confluences.map(normalizeNamedItem) : [],
-    mistakesList: Array.isArray(data.mistakesList) ? data.mistakesList.map(normalizeNamedItem) : [],
+    setupTypes: Array.isArray(data.setupTypes) ? data.setupTypes.map((item: any) => normalizeNamedItem(item, 'gray')) : [],
+    confluences: Array.isArray(data.confluences) ? data.confluences.map((item: any) => normalizeNamedItem(item, 'gray')) : [],
+    mistakesList: Array.isArray(data.mistakesList) ? data.mistakesList.map((item: any) => normalizeNamedItem(item, 'red')) : [],
     customSymbols: Array.isArray(data.customSymbols) ? data.customSymbols.filter((s: any) => typeof s === 'string') : [],
   };
 };
@@ -424,6 +559,18 @@ const formatCurrency = (value: number, blur: boolean = false) => {
 const formatCurrencyAbsolute = (value: number, blur: boolean = false) => {
   if (blur) return '****';
   return `$${Math.abs(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
+// Compact currency for very tight spaces (e.g. mobile calendar day cells) where
+// a full "+$252,303.00" simply won't fit in a ~40px cell. Abbreviates thousands/
+// millions instead of truncating mid-number.
+const formatCurrencyCompact = (value: number, blur: boolean = false) => {
+  if (blur) return '****';
+  const prefix = value >= 0 ? '+' : '-';
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) return `${prefix}$${(abs / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)}M`;
+  if (abs >= 1_000) return `${prefix}$${(abs / 1_000).toFixed(abs >= 10_000 ? 0 : 1)}k`;
+  return `${prefix}$${abs.toFixed(0)}`;
 };
 
 // ============================================================
@@ -705,7 +852,7 @@ const PopupCalculator: React.FC<CalculatorProps> = ({ value, onChange, onClose, 
       ref={calculatorRef}
       className={cn(
         "fixed z-[100] rounded-xl shadow-2xl p-2 w-52 select-none transition-colors",
-        theme === 'dark' ? 'bg-zinc-900 border border-zinc-700' : 'bg-white border border-zinc-200'
+        theme !== 'light' ? 'bg-zinc-900 border border-zinc-700' : 'bg-white border border-zinc-200'
       )}
       style={{ top: position.top, left: position.left, cursor: isDragging ? 'grabbing' : 'default' }}
       onClick={(e) => e.stopPropagation()}
@@ -716,20 +863,20 @@ const PopupCalculator: React.FC<CalculatorProps> = ({ value, onChange, onClose, 
         onMouseDown={handleMouseDown}
         className={cn(
           "flex items-center justify-between mb-2 px-1 py-1 rounded cursor-grab transition-colors",
-          theme === 'dark' ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-100'
+          theme !== 'light' ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-100'
         )}
       >
         <div className="flex items-center gap-2">
-          <GripVertical className={cn("w-3 h-3", theme === 'dark' ? 'text-zinc-600' : 'text-zinc-400')} />
-          <Calculator className={cn("w-3 h-3", theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400')} />
-          <span className={cn("text-xs", theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400')}>Calculator</span>
+          <GripVertical className={cn("w-3 h-3", theme !== 'light' ? 'text-zinc-600' : 'text-zinc-400')} />
+          <Calculator className={cn("w-3 h-3", theme !== 'light' ? 'text-zinc-500' : 'text-zinc-400')} />
+          <span className={cn("text-xs", theme !== 'light' ? 'text-zinc-500' : 'text-zinc-400')}>Calculator</span>
         </div>
         <button
           type="button"
           onClick={onClose}
           className={cn(
             "p-0.5 transition-colors rounded",
-            theme === 'dark' ? 'text-zinc-500 hover:text-white hover:bg-zinc-700' : 'text-zinc-400 hover:text-zinc-900 hover:bg-zinc-200'
+            theme !== 'light' ? 'text-zinc-500 hover:text-white hover:bg-zinc-700' : 'text-zinc-400 hover:text-zinc-900 hover:bg-zinc-200'
           )}
         >
           <X className="w-3.5 h-3.5" />
@@ -737,7 +884,7 @@ const PopupCalculator: React.FC<CalculatorProps> = ({ value, onChange, onClose, 
       </div>
       <div className={cn(
         "rounded-lg px-3 py-2 mb-2 text-right font-mono text-lg min-h-[40px] overflow-hidden",
-        theme === 'dark' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900'
+        theme !== 'light' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900'
       )}>
         {value || '0'}
       </div>
@@ -749,7 +896,7 @@ const PopupCalculator: React.FC<CalculatorProps> = ({ value, onChange, onClose, 
             onClick={() => handleInput(btn)}
             className={cn(
               "h-10 rounded-lg font-medium transition-colors",
-              theme === 'dark'
+              theme !== 'light'
                 ? 'bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 text-white'
                 : 'bg-zinc-100 hover:bg-zinc-200 active:bg-zinc-300 text-zinc-900'
             )}
@@ -762,7 +909,7 @@ const PopupCalculator: React.FC<CalculatorProps> = ({ value, onChange, onClose, 
         <button
           type="button"
           onClick={() => handleInput('C')}
-          className="h-8 bg-red-500/20 hover:bg-red-500/30 active:bg-red-500/40 text-red-500 rounded-lg font-medium transition-colors"
+          className="h-8 bg-rose-500/20 hover:bg-rose-500/30 active:bg-rose-500/40 text-rose-500 rounded-lg font-medium transition-colors"
         >
           C
         </button>
@@ -771,7 +918,7 @@ const PopupCalculator: React.FC<CalculatorProps> = ({ value, onChange, onClose, 
           onClick={() => handleInput('backspace')}
           className={cn(
             "h-8 rounded-lg font-medium transition-colors flex items-center justify-center",
-            theme === 'dark'
+            theme !== 'light'
               ? 'bg-zinc-700 hover:bg-zinc-600 active:bg-zinc-500 text-white'
               : 'bg-zinc-200 hover:bg-zinc-300 active:bg-zinc-400 text-zinc-900'
           )}
@@ -827,7 +974,7 @@ const TimeInput: React.FC<TimeInputProps> = ({ value, onChange, label }) => {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="relative w-full bg-zinc-900/50 border border-zinc-800 rounded-xl flex items-center hover:border-zinc-700 focus:outline-none focus:border-zinc-600 transition-colors group select-none overflow-hidden"
+        className="relative w-full bg-[#1c1d27] border border-[#2e303d] rounded-xl flex items-center hover:border-[#3d4152] focus:outline-none focus:border-[#3d4152] transition-colors group select-none overflow-hidden"
       >
         <div className="flex items-center pl-4 pr-2 text-zinc-400 group-hover:text-zinc-300 transition-colors">
           <Clock className="w-4 h-4" />
@@ -842,7 +989,7 @@ const TimeInput: React.FC<TimeInputProps> = ({ value, onChange, label }) => {
             role="button"
             tabIndex={0}
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onChange(''); }}
-            className="px-3 py-3 text-zinc-500 hover:text-red-400 transition-colors"
+            className="px-3 py-3 text-zinc-500 hover:text-rose-400 transition-colors"
           >
             <X className="w-4 h-4" />
           </span>
@@ -854,7 +1001,7 @@ const TimeInput: React.FC<TimeInputProps> = ({ value, onChange, label }) => {
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl z-30 p-2 flex gap-2 w-full min-w-[180px]">
+        <div className="absolute top-full left-0 mt-1 bg-[#1c1d27] border border-[#2e303d] rounded-xl shadow-xl z-30 p-2 flex gap-2 w-full min-w-[180px]">
           <div className="flex-1">
             <div className="text-[10px] text-zinc-500 text-center mb-1">Hour</div>
             <div className="h-40 overflow-y-auto rounded-lg bg-zinc-900/50">
@@ -955,7 +1102,7 @@ const DateInput: React.FC<DateInputProps> = ({ value, onChange, label }) => {
       <button
         type="button"
         onClick={openCalendar}
-        className="relative w-full bg-zinc-900/50 border border-zinc-800 rounded-xl flex items-center hover:border-zinc-700 focus:outline-none focus:border-zinc-600 transition-colors group select-none overflow-hidden"
+        className="relative w-full bg-[#1c1d27] border border-[#2e303d] rounded-xl flex items-center hover:border-[#3d4152] focus:outline-none focus:border-[#3d4152] transition-colors group select-none overflow-hidden"
       >
         <div className="flex items-center pl-4 pr-2 text-zinc-400 group-hover:text-zinc-300 transition-colors">
           <CalendarDays className="w-4 h-4" />
@@ -971,7 +1118,7 @@ const DateInput: React.FC<DateInputProps> = ({ value, onChange, label }) => {
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl z-30 p-3 w-64">
+        <div className="absolute top-full left-0 mt-1 bg-[#1c1d27] border border-[#2e303d] rounded-xl shadow-xl z-30 p-3 w-64">
           <div className="flex items-center justify-between mb-2">
             <button
               type="button"
@@ -1037,7 +1184,8 @@ interface MultiSelectDropdownProps {
   onAddNew?: (name: string) => void;
   onDeleteOption?: (id: string, name: string) => void;
   placeholder?: string;
-  colorScheme?: 'default' | 'red';
+  colorScheme?: 'default' | 'red' | 'emerald' | 'rose';
+  layout?: 'flex' | 'grid';
 }
 
 const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
@@ -1049,10 +1197,13 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
   onDeleteOption,
   placeholder = 'None yet',
   colorScheme = 'default',
+  layout = 'flex',
 }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [newItem, setNewItem] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const addInputRef = useRef<HTMLInputElement>(null);
+  const isGrid = layout === 'grid';
 
   useEffect(() => {
     if (isAdding) addInputRef.current?.focus();
@@ -1076,35 +1227,49 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
     }
   };
 
+  const confirmDelete = () => {
+    if (deleteConfirm && onDeleteOption) {
+      onDeleteOption(deleteConfirm.id, deleteConfirm.name);
+    }
+    setDeleteConfirm(null);
+  };
+
   const activeClasses = colorScheme === 'red'
-    ? 'bg-red-500 text-white border-red-500'
-    : 'bg-white text-zinc-900 border-white';
+    ? cn('bg-rose-500 text-white border-rose-500', isGrid && 'ring-1 ring-rose-400/50 shadow-[0_0_10px_-2px_rgba(239,68,68,0.6)]')
+    : colorScheme === 'emerald'
+      ? 'bg-emerald-950/40 text-emerald-300 border border-emerald-500/80'
+      : colorScheme === 'rose'
+        ? 'bg-rose-950/40 text-rose-300 border border-rose-500/80'
+        : cn('bg-white text-zinc-900 border-white', isGrid && 'ring-1 ring-emerald-400/50 shadow-[0_0_10px_-2px_rgba(16,185,129,0.5)]');
   const inactiveClasses = colorScheme === 'red'
-    ? 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:border-red-500/50 hover:text-red-300 hover:bg-zinc-800'
-    : 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:border-zinc-500 hover:text-zinc-200 hover:bg-zinc-800';
+    ? 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:border-rose-500/50 hover:text-rose-300 hover:bg-zinc-800'
+    : colorScheme === 'emerald' || colorScheme === 'rose'
+      ? 'bg-[#1a1b23] text-zinc-400 border-[#232429] hover:border-gray-600 hover:text-zinc-200'
+      : 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:border-zinc-500 hover:text-zinc-200 hover:bg-zinc-800';
 
   return (
     <div>
       <label className="block text-xs text-zinc-400 mb-2">{label}</label>
-      <div className="flex flex-wrap gap-1.5">
+      <div className={isGrid ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2' : 'flex flex-wrap gap-2'}>
         {options.length === 0 && !onAddNew && (
           <span className="text-xs text-zinc-600 py-1.5">{placeholder}</span>
         )}
         {options.map(opt => {
           const isSelected = selected.includes(opt.name);
           return (
-            <div key={opt.id} className="group relative">
+            <div key={opt.id} className={cn('group relative', isGrid && 'w-full')}>
               <button
                 type="button"
                 onClick={() => toggleItem(opt.name)}
                 className={cn(
-                  'px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150 flex items-center gap-1',
+                  'text-xs font-medium border transition-all duration-150 flex items-center gap-1',
+                  isGrid ? 'w-full h-9 px-3 rounded-lg justify-center' : 'px-3 py-1.5 rounded-full',
                   onDeleteOption && 'pr-6',
                   isSelected ? activeClasses : inactiveClasses
                 )}
               >
-                {isSelected && <Check className="w-3 h-3" />}
-                <span className="truncate max-w-[140px]">{opt.name}</span>
+                {isSelected && <Check className="w-3 h-3 shrink-0" />}
+                <span>{opt.name}</span>
               </button>
               {onDeleteOption && (
                 <button
@@ -1112,7 +1277,7 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    onDeleteOption(opt.id, opt.name);
+                    setDeleteConfirm({ id: opt.id, name: opt.name });
                   }}
                   title={`Delete "${opt.name}"`}
                   className={cn(
@@ -1130,7 +1295,7 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
 
         {onAddNew && (
           isAdding ? (
-            <div className="flex items-center gap-1">
+            <div className={cn('flex items-center gap-1', isGrid && 'col-span-full sm:col-span-1')}>
               <input
                 ref={addInputRef}
                 type="text"
@@ -1142,13 +1307,16 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
                 }}
                 onBlur={() => { if (!newItem.trim()) setIsAdding(false); }}
                 placeholder="New..."
-                className="w-24 bg-zinc-800 border border-zinc-600 rounded-full px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
+                className={cn(
+                  'bg-zinc-800 border border-zinc-600 px-3 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500',
+                  isGrid ? 'flex-1 h-9 rounded-lg' : 'w-24 py-1.5 rounded-full'
+                )}
               />
               <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={handleAddNew}
-                className="p-1.5 bg-zinc-700 hover:bg-zinc-600 rounded-full text-zinc-300 hover:text-white transition-colors"
+                className={cn('bg-zinc-700 hover:bg-zinc-600 text-zinc-300 hover:text-white transition-colors', isGrid ? 'h-9 w-9 rounded-lg flex items-center justify-center shrink-0' : 'p-1.5 rounded-full')}
               >
                 <Check className="w-3.5 h-3.5" />
               </button>
@@ -1157,7 +1325,12 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
             <button
               type="button"
               onClick={() => setIsAdding(true)}
-              className="px-3 py-1.5 rounded-full text-xs font-medium border border-dashed border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300 transition-all duration-150 flex items-center gap-1"
+              className={cn(
+                'text-xs font-medium border border-dashed transition-all duration-150 flex items-center gap-1',
+                isGrid
+                  ? 'w-full h-9 px-3 rounded-lg justify-center border-gray-600 text-gray-400 hover:border-gray-400 hover:text-gray-300'
+                  : 'px-3 py-1.5 rounded-full border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300'
+              )}
             >
               <Plus className="w-3 h-3" />
               Add
@@ -1165,12 +1338,365 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
           )
         )}
       </div>
+
+      {deleteConfirm && (
+        <ModalBackdrop
+          onClose={() => setDeleteConfirm(null)}
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[80] flex items-center justify-center p-4"
+        >
+          <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-rose-500/15 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-5 h-5 text-rose-400" />
+              </div>
+              <h3 className="text-lg font-bold text-white">Delete Tag?</h3>
+            </div>
+            <p className="text-sm text-zinc-400 mb-6">
+              Are you sure you want to remove "{deleteConfirm.name}" from your default list? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirm(null)}
+                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-rose-500/90 hover:bg-rose-500 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </ModalBackdrop>
+      )}
     </div>
   );
 };
 
-// Small free-text tag input — lets a user type a custom value (e.g. an emotion not in the
-// preset list) and add it as a removable chip. Complements MultiSelectDropdown for fields
+// Notion-style color palette popup — shown when the person clicks a tag's
+// color dot inside a TagSelectDropdown option row. Renders as a fixed-position
+// popover anchored to the dot so it always escapes the dropdown's scroll
+// clipping, and closes on outside click or Escape.
+interface TagColorPickerProps {
+  anchorRect: DOMRect;
+  currentColor: TagColor;
+  onSelect: (color: TagColor) => void;
+  onClose: () => void;
+}
+
+const TagColorPicker: React.FC<TagColorPickerProps> = ({ anchorRect, currentColor, onSelect, onClose }) => {
+  const popoverRef = useRef<HTMLDivElement>(null);
+  useClickOutside(popoverRef, onClose, true);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
+  // Keep the popover on-screen: prefer opening below the dot, but flip
+  // above if it would run off the bottom of the viewport.
+  const popoverWidth = 176;
+  const viewportW = typeof window !== 'undefined' ? window.innerWidth : 1024;
+  const viewportH = typeof window !== 'undefined' ? window.innerHeight : 768;
+  const estimatedHeight = 258;
+  const left = Math.min(anchorRect.left, viewportW - popoverWidth - 8);
+  const top = anchorRect.bottom + 6 + estimatedHeight > viewportH
+    ? Math.max(8, anchorRect.top - estimatedHeight - 6)
+    : anchorRect.bottom + 6;
+
+  return (
+    <div
+      ref={popoverRef}
+      onClick={(e) => e.stopPropagation()}
+      style={{ position: 'fixed', top, left, width: popoverWidth }}
+      className="z-[100] bg-zinc-800 border border-zinc-700 rounded-lg shadow-2xl p-1.5"
+    >
+      <p className="px-2 pt-1 pb-1.5 text-[10px] font-medium uppercase tracking-wide text-zinc-500">Tag Color</p>
+      <div className="flex flex-col gap-0.5">
+        {TAG_COLOR_PALETTE.map(c => (
+          <button
+            key={c.id}
+            type="button"
+            onClick={() => { onSelect(c.id); onClose(); }}
+            className={cn(
+              'w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-left transition-colors',
+              c.id === currentColor ? 'bg-zinc-700 text-white' : 'text-zinc-300 hover:bg-zinc-700/70'
+            )}
+          >
+            <span className={cn('w-3 h-3 rounded-full shrink-0', c.swatch)} />
+            <span className="flex-1">{c.label}</span>
+            {c.id === currentColor && <Check className="w-3.5 h-3.5 shrink-0" />}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Compact multi-select dropdown for tag fields — closed state looks like the
+// Symbol/Session inputs and shows selected tags as removable badges inline,
+// each tinted with that tag's own saved color; open state is a checklist
+// with a per-option Notion-style color dot, an "Add Custom Tag" row, and
+// delete-with-confirm.
+interface TagSelectDropdownProps {
+  label: string;
+  options: { id: string; name: string; color?: TagColor }[];
+  selected: string[];
+  onChange: (selected: string[]) => void;
+  onAddNew?: (name: string) => void;
+  onDeleteOption?: (id: string, name: string) => void;
+  onColorChange?: (id: string, color: TagColor) => void;
+  placeholder?: string;
+  colorScheme?: 'emerald' | 'rose';
+}
+
+const TagSelectDropdown: React.FC<TagSelectDropdownProps> = ({
+  label,
+  options,
+  selected,
+  onChange,
+  onAddNew,
+  onDeleteOption,
+  onColorChange,
+  placeholder = 'Select...',
+  colorScheme = 'emerald',
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newItem, setNewItem] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [colorPickerFor, setColorPickerFor] = useState<{ id: string; rect: DOMRect } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const addInputRef = useRef<HTMLInputElement>(null);
+
+  useClickOutside(containerRef, useCallback(() => { setIsOpen(false); setIsAdding(false); }, []), isOpen);
+
+  useEffect(() => {
+    if (isAdding) addInputRef.current?.focus();
+  }, [isAdding]);
+
+  // Legacy/fallback color when an option has no saved color yet.
+  const schemeFallback: TagColor = colorScheme === 'rose' ? 'red' : 'green';
+
+  // Look up a tag's saved color by name (selected tags are stored as plain
+  // strings on the trade, so the color always comes from the live options list).
+  const colorForName = (name: string): TagColor =>
+    (options.find(o => o.name === name)?.color as TagColor) || schemeFallback;
+
+  const toggleItem = (name: string) => {
+    if (selected.includes(name)) {
+      onChange(selected.filter(s => s !== name));
+    } else {
+      onChange([...selected, name]);
+    }
+  };
+
+  const removeItem = (name: string, e: React.SyntheticEvent) => {
+    e.stopPropagation();
+    onChange(selected.filter(s => s !== name));
+  };
+
+  const handleAddNew = () => {
+    if (newItem.trim() && onAddNew) {
+      const trimmed = newItem.trim();
+      onAddNew(trimmed);
+      onChange([...selected, trimmed]);
+      setNewItem('');
+      setIsAdding(false);
+    }
+  };
+
+  const confirmDelete = () => {
+    if (deleteConfirm && onDeleteOption) {
+      onDeleteOption(deleteConfirm.id, deleteConfirm.name);
+    }
+    setDeleteConfirm(null);
+  };
+
+  return (
+    <div ref={containerRef} className="relative">
+      <label className="block text-xs text-zinc-400 mb-1.5">{label}</label>
+      <button
+        type="button"
+        onClick={() => setIsOpen(v => !v)}
+        className="w-full min-h-[46px] bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#3d4152] flex items-center justify-between gap-2"
+      >
+        {selected.length === 0 ? (
+          <span className="text-zinc-500">{placeholder}</span>
+        ) : (
+          <div className="flex flex-wrap gap-1.5 flex-1">
+            {selected.map(name => (
+              <span
+                key={name}
+                className={cn('inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-md text-xs font-medium', getTagColorStyle(colorForName(name)).chip)}
+              >
+                <span className="truncate max-w-[140px]">{name}</span>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => removeItem(name, e)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') removeItem(name, e); }}
+                  className="hover:bg-black/20 rounded p-0.5 shrink-0"
+                >
+                  <X className="w-3 h-3" />
+                </span>
+              </span>
+            ))}
+          </div>
+        )}
+        <ChevronDown className={cn('w-4 h-4 text-zinc-400 shrink-0 transition-transform', isOpen && 'rotate-180')} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-[#1c1d27] border border-[#2e303d] rounded-lg shadow-xl z-30 max-h-60 overflow-y-auto">
+          {options.length === 0 && (
+            <p className="px-3 py-2.5 text-xs text-zinc-500">No options yet</p>
+          )}
+          {options.map(opt => {
+            const isSelected = selected.includes(opt.name);
+            const optColorStyle = getTagColorStyle(opt.color || schemeFallback);
+            return (
+              <div
+                key={opt.id}
+                onClick={() => toggleItem(opt.name)}
+                className="group flex items-center justify-between gap-2 px-3 py-2 hover:bg-zinc-700 cursor-pointer transition-colors"
+              >
+                <div className="flex items-center gap-2 text-sm min-w-0">
+                  <div className={cn(
+                    'w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors',
+                    isSelected ? cn(optColorStyle.swatch, 'border-transparent') : 'border-zinc-600'
+                  )}>
+                    {isSelected && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                  <span className={cn('truncate', isSelected ? 'text-white' : 'text-zinc-300')}>{opt.name}</span>
+                </div>
+                <div className="flex items-center gap-0.5 shrink-0">
+                  {onColorChange && (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setColorPickerFor(cur => (cur?.id === opt.id ? null : { id: opt.id, rect }));
+                      }}
+                      title="Change tag color"
+                      className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 rounded hover:bg-zinc-600 transition-all shrink-0 flex items-center justify-center"
+                    >
+                      <span className={cn('w-3 h-3 rounded-full block', optColorStyle.swatch)} />
+                    </button>
+                  )}
+                  {onDeleteOption && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDeleteConfirm({ id: opt.id, name: opt.name });
+                      }}
+                      title={`Delete "${opt.name}"`}
+                      className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 rounded hover:bg-zinc-600 text-zinc-500 hover:text-white transition-all shrink-0"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          {colorPickerFor && onColorChange && (
+            <TagColorPicker
+              anchorRect={colorPickerFor.rect}
+              currentColor={(options.find(o => o.id === colorPickerFor.id)?.color as TagColor) || DEFAULT_TAG_COLOR}
+              onSelect={(color) => onColorChange(colorPickerFor.id, color)}
+              onClose={() => setColorPickerFor(null)}
+            />
+          )}
+
+          {onAddNew && (
+            <div className="border-t border-zinc-700">
+              {isAdding ? (
+                <div className="flex items-center gap-1.5 px-3 py-2">
+                  <input
+                    ref={addInputRef}
+                    type="text"
+                    value={newItem}
+                    onChange={(e) => setNewItem(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') { e.preventDefault(); handleAddNew(); }
+                      if (e.key === 'Escape') { setIsAdding(false); setNewItem(''); }
+                    }}
+                    onBlur={() => { if (!newItem.trim()) setIsAdding(false); }}
+                    placeholder="New tag name..."
+                    className="flex-1 min-w-0 bg-zinc-900 border border-zinc-600 rounded-md px-2 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
+                  />
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={handleAddNew}
+                    className="p-1.5 bg-zinc-700 hover:bg-zinc-600 rounded-md text-zinc-300 hover:text-white transition-colors shrink-0"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsAdding(true)}
+                  className="w-full flex items-center gap-1.5 px-3 py-2.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700 transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add Custom Tag
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {deleteConfirm && (
+        <ModalBackdrop
+          onClose={() => setDeleteConfirm(null)}
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[80] flex items-center justify-center p-4"
+        >
+          <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-rose-500/15 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-5 h-5 text-rose-400" />
+              </div>
+              <h3 className="text-lg font-bold text-white">Delete Tag?</h3>
+            </div>
+            <p className="text-sm text-zinc-400 mb-6">
+              Are you sure you want to remove "{deleteConfirm.name}" from your default list? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirm(null)}
+                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-rose-500/90 hover:bg-rose-500 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </ModalBackdrop>
+      )}
+    </div>
+  );
+};
 // that need ad-hoc, non-persisted tags rather than a shared global option list.
 interface EditableTagInputProps {
   values: string[];
@@ -1183,11 +1709,10 @@ interface EditableTagInputProps {
 const EditableTagInput: React.FC<EditableTagInputProps> = ({ values, onAdd, onRemove, placeholder = 'Add custom...', colorScheme = 'default' }) => {
   const [draft, setDraft] = useState('');
 
-  const chipClasses = colorScheme === 'violet'
-    ? 'bg-violet-500/15 text-violet-300 border-violet-500/30'
-    : colorScheme === 'red'
-    ? 'bg-red-500/15 text-red-300 border-red-500/30'
-    : 'bg-zinc-800 text-zinc-300 border-zinc-700';
+  // All ad-hoc tag chips (Emotions, quick Mistakes, etc.) now share one
+  // consistent dark-slate pill style — no more clashing per-scheme accent
+  // colors (violet/red) so tags look uniform across the whole app.
+  const chipClasses = 'bg-[#1f202c] text-zinc-300 border-[#303245]';
 
   const submit = () => {
     const trimmed = draft.trim();
@@ -1232,6 +1757,8 @@ interface TimeframeChartInputProps {
   onAddImage: (url: string) => void;
   onUploadImage: (file: File) => void;
   onRemoveImage: (imageId: string) => void;
+  onReorderImages: (fromIndex: number, toIndex: number) => void;
+  onPreviewImage: (url: string) => void;
   onNotesChange: (notes: string) => void;
   isExecution?: boolean;
 }
@@ -1243,12 +1770,25 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
   onAddImage,
   onUploadImage,
   onRemoveImage,
+  onReorderImages,
+  onPreviewImage,
   onNotesChange,
   isExecution = false,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  // Drag-and-drop reorder state — purely local UI state for showing which
+  // thumbnail is being dragged / hovered over. Actual reordering happens via
+  // onReorderImages, which updates the trade's timeframes state.
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  // Brief inline feedback when a "Paste Link" attempt fails (empty/blocked
+  // clipboard, or clipboard content that doesn't look like an image link).
+  const [pasteFeedback, setPasteFeedback] = useState<string | null>(null);
+  // Notes are collapsed by default to keep the grid compact; if a note was
+  // already written for this timeframe, start expanded so it isn't hidden.
+  const [showNotes, setShowNotes] = useState(!!notes.trim());
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -1268,6 +1808,35 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
     setShowMenu(false);
   };
 
+  // Reads the user's most recently copied text and, if it looks like an
+  // image link, adds it straight away via the same onAddImage handler used
+  // by the "Image URL" button — skipping the manual prompt + Ctrl+V step.
+  // Clipboard access is read-only text and only ever feeds the existing
+  // add-image-url state handler; nothing else about the trade is touched.
+  const handleQuickPaste = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text?.trim()) {
+        setPasteFeedback('Clipboard is empty');
+        setTimeout(() => setPasteFeedback(null), 2000);
+        return;
+      }
+      const trimmed = text.trim();
+      const isImage = /\.(jpeg|jpg|gif|png|webp)(\?.*)?$/i.test(trimmed) || trimmed.includes('tradingview.com/x/');
+      if (isImage) {
+        onAddImage(trimmed);
+        setShowMenu(false);
+      } else {
+        setPasteFeedback('Clipboard link doesn\'t look like an image');
+        setTimeout(() => setPasteFeedback(null), 2000);
+      }
+    } catch (err) {
+      console.error('Failed to read clipboard contents: ', err);
+      setPasteFeedback('Clipboard access blocked');
+      setTimeout(() => setPasteFeedback(null), 2000);
+    }
+  };
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) onUploadImage(file);
@@ -1275,18 +1844,85 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
     e.target.value = '';
   };
 
+  // ---- Native HTML5 drag-and-drop reordering ----
+  // Each thumbnail carries its own index + the owning timeframe name via
+  // dataTransfer, so a drop is only honored when it lands back inside the
+  // same timeframe block (dragging between "Daily" and "1H", for example,
+  // is a no-op). This only reorders the images array for this timeframe —
+  // it never touches any other trade field.
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    e.dataTransfer.setData('draggedIndex', index.toString());
+    e.dataTransfer.setData('category', timeframe);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverIndex !== index) setDragOverIndex(index);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    const draggedIdx = parseInt(e.dataTransfer.getData('draggedIndex'), 10);
+    const originCategory = e.dataTransfer.getData('category');
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+    if (originCategory !== timeframe) return; // only reorder within the same timeframe block
+    if (Number.isNaN(draggedIdx)) return;
+    onReorderImages(draggedIdx, targetIndex);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
   return (
-    <div className={cn(
-      'bg-zinc-800/50 rounded-xl p-3 border border-zinc-700/50',
-      isExecution && 'md:col-span-2'
-    )}>
-      <div className="flex items-center justify-between mb-2">
-        <h4 className={cn('text-sm font-semibold', isExecution ? 'text-white' : 'text-zinc-300')}>
+    <div className="bg-[#1c1d27]/60 rounded-xl p-3 border border-[#2e303d]/80">
+      <div className="flex items-center justify-between gap-1 mb-2">
+        <h4 title={timeframe} className={cn('text-sm font-semibold truncate min-w-0', isExecution ? 'text-white' : 'text-zinc-300')}>
           {timeframe}
         </h4>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-zinc-500">{images.length}</span>
-          <div className="relative" ref={menuRef}>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-xs text-zinc-500 shrink-0">{images.length}</span>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setShowNotes(v => !v); }}
+            className={cn(
+              'flex items-center gap-1 p-1.5 rounded-lg transition-colors shrink-0',
+              showNotes ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:bg-zinc-700 hover:text-white',
+              notes.trim() && !showNotes && 'text-sky-400'
+            )}
+            title={showNotes ? 'Hide note' : 'Add note'}
+          >
+            <StickyNote className="w-3.5 h-3.5" />
+            <ChevronDown className={cn('w-3 h-3 transition-transform', showNotes && 'rotate-180')} />
+          </button>
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleQuickPaste();
+              }}
+              className="p-1.5 hover:bg-zinc-700 rounded-lg text-zinc-400 hover:text-white transition-colors"
+              title="Quick Paste from Clipboard"
+            >
+              <ClipboardPaste className="w-3.5 h-3.5" />
+            </button>
+            {pasteFeedback && (
+              <div className="absolute right-0 top-full mt-1 px-2 py-1 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-20 whitespace-nowrap">
+                <p className="text-[11px] text-amber-400">{pasteFeedback}</p>
+              </div>
+            )}
+          </div>
+          <div className="relative shrink-0" ref={menuRef}>
             <button
               type="button"
               onClick={() => setShowMenu(!showMenu)}
@@ -1295,7 +1931,7 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
               <Plus className="w-3.5 h-3.5" />
             </button>
             {showMenu && (
-              <div className="absolute right-0 top-full mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden min-w-[140px]">
+              <div className="absolute right-0 top-full mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden min-w-[160px]">
                 <button
                   type="button"
                   onClick={handleUrlSubmit}
@@ -1322,17 +1958,41 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
       </div>
 
       {images.length > 0 && (
-        <div className={cn('grid gap-1.5 mb-2', isExecution ? 'grid-cols-3' : 'grid-cols-2')}>
-          {images.map(img => (
+        <div className="flex items-center gap-2 overflow-x-auto py-1 mb-2">
+          {images.map((img, index) => (
             <div
               key={img.id}
-              className="relative rounded-lg overflow-hidden group"
+              draggable
+              onDragStart={(e) => handleDragStart(e, index)}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, index)}
+              onDragEnd={handleDragEnd}
+              className={cn(
+                'relative shrink-0 h-20 w-36 rounded-lg overflow-hidden group cursor-grab active:cursor-grabbing transition-all bg-black/40 border border-white/10',
+                draggedIndex === index && 'opacity-40',
+                dragOverIndex === index && draggedIndex !== index && 'ring-2 ring-sky-400'
+              )}
             >
               <img
                 src={img.url}
                 alt={timeframe}
-                className={cn('w-full object-cover', isExecution ? 'h-16' : 'h-12')}
+                draggable={false}
+                className="w-full h-full object-cover pointer-events-none"
               />
+              <button
+                type="button"
+                onClick={() => onPreviewImage(img.url)}
+                className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 opacity-0 group-hover:opacity-100 transition-all"
+                title="View full size"
+              >
+                <Eye className="w-4 h-4 text-white drop-shadow" />
+              </button>
+              {isExecution && index === 0 && (
+                <span className="absolute top-1 left-1 px-1.5 py-0.5 bg-black/70 rounded text-[9px] font-semibold text-sky-300 uppercase tracking-wide">
+                  Cover
+                </span>
+              )}
               <button
                 type="button"
                 onClick={() => onRemoveImage(img.id)}
@@ -1345,13 +2005,15 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
         </div>
       )}
 
-      <textarea
-        value={notes}
-        onChange={(e) => onNotesChange(e.target.value)}
-        placeholder={`Notes...`}
-        rows={isExecution ? 2 : 1}
-        className="w-full bg-zinc-700/50 border border-zinc-600/50 rounded-lg px-2 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500 resize-none"
-      />
+      {showNotes && (
+        <textarea
+          value={notes}
+          onChange={(e) => onNotesChange(e.target.value)}
+          placeholder="Notes..."
+          autoFocus
+          className="w-full min-h-[80px] bg-zinc-700/50 border border-zinc-600/50 rounded-lg px-2 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500 resize-y"
+        />
+      )}
     </div>
   );
 };
@@ -1630,7 +2292,7 @@ const NumericInput: React.FC<NumericInputProps> = ({
         onBlur={onBlur}
         placeholder={placeholder}
         className={cn(
-          'w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-zinc-600',
+          'w-full bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-[#3d4152]',
           className
         )}
       />
@@ -1642,9 +2304,30 @@ function App() {
   // State
   const [view, setView] = useState<ViewType>('dashboard');
   const [privacyMode, setPrivacyMode] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [theme, setTheme] = useState<'light' | 'dark' | 'minecraft'>('dark');
+
+  // Keep the actual <body> background in sync with the active theme. Without
+  // this, the browser's default white background can peek through as a gap
+  // (e.g. mobile browser chrome resizing viewport height) since our app
+  // container is sized with h-dvh rather than covering the true document.
+  useEffect(() => {
+    document.body.style.backgroundColor = theme === 'light' ? '#fafafa' : theme === 'minecraft' ? '#2b2b2b' : '#0b0c0e';
+  }, [theme]);
+  const [isExportConfirmOpen, setIsExportConfirmOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // PHASE 0 (Mobile Instrumentation): tracks whether the off-canvas mobile
+  // sidebar drawer is open. Fully independent from `sidebarCollapsed`, which
+  // remains the desktop-only expand/collapse control.
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [galleryView, setGalleryView] = useState<GalleryView>('gallery');
+  const [tradeSubView, setTradeSubView] = useState<'overview' | 'database'>('overview');
+  const [dbSearch, setDbSearch] = useState('');
+  const [dbAccountFilter, setDbAccountFilter] = useState<string>('all');
+  const [dbSessionFilter, setDbSessionFilter] = useState<string>('all');
+  const [dbOutcomeFilter, setDbOutcomeFilter] = useState<TradeFilter>('all');
+  const [dbRulesFilter, setDbRulesFilter] = useState<'all' | 'followed' | 'broken'>('all');
+  const [dbPage, setDbPage] = useState(0);
+  const DB_PAGE_SIZE = 25;
   const [tradeFilter, setTradeFilter] = useState<TradeFilter>('all');
   const [tradeSortField, setTradeSortField] = useState<TradeSortField>('date');
   const [tradeSortOrder, setTradeSortOrder] = useState<SortOrder>('desc');
@@ -1784,6 +2467,7 @@ function App() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [rules, setRules] = useState<Rule[]>([]);
   const [notices, setNotices] = useState<MarketNotice[]>([]);
+  const [noticeScenarios, setNoticeScenarios] = useState<ScenarioRow[]>([]);
   const [wikiEntries, setWikiEntries] = useState<WikiEntry[]>([]);
   const [setupTypes, setSetupTypes] = useState<SetupType[]>([]);
   const [confluences, setConfluences] = useState<Confluence[]>([]);
@@ -1802,6 +2486,10 @@ function App() {
   const [disciplineReviewDraft, setDisciplineReviewDraft] = useState<{ emotions: string[]; mistakes: string[]; notes: string }>({ emotions: [], mistakes: [], notes: '' });
   const [showAddRule, setShowAddRule] = useState(false);
   const [showAddNotice, setShowAddNotice] = useState(false);
+  const [activeNoticeId, setActiveNoticeId] = useState<string | null>(null);
+  const [noticeDraftMessage, setNoticeDraftMessage] = useState('');
+  const [showAddScenario, setShowAddScenario] = useState(false);
+  const [newScenario, setNewScenario] = useState<{ scenario: string; tags: string; lesson: string }>({ scenario: '', tags: '', lesson: '' });
   const [showAddWiki, setShowAddWiki] = useState(false);
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
@@ -1812,6 +2500,7 @@ function App() {
 
   const [showTradeTimeFields, setShowTradeTimeFields] = useState(false);
   const [showTradePriceLevels, setShowTradePriceLevels] = useState(false);
+  const [rulesAdherenceError, setRulesAdherenceError] = useState(false);
 
   // Dropdown state
   const [showAccountTypeDropdown, setShowAccountTypeDropdown] = useState(false);
@@ -1827,6 +2516,7 @@ function App() {
   const [showDeleteSelectedConfirm, setShowDeleteSelectedConfirm] = useState(false);
   const [accountPendingDelete, setAccountPendingDelete] = useState<string | null>(null);
 
+  const noticeImageInputRef = useRef<HTMLInputElement>(null);
   const accountDropdownRef = useRef<HTMLDivElement>(null);
   const tradingAccountTypeDropdownRef = useRef<HTMLDivElement>(null);
   const accountTypeDropdownRef = useRef<HTMLDivElement>(null);
@@ -1872,7 +2562,7 @@ function App() {
   };
 
   const [newTrade, setNewTrade] = useState<Partial<Trade>>({
-    symbol: '',
+    symbol: 'NQ',
     profitLoss: 0,
     entryPrice: 0,
     stopLoss: 0,
@@ -1880,7 +2570,7 @@ function App() {
     setupTypes: [],
     confluences: [],
     mistakes: [],
-    rulesFollowed: 'followed',
+    rulesFollowed: undefined,
     timeframes: initializeEmptyTimeframes(),
     executionImages: [],
     riskAmount: 0,
@@ -1900,7 +2590,8 @@ function App() {
 
   const [newRule, setNewRule] = useState<Partial<Rule>>({ category: '', title: '', description: '', severity: 'warning', pillar: 'risk' });
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
-  const [newNotice, setNewNotice] = useState<Partial<MarketNotice>>({ title: '', description: '', imageUrl: '' });
+  const [newNotice, setNewNotice] = useState<{ title: string; imageUrl: string }>({ title: '', imageUrl: '' });
+  const [newNoticeNote, setNewNoticeNote] = useState('');
   const [newWiki, setNewWiki] = useState<Partial<WikiEntry>>({ title: '', content: '', category: '' });
 
   const [selectedTimeframeTab, setSelectedTimeframeTab] = useState<string>('Execution/Result');
@@ -1928,6 +2619,7 @@ function App() {
         setTrades(migrated.trades);
         setRules(migrated.rules);
         setNotices(migrated.notices);
+        setNoticeScenarios(migrated.noticeScenarios);
         setWikiEntries(migrated.wikiEntries);
         setSetupTypes(migrated.setupTypes);
         setConfluences(migrated.confluences);
@@ -1944,13 +2636,63 @@ function App() {
 
   // Save to localStorage
   useEffect(() => {
-    const data: StoredData = { version: DATA_SCHEMA_VERSION, accounts, trades, rules, notices, wikiEntries, setupTypes, confluences, mistakesList, customSymbols };
+    const data: StoredData = { version: DATA_SCHEMA_VERSION, accounts, trades, rules, notices, noticeScenarios, wikiEntries, setupTypes, confluences, mistakesList, customSymbols };
     try {
       localStorage.setItem('tradingJournal', JSON.stringify(data));
     } catch (e) {
       console.error('Failed to save data:', e);
     }
-  }, [accounts, trades, rules, notices, wikiEntries, setupTypes, confluences, mistakesList, customSymbols]);
+  }, [accounts, trades, rules, notices, noticeScenarios, wikiEntries, setupTypes, confluences, mistakesList, customSymbols]);
+
+  // ---- Life Discipline Hub persistence ----
+  // Kept in its own localStorage key, deliberately separate from the trading
+  // journal's versioned schema/migration pipeline above — this is a simple,
+  // self-contained habit tracker and shouldn't need to migrate alongside it.
+  // Shape: { startDate: 'YYYY-MM-DD', checks: { 'YYYY-MM-DD': boolean[][] } }
+  // checks[date][groupIndex][itemIndex] mirrors LIFE_DISCIPLINE_HABIT_GROUPS.
+  const [lifeDisciplineStartDate, setLifeDisciplineStartDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [lifeDisciplineChecks, setLifeDisciplineChecks] = useState<Record<string, boolean[][]>>({});
+
+  useEffect(() => {
+    const stored = localStorage.getItem('lifeDisciplineData');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (parsed?.startDate) setLifeDisciplineStartDate(parsed.startDate);
+        if (parsed?.checks) setLifeDisciplineChecks(parsed.checks);
+      } catch (e) {
+        console.error('Failed to load Life Discipline Hub data:', e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('lifeDisciplineData', JSON.stringify({ startDate: lifeDisciplineStartDate, checks: lifeDisciplineChecks }));
+    } catch (e) {
+      console.error('Failed to save Life Discipline Hub data:', e);
+    }
+  }, [lifeDisciplineStartDate, lifeDisciplineChecks]);
+
+  // Toggle a single habit checkbox for a given date.
+  const toggleLifeDisciplineItem = (dateKey: string, groupIdx: number, itemIdx: number) => {
+    setLifeDisciplineChecks(prev => {
+      const existing = prev[dateKey] || LIFE_DISCIPLINE_HABIT_GROUPS.map(g => g.items.map(() => false));
+      const nextForDate = existing.map((group, gI) =>
+        gI === groupIdx ? group.map((val, iI) => (iI === itemIdx ? !val : val)) : group
+      );
+      return { ...prev, [dateKey]: nextForDate };
+    });
+  };
+
+  // A date "counts" as complete only once every checkbox across every group is checked.
+  const isLifeDisciplineDayComplete = (dateKey: string) => {
+    const dayChecks = lifeDisciplineChecks[dateKey];
+    if (!dayChecks) return false;
+    return LIFE_DISCIPLINE_HABIT_GROUPS.every((group, gI) =>
+      group.items.every((_, iI) => dayChecks[gI]?.[iI])
+    );
+  };
 
   // Initialize selected account
   useEffect(() => {
@@ -2131,6 +2873,39 @@ function App() {
     });
   }, [trades, selectedAccounts, tradeFilter, tradeSortField, tradeSortOrder]);
 
+  // Database sub-page: applies its own independent filter set on top of the
+  // already account/outcome-filtered trades, then paginates the result.
+  const dbFilteredTrades = useMemo(() => {
+    let result = filteredTrades;
+    if (dbSearch.trim()) {
+      const q = dbSearch.trim().toLowerCase();
+      result = result.filter(t =>
+        t.symbol.toLowerCase().includes(q) ||
+        (t.trackingNumber || '').toLowerCase().includes(q) ||
+        String(t.absoluteTradeNumber).includes(q) ||
+        (t.setupTypes || []).some(s => s.toLowerCase().includes(q)) ||
+        (t.confluences || []).some(c => c.toLowerCase().includes(q)) ||
+        (t.mistakes || []).some(m => m.toLowerCase().includes(q)) ||
+        (t.notes || '').toLowerCase().includes(q)
+      );
+    }
+    if (dbAccountFilter !== 'all') result = result.filter(t => t.accountId === dbAccountFilter);
+    if (dbSessionFilter !== 'all') result = result.filter(t => t.session === dbSessionFilter);
+    if (dbOutcomeFilter !== 'all') {
+      if (dbOutcomeFilter === 'profit') result = result.filter(t => t.profitLoss > 0);
+      else if (dbOutcomeFilter === 'loss') result = result.filter(t => t.profitLoss < 0);
+      else result = result.filter(t => Math.abs(t.profitLoss) < 10);
+    }
+    if (dbRulesFilter !== 'all') result = result.filter(t => t.rulesFollowed === dbRulesFilter);
+    return result;
+  }, [filteredTrades, dbSearch, dbAccountFilter, dbSessionFilter, dbOutcomeFilter, dbRulesFilter]);
+
+  const dbPageCount = Math.max(1, Math.ceil(dbFilteredTrades.length / DB_PAGE_SIZE));
+  const dbPagedTrades = useMemo(() => {
+    const start = dbPage * DB_PAGE_SIZE;
+    return dbFilteredTrades.slice(start, start + DB_PAGE_SIZE);
+  }, [dbFilteredTrades, dbPage]);
+
   // Returns the trade's permanent chronological identity number — its absolute creation
   // position in the master trades array. This is intentionally independent of the current
   // sort field/order and of any active filters, so the badge on a given trade's card never
@@ -2265,6 +3040,11 @@ function App() {
 
   const handleAddTrade = () => {
     if (!newTrade.accountId || !newTrade.symbol) return;
+    if (newTrade.rulesFollowed !== 'followed' && newTrade.rulesFollowed !== 'broken') {
+      setRulesAdherenceError(true);
+      return;
+    }
+    setRulesAdherenceError(false);
     const chosenDate = newTrade.date || new Date().toISOString().split('T')[0];
     const nextTradeNumber = trades.length > 0
       ? Math.max(...trades.map(t => t.absoluteTradeNumber || 0)) + 1
@@ -2317,12 +3097,18 @@ function App() {
     });
     setShowTradeTimeFields(!!(trade.startTime || trade.endTime));
     setShowTradePriceLevels(!!(trade.entryPrice || trade.stopLoss || trade.takeProfit));
+    setRulesAdherenceError(false);
     setEditingTrade(trade);
     setShowEditTrade(true);
   };
 
   const handleSaveEditedTrade = () => {
     if (!editingTrade || !newTrade.accountId || !newTrade.symbol) return;
+    if (newTrade.rulesFollowed !== 'followed' && newTrade.rulesFollowed !== 'broken') {
+      setRulesAdherenceError(true);
+      return;
+    }
+    setRulesAdherenceError(false);
     const chosenDate = newTrade.date || editingTrade.date;
     const updated: Trade = {
       ...editingTrade,
@@ -2429,33 +3215,33 @@ function App() {
   // Theme-aware class helpers
   const tc = {
     // Background classes
-    bg: theme === 'dark' ? 'bg-zinc-900' : 'bg-white',
-    bgSecondary: theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100',
-    bgTertiary: theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-50',
-    bgHover: theme === 'dark' ? 'hover:bg-zinc-700' : 'hover:bg-zinc-200',
-    bgCard: theme === 'dark' ? 'bg-zinc-900/40' : 'bg-white',
-    bgCardHover: theme === 'dark' ? 'hover:bg-zinc-900/70' : 'hover:bg-zinc-50',
+    bg: theme !== 'light' ? 'bg-zinc-900' : 'bg-white',
+    bgSecondary: theme !== 'light' ? 'bg-zinc-800' : 'bg-zinc-100',
+    bgTertiary: theme !== 'light' ? 'bg-zinc-950' : 'bg-zinc-50',
+    bgHover: theme !== 'light' ? 'hover:bg-zinc-700' : 'hover:bg-zinc-200',
+    bgCard: theme !== 'light' ? 'bg-zinc-900/40' : 'bg-white',
+    bgCardHover: theme !== 'light' ? 'hover:bg-zinc-900/70' : 'hover:bg-zinc-50',
     // Border classes
-    border: theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200',
-    borderSecondary: theme === 'dark' ? 'border-zinc-700' : 'border-zinc-300',
-    borderHover: theme === 'dark' ? 'hover:border-zinc-700' : 'hover:border-zinc-300',
+    border: theme !== 'light' ? 'border-zinc-800' : 'border-zinc-200',
+    borderSecondary: theme !== 'light' ? 'border-zinc-700' : 'border-zinc-300',
+    borderHover: theme !== 'light' ? 'hover:border-zinc-700' : 'hover:border-zinc-300',
     // Text classes
-    text: theme === 'dark' ? 'text-white' : 'text-zinc-900',
-    textSecondary: theme === 'dark' ? 'text-zinc-400' : 'text-zinc-600',
-    textMuted: theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400',
+    text: theme !== 'light' ? 'text-white' : 'text-zinc-900',
+    textSecondary: theme !== 'light' ? 'text-zinc-400' : 'text-zinc-600',
+    textMuted: theme !== 'light' ? 'text-zinc-500' : 'text-zinc-400',
     // Input classes
-    input: theme === 'dark'
+    input: theme !== 'light'
       ? 'bg-zinc-900/50 border-zinc-800 text-white focus:border-zinc-600'
       : 'bg-white border-zinc-200 text-zinc-900 focus:border-zinc-400',
     // Button secondary
-    btnSecondary: theme === 'dark'
+    btnSecondary: theme !== 'light'
       ? 'bg-zinc-800 hover:bg-zinc-700 text-white'
       : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-900',
   };
 
   const resetTradeForm = () => {
     setNewTrade({
-      symbol: '',
+      symbol: 'NQ',
       profitLoss: 0,
       entryPrice: 0,
       stopLoss: 0,
@@ -2463,7 +3249,7 @@ function App() {
       setupTypes: [],
       confluences: [],
       mistakes: [],
-      rulesFollowed: 'followed',
+      rulesFollowed: undefined,
       timeframes: initializeEmptyTimeframes(),
       executionImages: [],
       riskAmount: 0,
@@ -2477,6 +3263,7 @@ function App() {
     setPriceInputs({ entryPrice: '', stopLoss: '', takeProfit: '', profitLoss: '', riskAmount: '' });
     setShowTradeTimeFields(false);
     setShowTradePriceLevels(false);
+    setRulesAdherenceError(false);
   };
 
   const handleSaveRule = () => {
@@ -2516,14 +3303,50 @@ function App() {
 
   const handleDeleteRule = (id: string) => setRules(rules.filter(r => r.id !== id));
 
+  const handleNoticeImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setNewNotice(prev => ({ ...prev, imageUrl: ev.target?.result as string }));
+    reader.readAsDataURL(file);
+  };
+
   const handleAddNotice = () => {
     if (!newNotice.title) return;
-    setNotices([...notices, { id: generateId(), title: newNotice.title, description: newNotice.description || '', imageUrl: newNotice.imageUrl || '', timestamp: new Date().toISOString() }]);
-    setNewNotice({ title: '', description: '', imageUrl: '' });
+    const initialMessages: ChatMessage[] = newNoticeNote.trim()
+      ? [{ id: generateId(), text: newNoticeNote.trim(), timestamp: new Date().toISOString() }]
+      : [];
+    setNotices([...notices, { id: generateId(), title: newNotice.title, imageUrl: newNotice.imageUrl || '', timestamp: new Date().toISOString(), messages: initialMessages }]);
+    setNewNotice({ title: '', imageUrl: '' });
+    setNewNoticeNote('');
     setShowAddNotice(false);
   };
 
-  const handleDeleteNotice = (id: string) => setNotices(notices.filter(n => n.id !== id));
+  const handleDeleteNotice = (id: string) => {
+    setNotices(notices.filter(n => n.id !== id));
+    if (activeNoticeId === id) setActiveNoticeId(null);
+  };
+
+  const handleSendNoticeMessage = () => {
+    const text = noticeDraftMessage.trim();
+    if (!text || !activeNoticeId) return;
+    setNotices(prev => prev.map(n =>
+      n.id === activeNoticeId
+        ? { ...n, messages: [...n.messages, { id: generateId(), text, timestamp: new Date().toISOString() }] }
+        : n
+    ));
+    setNoticeDraftMessage('');
+  };
+
+  const handleAddScenario = () => {
+    if (!newScenario.scenario.trim()) return;
+    const tags = newScenario.tags.split(',').map(t => t.trim()).filter(Boolean);
+    setNoticeScenarios([...noticeScenarios, { id: generateId(), scenario: newScenario.scenario.trim(), tags, lesson: newScenario.lesson.trim() }]);
+    setNewScenario({ scenario: '', tags: '', lesson: '' });
+    setShowAddScenario(false);
+  };
+
+  const handleDeleteScenario = (id: string) => setNoticeScenarios(noticeScenarios.filter(s => s.id !== id));
 
   const handleAddWiki = () => {
     if (!newWiki.title) return;
@@ -2548,6 +3371,21 @@ function App() {
     setMistakesList(prev => prev.filter(m => m.id !== id));
     setNewTrade(prev => ({ ...prev, mistakes: (prev.mistakes || []).filter(m => m !== name) }));
     setEditingTrade(prev => prev ? { ...prev, mistakes: prev.mistakes.filter(m => m !== name) } : prev);
+  };
+
+  // Tag color handlers — update a tag's saved color attribute; every place
+  // that renders the tag (badges, chips, option rows) looks the color up
+  // from setupTypes/confluences/mistakesList, so this updates it everywhere.
+  const handleChangeSetupTypeColor = (id: string, color: TagColor) => {
+    setSetupTypes(prev => prev.map(s => (s.id === id ? { ...s, color } : s)));
+  };
+
+  const handleChangeConfluenceColor = (id: string, color: TagColor) => {
+    setConfluences(prev => prev.map(c => (c.id === id ? { ...c, color } : c)));
+  };
+
+  const handleChangeMistakeColor = (id: string, color: TagColor) => {
+    setMistakesList(prev => prev.map(m => (m.id === id ? { ...m, color } : m)));
   };
 
   // File handlers
@@ -2628,6 +3466,43 @@ function App() {
     }
   };
 
+  // Reorders the images array for a single timeframe category (e.g. moving a
+  // later screenshot to index 0 so it becomes the new cover image). Mirrors
+  // the same isEditing branch pattern as handleRemoveImage/handleAddImageUrl
+  // above — only the `images` array for the matching timeframe is replaced,
+  // nothing else about the trade is touched.
+  const handleReorderImages = (key: string, fromIndex: number, toIndex: number, isEditing: boolean = false) => {
+    if (fromIndex === toIndex || Number.isNaN(fromIndex) || Number.isNaN(toIndex)) return;
+    const reorder = (images: TradeImage[]): TradeImage[] => {
+      if (fromIndex < 0 || fromIndex >= images.length) return images;
+      const updatedImages = [...images];
+      const [removed] = updatedImages.splice(fromIndex, 1);
+      const clampedTarget = Math.max(0, Math.min(toIndex, updatedImages.length));
+      updatedImages.splice(clampedTarget, 0, removed);
+      return updatedImages;
+    };
+
+    const timeframeName = key;
+    if (isEditing && editingTrade) {
+      setEditingTrade(prev => {
+        if (!prev) return prev;
+        const timeframes = prev.timeframes.map(tf => {
+          if (tf.name === timeframeName) return { ...tf, images: reorder(tf.images) };
+          return tf;
+        });
+        return { ...prev, timeframes };
+      });
+    } else {
+      setNewTrade(prev => {
+        const timeframes = (prev.timeframes || []).map(tf => {
+          if (tf.name === timeframeName) return { ...tf, images: reorder(tf.images) };
+          return tf;
+        });
+        return { ...prev, timeframes };
+      });
+    }
+  };
+
   const updateTimeframeNotes = (timeframeName: string, notes: string, isEditing: boolean = false) => {
     if (isEditing && editingTrade) {
       setEditingTrade(prev => {
@@ -2661,6 +3536,7 @@ function App() {
       trades,
       rules,
       notices,
+      noticeScenarios,
       wikiEntries,
       setupTypes,
       confluences,
@@ -2669,7 +3545,7 @@ function App() {
     };
 
     const jsonString = JSON.stringify(backupData, null, 2);
-    const defaultFileName = `trading_journal_backup_${new Date().toISOString().split('T')[0]}.json`;
+    const defaultFileName = `vsx_backup_${new Date().toISOString().split('T')[0]}.json`;
 
     // Prefer the browser's native "Save As" dialog (File System Access API)
     // so YOU pick the filename and folder, instead of it silently landing
@@ -2679,7 +3555,7 @@ function App() {
       try {
         const handle = await showSaveFilePicker({
           suggestedName: defaultFileName,
-          types: [{ description: 'Trading Journal Backup', accept: { 'application/json': ['.json'] } }],
+          types: [{ description: 'VSX Backup', accept: { 'application/json': ['.json'] } }],
         });
         const writable = await handle.createWritable();
         await writable.write(jsonString);
@@ -2724,6 +3600,7 @@ function App() {
         setTrades(migrated.trades);
         setRules(migrated.rules);
         setNotices(migrated.notices);
+        setNoticeScenarios(migrated.noticeScenarios);
         setWikiEntries(migrated.wikiEntries);
         setSetupTypes(migrated.setupTypes);
         setConfluences(migrated.confluences);
@@ -2743,16 +3620,16 @@ function App() {
   const renderStatCard = (title: string, value: string | number, icon: React.ReactNode, color: string = 'text-zinc-400') => (
     <div className={cn(
       "group rounded-2xl p-4 flex items-center gap-3 min-w-0 transition-all duration-200",
-      theme === 'dark'
+      theme !== 'light'
         ? 'bg-zinc-900/40 border border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-900/70'
         : 'bg-white border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50'
     )}>
-      <div className={cn('p-2.5 rounded-xl flex-shrink-0', theme === 'dark' ? 'bg-zinc-800/60' : 'bg-zinc-100', color)}>{icon}</div>
+      <div className={cn('p-2.5 rounded-xl flex-shrink-0', theme !== 'light' ? 'bg-zinc-800/60' : 'bg-zinc-100', color)}>{icon}</div>
       <div className="min-w-0 flex-1">
         <p className={cn("text-[11px] uppercase tracking-wider truncate font-medium", tc.textMuted)}>{title}</p>
         <p className={cn('text-lg font-semibold truncate tabular-nums',
           typeof value === 'string' && value.includes('+') ? 'text-emerald-500' :
-          typeof value === 'string' && value.includes('-') ? 'text-red-500' :
+          typeof value === 'string' && value.includes('-') ? 'text-rose-500' :
           tc.text
         )}>
           {value}
@@ -2895,7 +3772,7 @@ function App() {
                 <span className="text-[10px] px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded">Locked</span>
               )}
               {metrics.isBreached && (
-                <span className="text-[10px] px-2 py-0.5 bg-red-500/20 text-red-400 rounded flex items-center gap-1">
+                <span className="text-[10px] px-2 py-0.5 bg-rose-500/20 text-rose-400 rounded flex items-center gap-1">
                   <AlertCircle className="w-3 h-3" />
                   Breached
                 </span>
@@ -2904,11 +3781,11 @@ function App() {
 
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-xs text-zinc-500 flex items-center gap-1.5">
-                <TrendingDown className="w-3 h-3 text-red-400" />
+                <TrendingDown className="w-3 h-3 text-rose-400" />
                 {tradingType === 'FUTURES' ? 'Trailing Drawdown' :
                  tradingType === 'LIVE' ? 'Drawdown from Capital' : 'Drawdown Usage'}
               </span>
-              <span className={cn('text-xs font-medium', metrics.isBreached ? 'text-red-400' : metrics.drawdownProgress > 70 ? 'text-amber-400' : 'text-zinc-400')}>
+              <span className={cn('text-xs font-medium', metrics.isBreached ? 'text-rose-400' : metrics.drawdownProgress > 70 ? 'text-amber-400' : 'text-zinc-400')}>
                 {privacyMode ? '****' : `${metrics.drawdownProgress.toFixed(1)}%`}
               </span>
             </div>
@@ -2916,8 +3793,8 @@ function App() {
               <div className="absolute right-[30%] top-0 bottom-0 w-px bg-amber-500/30" />
               <div
                 className={cn('h-full rounded-full transition-all duration-500',
-                  metrics.isBreached ? 'bg-red-500' :
-                  metrics.drawdownProgress > 70 ? 'bg-amber-500' : 'bg-red-400'
+                  metrics.isBreached ? 'bg-rose-500' :
+                  metrics.drawdownProgress > 70 ? 'bg-amber-500' : 'bg-rose-400'
                 )}
                 style={{ width: `${metrics.drawdownProgress}%` }}
               />
@@ -2942,145 +3819,172 @@ function App() {
     );
   };
 
-  const renderSidebar = () => (
-    <aside className={cn(
-      "h-screen sticky top-0 flex-shrink-0 transition-all duration-300 overflow-hidden",
-      sidebarCollapsed ? "w-[72px]" : "w-64"
-    )}>
-      <div className={cn(
-        "h-full flex flex-col transition-all duration-300",
-        sidebarCollapsed ? "w-[72px]" : "w-64",
-        theme === 'dark' ? 'bg-zinc-900 border-r border-zinc-800' : 'bg-white border-r border-zinc-200'
-      )}>
-        <div className={cn("p-4 border-b", theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200')}>
-          <div className={cn("flex items-center", sidebarCollapsed ? "flex-col gap-2" : "justify-between")}>
-            <div className={cn("flex items-center gap-3 min-w-0", sidebarCollapsed && "justify-center")}>
-              <div className={cn(
-                "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0",
-                theme === 'dark' ? 'bg-gradient-to-br from-zinc-700 to-zinc-800' : 'bg-gradient-to-br from-zinc-100 to-zinc-200'
-              )}>
-                <BarChart3 className={cn("w-5 h-5", theme === 'dark' ? 'text-zinc-300' : 'text-zinc-600')} />
-              </div>
-              {!sidebarCollapsed && (
-                <div className="min-w-0 flex-1">
-                  <h1 className={cn("font-semibold text-sm truncate", theme === 'dark' ? 'text-white' : 'text-zinc-900')}>
-                    Trading Journal
-                  </h1>
-                  <p className={cn("text-xs truncate", theme === 'dark' ? 'text-zinc-500' : 'text-zinc-500')}>
-                    Professional Edition
-                  </p>
+  // Shared sidebar content, rendered into two completely separate DOM trees
+  // (mobile drawer vs. desktop permanent sidebar) so there is no longer any
+  // single set of classes where mobile and desktop states can collide.
+  // `isMobile` forces the content into its always-expanded (label-visible)
+  // mobile appearance and swaps in the X-close control; on desktop, layout
+  // follows `sidebarCollapsed` exactly as before.
+  const renderSidebarContent = (isMobile: boolean) => {
+    const collapsed = !isMobile && sidebarCollapsed;
+    return (
+      <div className="flex flex-col h-full w-full justify-between p-4">
+        {/* TOP GROUP: logo/header row + primary nav items, strictly stacked */}
+        <div className="flex flex-col gap-1 w-full min-h-0">
+          <div className={cn("pb-4 mb-2 border-b w-full", theme !== 'light' ? 'border-zinc-800' : 'border-zinc-200')}>
+            <div className={cn("flex items-center", collapsed ? "flex-col gap-2" : "justify-between")}>
+              <div className={cn("flex items-center gap-3 min-w-0", collapsed && "justify-center")}>
+                <div className={cn(
+                  "relative w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0",
+                  theme !== 'light' ? 'bg-gradient-to-br from-zinc-800 to-zinc-900 border border-emerald-500/20' : 'bg-gradient-to-br from-zinc-100 to-zinc-200'
+                )}>
+                  <Activity className={cn(
+                    "w-[18px] h-[18px]",
+                    theme !== 'light' ? 'text-emerald-400 drop-shadow-[0_0_6px_rgba(52,211,153,0.55)]' : 'text-emerald-600'
+                  )} />
                 </div>
+                {!collapsed && (
+                  <div className="min-w-0 flex-1">
+                    <h1 className={cn("font-bold text-lg uppercase tracking-wider leading-none truncate", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>
+                      VSX
+                    </h1>
+                    <p className={cn("text-[10px] font-medium uppercase tracking-widest truncate mt-0.5", theme !== 'light' ? 'text-zinc-500' : 'text-zinc-500')}>
+                      Trading Journal
+                    </p>
+                  </div>
+                )}
+              </div>
+              {isMobile ? (
+                <button
+                  type="button"
+                  onClick={() => setIsMobileSidebarOpen(false)}
+                  aria-label="Close menu"
+                  className={cn(
+                    "p-1.5 rounded-lg transition-colors flex-shrink-0",
+                    theme !== 'light' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
+                  )}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setSidebarCollapsed(prev => !prev)}
+                  title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                  className={cn(
+                    "p-1.5 rounded-lg transition-colors flex-shrink-0",
+                    theme !== 'light' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
+                  )}
+                >
+                  {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+                </button>
               )}
             </div>
-            <button
-              onClick={() => setSidebarCollapsed(prev => !prev)}
-              title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              className={cn(
-                "p-1.5 rounded-lg transition-colors flex-shrink-0",
-                theme === 'dark' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
-              )}
-            >
-              {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-            </button>
           </div>
+
+          <nav className="flex flex-col gap-1 w-full overflow-y-auto overflow-x-hidden min-h-0">
+            {[
+              { id: 'dashboard' as ViewType, icon: LayoutDashboard, label: 'Dashboard' },
+              { id: 'trades' as ViewType, icon: TrendingUp, label: 'Trade History' },
+              { id: 'discipline' as ViewType, icon: Shield, label: 'Discipline Tracker' },
+              { id: 'lifeDiscipline' as ViewType, icon: Flame, label: 'Life Discipline Hub' },
+              { id: 'playbook' as ViewType, icon: BookOpen, label: 'Rules Playbook' },
+              { id: 'notices' as ViewType, icon: FileText, label: 'Market Notices' },
+              { id: 'wiki' as ViewType, icon: Lightbulb, label: 'Knowledge Wiki' },
+              { id: 'calendar' as ViewType, icon: Calendar, label: 'Performance Calendar' },
+            ].map(item => (
+              <button
+                key={item.id}
+                onClick={() => {
+                  if (item.id !== 'trades') setTradeSubView('overview');
+                  setView(item.id);
+                  setIsMobileSidebarOpen(false);
+                }}
+                title={collapsed ? item.label : undefined}
+                className={cn(
+                  'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm',
+                  collapsed && 'justify-center px-0',
+                  view === item.id
+                    ? theme !== 'light' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900'
+                    : theme !== 'light' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800/50' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50'
+                )}
+              >
+                <item.icon className="w-4 h-4 flex-shrink-0" />
+                {!collapsed && <span className="truncate">{item.label}</span>}
+              </button>
+            ))}
+          </nav>
         </div>
 
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto overflow-x-hidden">
-          {[
-            { id: 'dashboard' as ViewType, icon: LayoutDashboard, label: 'Dashboard' },
-            { id: 'trades' as ViewType, icon: TrendingUp, label: 'Trade History' },
-            { id: 'discipline' as ViewType, icon: Shield, label: 'Discipline Tracker' },
-            { id: 'playbook' as ViewType, icon: BookOpen, label: 'Rules Playbook' },
-            { id: 'notices' as ViewType, icon: FileText, label: 'Market Notices' },
-            { id: 'wiki' as ViewType, icon: Lightbulb, label: 'Knowledge Wiki' },
-            { id: 'calendar' as ViewType, icon: Calendar, label: 'Performance Calendar' },
-          ].map(item => (
+        {/* BOTTOM GROUP: theme/privacy + data backup, pinned to the bottom, strictly stacked */}
+        <div className="flex flex-col gap-4 mt-auto w-full">
+          <div className={cn("flex flex-col gap-1 w-full pt-4 border-t", theme !== 'light' ? 'border-zinc-800' : 'border-zinc-200')}>
             <button
-              key={item.id}
-              onClick={() => setView(item.id)}
-              title={sidebarCollapsed ? item.label : undefined}
+              onClick={() => setTheme(theme === 'dark' ? 'light' : theme === 'light' ? 'minecraft' : 'dark')}
+              title={collapsed ? (theme === 'dark' ? 'Light Theme' : theme === 'light' ? 'Minecraft Theme' : 'Dark Theme') : undefined}
               className={cn(
                 'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm',
-                sidebarCollapsed && 'justify-center px-0',
-                view === item.id
-                  ? theme === 'dark' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900'
-                  : theme === 'dark' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800/50' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50'
+                collapsed && 'justify-center px-0',
+                theme !== 'light' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800/50' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
               )}
             >
-              <item.icon className="w-4 h-4 flex-shrink-0" />
-              {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
+              {theme === 'dark' ? <Sun className="w-4 h-4 flex-shrink-0" /> : theme === 'light' ? <Box className="w-4 h-4 flex-shrink-0" /> : <Moon className="w-4 h-4 flex-shrink-0" />}
+              {!collapsed && <span className="truncate">{theme === 'dark' ? 'Light Theme' : theme === 'light' ? 'Minecraft Theme' : 'Dark Theme'}</span>}
             </button>
-          ))}
-        </nav>
-
-        <div className={cn("p-3 border-t", theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200')}>
-          <button
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            title={sidebarCollapsed ? (theme === 'dark' ? 'Light Theme' : 'Dark Theme') : undefined}
-            className={cn(
-              'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm',
-              sidebarCollapsed && 'justify-center px-0',
-              theme === 'dark' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800/50' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
-            )}
-          >
-            {theme === 'dark' ? <Sun className="w-4 h-4 flex-shrink-0" /> : <Moon className="w-4 h-4 flex-shrink-0" />}
-            {!sidebarCollapsed && <span className="truncate">{theme === 'dark' ? 'Light Theme' : 'Dark Theme'}</span>}
-          </button>
-          <button
-            onClick={() => setPrivacyMode(!privacyMode)}
-            title={sidebarCollapsed ? (privacyMode ? 'Privacy Mode On' : 'Privacy Mode Off') : undefined}
-            className={cn(
-              'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm mt-1',
-              sidebarCollapsed && 'justify-center px-0',
-              privacyMode
-                ? 'bg-amber-500/10 text-amber-500'
-                : theme === 'dark' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800/50' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
-            )}
-          >
-            {privacyMode ? <EyeOff className="w-4 h-4 flex-shrink-0" /> : <Eye className="w-4 h-4 flex-shrink-0" />}
-            {!sidebarCollapsed && <span className="truncate">{privacyMode ? 'Privacy Mode On' : 'Privacy Mode Off'}</span>}
-          </button>
-        </div>
-
-        <div className={cn("p-3 border-t", theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200')}>
-          {!sidebarCollapsed && (
-            <div className="flex items-center gap-2 px-3 py-1.5 mb-2">
-              <HardDrive className={cn("w-4 h-4 flex-shrink-0", theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400')} />
-              <span className={cn("text-xs uppercase tracking-wider truncate", theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400')}>
-                Data Backup
-              </span>
-            </div>
-          )}
-          <div className="space-y-1.5">
             <button
-              onClick={exportBackup}
-              title={sidebarCollapsed ? 'Export Journal Backup' : undefined}
+              onClick={() => setPrivacyMode(!privacyMode)}
+              title={collapsed ? (privacyMode ? 'Privacy Mode On' : 'Privacy Mode Off') : undefined}
+              className={cn(
+                'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm',
+                collapsed && 'justify-center px-0',
+                privacyMode
+                  ? 'bg-amber-500/10 text-amber-500'
+                  : theme !== 'light' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800/50' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+              )}
+            >
+              {privacyMode ? <EyeOff className="w-4 h-4 flex-shrink-0" /> : <Eye className="w-4 h-4 flex-shrink-0" />}
+              {!collapsed && <span className="truncate">{privacyMode ? 'Privacy Mode On' : 'Privacy Mode Off'}</span>}
+            </button>
+          </div>
+
+          <div className={cn("flex flex-col gap-1.5 w-full pt-4 border-t", theme !== 'light' ? 'border-zinc-800' : 'border-zinc-200')}>
+            {!collapsed && (
+              <div className="flex items-center gap-2 px-3 py-1.5 mb-1">
+                <HardDrive className={cn("w-4 h-4 flex-shrink-0", theme !== 'light' ? 'text-zinc-500' : 'text-zinc-400')} />
+                <span className={cn("text-xs uppercase tracking-wider truncate", theme !== 'light' ? 'text-zinc-500' : 'text-zinc-400')}>
+                  Data Backup
+                </span>
+              </div>
+            )}
+            <button
+              onClick={() => setIsExportConfirmOpen(true)}
+              title={collapsed ? 'Export Journal Backup' : undefined}
               className={cn(
                 "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm",
-                sidebarCollapsed && 'justify-center px-0',
-                theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-900'
+                collapsed && 'justify-center px-0',
+                theme !== 'light' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-900'
               )}
             >
               <Download className="w-4 h-4 flex-shrink-0" />
-              {!sidebarCollapsed && <span className="truncate">Export Journal Backup</span>}
+              {!collapsed && <span className="truncate">Export Journal Backup</span>}
             </button>
             <label
-              title={sidebarCollapsed ? 'Import & Restore Backup' : undefined}
+              title={collapsed ? 'Import & Restore Backup' : undefined}
               className={cn(
                 "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm cursor-pointer",
-                sidebarCollapsed && 'justify-center px-0',
-                theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-900'
+                collapsed && 'justify-center px-0',
+                theme !== 'light' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-900'
               )}
             >
               <FolderSync className="w-4 h-4 flex-shrink-0" />
-              {!sidebarCollapsed && <span className="truncate">Import & Restore Backup</span>}
+              {!collapsed && <span className="truncate">Import & Restore Backup</span>}
               <input type="file" accept=".json,application/json" className="hidden" onChange={importBackup} />
             </label>
           </div>
         </div>
       </div>
-    </aside>
-  );
+    );
+  };
 
   const renderDashboard = () => (
     <div className="space-y-6 min-w-0">
@@ -3096,7 +4000,7 @@ function App() {
               onClick={() => setShowAccountDropdown(!showAccountDropdown)}
               className={cn(
                 "flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors",
-                theme === 'dark'
+                theme !== 'light'
                   ? 'bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700'
                   : 'bg-zinc-100 border border-zinc-200 text-zinc-700 hover:bg-zinc-200'
               )}
@@ -3109,20 +4013,20 @@ function App() {
             {showAccountDropdown && (
               <div className={cn(
                 "absolute left-0 mt-2 min-w-[200px] w-64 rounded-lg shadow-xl z-50 p-2",
-                theme === 'dark' ? 'bg-zinc-900 border border-zinc-800' : 'bg-white border border-zinc-200'
+                theme !== 'light' ? 'bg-zinc-900 border border-zinc-800' : 'bg-white border border-zinc-200'
               )}>
                 <button
                   onClick={() => setSelectedAccounts(['all'])}
                   className={cn(
                     'w-full text-left px-3 py-2 rounded text-sm truncate transition-colors',
                     selectedAccounts.includes('all')
-                      ? theme === 'dark' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900'
-                      : theme === 'dark' ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-zinc-100'
+                      ? theme !== 'light' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900'
+                      : theme !== 'light' ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-zinc-100'
                   )}
                 >
                   All Accounts
                 </button>
-                <div className={cn("my-2", theme === 'dark' ? 'border-t border-zinc-800' : 'border-t border-zinc-200')} />
+                <div className={cn("my-2", theme !== 'light' ? 'border-t border-zinc-800' : 'border-t border-zinc-200')} />
                 {accounts.map(acc => (
                   <button
                     key={acc.id}
@@ -3139,8 +4043,8 @@ function App() {
                     className={cn(
                       'w-full text-left px-3 py-2 rounded text-sm flex items-center justify-between transition-colors',
                       selectedAccounts.includes(acc.id)
-                        ? theme === 'dark' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900'
-                        : theme === 'dark' ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-zinc-100'
+                        ? theme !== 'light' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900'
+                        : theme !== 'light' ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-zinc-100'
                     )}
                   >
                     <span className="truncate flex-1 mr-2">{acc.name}</span>
@@ -3155,7 +4059,7 @@ function App() {
             onClick={() => { resetCalculator(); setShowAddAccount(true); }}
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors flex-shrink-0",
-              theme === 'dark'
+              theme !== 'light'
                 ? 'bg-zinc-800 hover:bg-zinc-700 text-white'
                 : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-900'
             )}
@@ -3166,51 +4070,119 @@ function App() {
         </div>
       </div>
 
-      {/* Hero overview */}
-      <div className={cn(
-        "relative overflow-hidden border rounded-2xl p-6 transition-colors duration-300",
-        theme === 'dark'
-          ? 'bg-gradient-to-br from-zinc-900 via-zinc-900/90 to-zinc-900/60 border-zinc-800'
-          : 'bg-gradient-to-br from-white via-zinc-50 to-zinc-100 border-zinc-200'
-      )}>
-        <div className="absolute inset-0 bg-gradient-to-br from-violet-500/[0.06] via-transparent to-emerald-500/[0.05] pointer-events-none" />
-        <div className="relative flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-6">
-          <div className="min-w-0">
-            <p className={cn("text-xs uppercase tracking-wider font-medium mb-2", tc.textMuted)}>Total Profit &amp; Loss</p>
-            <div className="flex items-baseline gap-3 flex-wrap">
-              <span className={cn('text-4xl font-bold tracking-tight tabular-nums', stats.totalPnL >= 0 ? 'text-emerald-500' : 'text-red-500')}>
-                {formatCurrency(stats.totalPnL, privacyMode)}
-              </span>
-              <span className={cn('flex items-center gap-1 text-sm font-medium px-2.5 py-1 rounded-lg flex-shrink-0', stats.growth >= 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-500')}>
-                {stats.growth >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-                {stats.growth >= 0 ? '+' : ''}{stats.growth.toFixed(2)}%
-              </span>
+      {/* Hero overview: Total P&L, with the Discipline Tracker as a slim status banner beneath it */}
+      <div className="flex flex-col gap-4">
+        {/* Total P&L */}
+        <div className={cn(
+          "relative overflow-hidden border rounded-2xl p-4 sm:p-6 transition-colors duration-300 min-w-0",
+          theme !== 'light'
+            ? 'bg-gradient-to-br from-zinc-900 via-zinc-900/90 to-zinc-900/60 border-zinc-800'
+            : 'bg-gradient-to-br from-white via-zinc-50 to-zinc-100 border-zinc-200'
+        )}>
+          <div className="absolute inset-0 bg-gradient-to-br from-violet-500/[0.06] via-transparent to-emerald-500/[0.05] pointer-events-none" />
+          <div className="relative flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-6">
+            <div className="min-w-0">
+              <p className={cn("text-xs uppercase tracking-wider font-medium mb-2", tc.textMuted)}>Total Profit &amp; Loss</p>
+              <div className="flex items-baseline gap-3 flex-wrap">
+                <span className={cn('text-3xl sm:text-4xl font-bold tracking-tight tabular-nums', stats.totalPnL >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
+                  {formatCurrency(stats.totalPnL, privacyMode)}
+                </span>
+                <span className={cn('flex items-center gap-1 text-sm font-medium px-2.5 py-1 rounded-lg flex-shrink-0', stats.growth >= 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-500')}>
+                  {stats.growth >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                  {stats.growth >= 0 ? '+' : ''}{stats.growth.toFixed(2)}%
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 flex-shrink-0">
+              <div className={cn("px-3 py-2 rounded-xl min-w-[84px]", theme !== 'light' ? 'bg-zinc-800/50' : 'bg-zinc-100')}>
+                <p className={cn("text-[10px] uppercase tracking-wider", tc.textMuted)}>Trades</p>
+                <p className={cn("text-sm font-semibold tabular-nums", tc.text)}>{stats.totalTrades}</p>
+              </div>
+              <div className={cn("px-3 py-2 rounded-xl min-w-[84px]", theme !== 'light' ? 'bg-zinc-800/50' : 'bg-zinc-100')}>
+                <p className={cn("text-[10px] uppercase tracking-wider", tc.textMuted)}>Win Rate</p>
+                <p className={cn("text-sm font-semibold tabular-nums", tc.text)}>{stats.winRate.toFixed(1)}%</p>
+              </div>
+              <div className={cn("px-3 py-2 rounded-xl min-w-[84px]", theme !== 'light' ? 'bg-zinc-800/50' : 'bg-zinc-100')}>
+                <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Profit Factor</p>
+                <p className="text-sm font-semibold text-white tabular-nums">{isFinite(stats.profitFactor) ? stats.profitFactor.toFixed(2) : 'N/A'}</p>
+              </div>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2 flex-shrink-0">
-            <div className={cn("px-3 py-2 rounded-xl min-w-[84px]", theme === 'dark' ? 'bg-zinc-800/50' : 'bg-zinc-100')}>
-              <p className={cn("text-[10px] uppercase tracking-wider", tc.textMuted)}>Trades</p>
-              <p className={cn("text-sm font-semibold tabular-nums", tc.text)}>{stats.totalTrades}</p>
-            </div>
-            <div className={cn("px-3 py-2 rounded-xl min-w-[84px]", theme === 'dark' ? 'bg-zinc-800/50' : 'bg-zinc-100')}>
-              <p className={cn("text-[10px] uppercase tracking-wider", tc.textMuted)}>Win Rate</p>
-              <p className={cn("text-sm font-semibold tabular-nums", tc.text)}>{stats.winRate.toFixed(1)}%</p>
-            </div>
-            <div className={cn("px-3 py-2 rounded-xl min-w-[84px]", theme === 'dark' ? 'bg-zinc-800/50' : 'bg-zinc-100')}>
-              <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Profit Factor</p>
-              <p className="text-sm font-semibold text-white tabular-nums">{isFinite(stats.profitFactor) ? stats.profitFactor.toFixed(2) : 'N/A'}</p>
-            </div>
+          <div className="relative">
+            {renderEquityChart()}
           </div>
         </div>
-        <div className="relative">
-          {renderEquityChart()}
-        </div>
+
+        {/* Discipline Tracker — slim, high-contrast status banner. Discipline is the most
+            critical behavioral metric, so it gets a glowing accent treatment rather than
+            competing for space as a tall card. */}
+        {(() => {
+          const followed = filteredTrades.filter(t => t.rulesFollowed === 'followed').length;
+          const broken = filteredTrades.filter(t => t.rulesFollowed === 'broken').length;
+          const totalRuled = followed + broken;
+          const followRate = totalRuled > 0 ? (followed / totalRuled) * 100 : 0;
+          const isHealthy = totalRuled > 0 && followRate >= 60;
+          const isDanger = totalRuled > 0 && followRate < 60;
+          return (
+            <div
+              className={cn(
+                'relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-l-4 bg-zinc-900/40 border-zinc-800/80 p-4 sm:px-5 sm:py-3.5 min-w-0 transition-all duration-300',
+                isHealthy && 'border-l-emerald-500 shadow-[0_0_18px_rgba(16,185,129,0.12)]',
+                isDanger && 'border-l-amber-500 shadow-[0_0_18px_rgba(245,158,11,0.10)]'
+              )}
+            >
+              {/* Left: label + headline follow rate — its own flex-wrap group so the
+                  percentage/label/progress-bar cluster wraps onto a second line
+                  instead of overflowing into the badges on narrow screens. */}
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4 min-w-0 w-full sm:w-auto sm:flex-1">
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <Brain className="w-4 h-4 text-violet-400 flex-shrink-0" />
+                  <h3 className="text-sm font-semibold text-white tracking-tight truncate">Discipline</h3>
+                </div>
+
+                <div className="flex items-baseline gap-1.5 flex-shrink-0">
+                  <span className={cn('text-2xl font-bold tabular-nums leading-none', isHealthy ? 'text-emerald-400' : isDanger ? 'text-amber-400' : 'text-white')}>
+                    {followRate.toFixed(0)}%
+                  </span>
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-wider whitespace-nowrap">follow rate</span>
+                </div>
+
+                {/* Thin inline progress bar fills remaining space on wider screens */}
+                <div className="hidden sm:block flex-1 max-w-[220px] h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                  <div
+                    className={cn('h-full rounded-full transition-all duration-500', isHealthy ? 'bg-emerald-500' : isDanger ? 'bg-amber-500' : 'bg-zinc-600')}
+                    style={{ width: `${followRate}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Right: minimal status pills + Full button */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400">
+                  <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span className="text-xs font-semibold tabular-nums">{followed}</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-400">
+                  <XCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span className="text-xs font-semibold tabular-nums">{broken}</span>
+                </div>
+                <button
+                  onClick={() => setView('discipline')}
+                  className="group flex items-center gap-1 text-xs font-medium text-zinc-400 hover:text-white bg-zinc-800/50 hover:bg-zinc-700/50 transition-colors flex-shrink-0 pl-2.5 pr-2 py-1 rounded-full ml-1"
+                >
+                  <span>Full</span>
+                  <ChevronRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+                </button>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Secondary stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {renderStatCard('Avg Win', formatCurrency(stats.avgWin, privacyMode), <TrendingUp className="w-4 h-4" />, 'text-emerald-400')}
-        {renderStatCard('Avg Loss', formatCurrency(-stats.avgLoss, privacyMode), <TrendingDown className="w-4 h-4" />, 'text-red-400')}
+        {renderStatCard('Avg Loss', formatCurrency(-stats.avgLoss, privacyMode), <TrendingDown className="w-4 h-4" />, 'text-rose-400')}
         {renderStatCard('Total Trades', stats.totalTrades, <Activity className="w-4 h-4" />)}
         {renderStatCard('Win Rate', `${stats.winRate.toFixed(1)}%`, <Percent className="w-4 h-4" />)}
       </div>
@@ -3228,12 +4200,12 @@ function App() {
             return (
               <div key={account.id} className={cn(
                 'group relative rounded-2xl p-4 min-w-0 overflow-hidden transition-all duration-200',
-                theme === 'dark'
+                theme !== 'light'
                   ? 'bg-zinc-900/40 border border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-900/70'
                   : 'bg-white border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50',
-                metrics.isBreached && 'border-red-500/30'
+                metrics.isBreached && 'border-rose-500/30'
               )}>
-                <div className={cn('absolute left-0 top-0 bottom-0 w-1', metrics.isBreached ? 'bg-red-500' : isPositive ? 'bg-emerald-500/60' : 'bg-red-500/60')} />
+                <div className={cn('absolute left-0 top-0 bottom-0 w-1', metrics.isBreached ? 'bg-rose-500' : isPositive ? 'bg-emerald-500/60' : 'bg-rose-500/60')} />
                 <div className="pl-2">
                   <div className="flex items-start justify-between mb-3 gap-2">
                     <div className="min-w-0 flex-1">
@@ -3247,13 +4219,13 @@ function App() {
                           resetCalculator();
                           setShowEditAccount(account.id);
                         }}
-                        className={cn("p-1 opacity-0 group-hover:opacity-100 transition-opacity", theme === 'dark' ? 'text-zinc-600 hover:text-white' : 'text-zinc-400 hover:text-zinc-900')}
+                        className={cn("p-1 opacity-0 group-hover:opacity-100 transition-opacity", theme !== 'light' ? 'text-zinc-600 hover:text-white' : 'text-zinc-400 hover:text-zinc-900')}
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteAccount(account.id)}
-                        className="p-1 text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="p-1 text-zinc-600 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -3266,13 +4238,13 @@ function App() {
                   <div className="mb-3 mt-3">
                     <div className="flex items-baseline justify-between mb-1.5">
                       <span className={cn("text-xs", tc.textMuted)}>P&amp;L</span>
-                      <span className={cn('text-sm font-semibold tabular-nums', isPositive ? 'text-emerald-500' : 'text-red-500')}>
+                      <span className={cn('text-sm font-semibold tabular-nums', isPositive ? 'text-emerald-500' : 'text-rose-500')}>
                         {formatCurrency(accountPnL, privacyMode)}
                       </span>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
                     <div className="min-w-0">
                       <p className="text-[10px] text-zinc-500 uppercase tracking-wider truncate">Starting</p>
                       <p className="text-xs text-zinc-300 truncate tabular-nums">{privacyMode ? '****' : `$${account.startingBalance.toLocaleString()}`}</p>
@@ -3298,47 +4270,8 @@ function App() {
         </div>
       </div>
 
-      {/* Discipline Tracker summary */}
-      {(() => {
-        const followed = filteredTrades.filter(t => t.rulesFollowed === 'followed').length;
-        const broken = filteredTrades.filter(t => t.rulesFollowed === 'broken').length;
-        const totalRuled = followed + broken;
-        const followRate = totalRuled > 0 ? (followed / totalRuled) * 100 : 0;
-        return (
-          <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <Brain className="w-5 h-5 text-violet-400 flex-shrink-0" />
-                <h3 className="text-lg font-semibold text-white tracking-tight truncate">Discipline Tracker</h3>
-              </div>
-              <button onClick={() => setView('discipline')} className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors flex-shrink-0">
-                <span>View Full Tracker</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="p-3 rounded-xl bg-zinc-800/50 min-w-0">
-                <p className="text-[10px] text-zinc-500 uppercase tracking-wider truncate">Follow Rate</p>
-                <p className="text-lg font-semibold text-white tabular-nums">{followRate.toFixed(1)}%</p>
-              </div>
-              <div className="p-3 rounded-xl bg-zinc-800/50 min-w-0">
-                <p className="text-[10px] text-zinc-500 uppercase tracking-wider truncate">Rules Followed</p>
-                <p className="text-lg font-semibold text-emerald-400 tabular-nums">{followed}</p>
-              </div>
-              <div className="p-3 rounded-xl bg-zinc-800/50 min-w-0">
-                <p className="text-[10px] text-zinc-500 uppercase tracking-wider truncate">Rules Broken</p>
-                <p className="text-lg font-semibold text-red-400 tabular-nums">{broken}</p>
-              </div>
-            </div>
-            <div className="mt-4 h-2 bg-gradient-to-r from-red-600 to-red-500 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-500" style={{ width: `${followRate}%` }} />
-            </div>
-          </div>
-        );
-      })()}
-
       {/* Recent trades */}
-      <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-6">
+      <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <h3 className="text-lg font-semibold text-white tracking-tight">Recent Trades</h3>
           <button onClick={() => { resetTradeForm(); resetCalculator(); setShowAddTrade(true); }} className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors">
@@ -3352,9 +4285,9 @@ function App() {
             const isWin = trade.profitLoss >= 0;
             return (
               <div key={trade.id} onClick={() => { setShowTradeDetail(trade.id); setShowExpandGallery(false); }} className="relative flex items-center justify-between p-3 pl-4 bg-zinc-800/30 rounded-xl hover:bg-zinc-800/60 cursor-pointer transition-colors min-w-0 overflow-hidden">
-                <div className={cn('absolute left-0 top-0 bottom-0 w-0.5', isWin ? 'bg-emerald-500/60' : 'bg-red-500/60')} />
+                <div className={cn('absolute left-0 top-0 bottom-0 w-0.5', isWin ? 'bg-emerald-500/60' : 'bg-rose-500/60')} />
                 <div className="flex items-center gap-4 min-w-0 flex-1">
-                  <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0', isWin ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400')}>
+                  <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0', isWin ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400')}>
                     {isWin ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -3363,7 +4296,7 @@ function App() {
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0 ml-4">
-                  <p className={cn('font-mono font-medium tabular-nums', isWin ? 'text-emerald-400' : 'text-red-400')}>
+                  <p className={cn('font-mono font-medium tabular-nums', isWin ? 'text-emerald-400' : 'text-rose-400')}>
                     {formatCurrency(trade.profitLoss, privacyMode)}
                   </p>
                   <p className="text-xs text-zinc-500">{formatDate(trade.date)}</p>
@@ -3410,144 +4343,102 @@ function App() {
     setTradeSortOrder('desc');
   };
 
-  const renderTradeHistory = () => (
-    <div className="relative space-y-6 min-w-0">
-      <div className={cn("pointer-events-none fixed inset-0 -z-10 overflow-hidden", theme === 'light' && 'opacity-30')}>
-        <div className="absolute -top-24 -left-32 w-[32rem] h-[32rem] rounded-full bg-emerald-500/[0.07] blur-[110px]" />
-        <div className="absolute top-1/3 -right-32 w-[28rem] h-[28rem] rounded-full bg-red-500/[0.06] blur-[110px]" />
-        <div className="absolute bottom-0 left-1/4 w-[24rem] h-[24rem] rounded-full bg-violet-500/[0.05] blur-[110px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_0%,rgba(16,185,129,0.08),transparent_38%),radial-gradient(circle_at_85%_10%,rgba(239,68,68,0.06),transparent_35%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:36px_36px] [mask-image:radial-gradient(ellipse_90%_80%_at_50%_0%,black_50%,transparent_100%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:3px_3px] opacity-40" />
-      </div>
+  // ---- Notion-style Trade History ----
+  // Two sub-views share the same sidebar entry (no new menu items):
+  // 1. "overview" — a lightweight inline page: a 6-card featured gallery on
+  //    top, then a 5-row "RECENT ENTRIES" preview with an "Open Full Database"
+  //    button that swaps to the database sub-view.
+  // 2. "database" — a full-width Notion-spreadsheet view with breadcrumbs, a
+  //    filter bar (search / account / session / outcome / rules), a dense
+  //    table of all trades, and pagination.
 
+  const recentTrades = filteredTrades;
+  const recentPreviewTrades = filteredTrades.slice(0, 10);
+
+  const renderFeaturedCard = (trade: Trade) => {
+    const account = accounts.find(a => a.id === trade.accountId);
+    const coverImage = trade.executionImages[0]?.url || trade.timeframes.flatMap(tf => tf.images)[0]?.url;
+    const isWin = trade.profitLoss >= 0;
+    const isBreakeven = Math.abs(trade.profitLoss) < 10;
+    const outcomeCardClass = isBreakeven
+      ? 'bg-zinc-800/50 hover:bg-zinc-800/70'
+      : isWin
+        ? 'bg-emerald-950/50 hover:bg-emerald-950/70'
+        : 'bg-rose-950/50 hover:bg-rose-950/70';
+    return (
+      <div
+        key={trade.id}
+        onClick={() => setShowTradeDetail(trade.id)}
+        className="group border border-zinc-800/70 rounded-xl overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:border-zinc-700 min-w-0"
+      >
+        <div className="aspect-video bg-zinc-800 flex items-center justify-center relative overflow-hidden">
+          <span className="absolute top-2 left-2 z-10 flex items-center justify-center w-5 h-5 rounded bg-white text-[10px] font-mono font-bold text-black shadow-[0_1px_4px_rgba(0,0,0,0.6)] ring-1 ring-black/20">
+            {getDisplayTradeNumber(trade)}
+          </span>
+          {coverImage ? (
+            <img src={coverImage} alt="" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+          ) : (
+            <div className="flex flex-col items-center gap-1.5 text-zinc-600">
+              <ImageIcon className="w-7 h-7" />
+              <span className="text-[10px]">No image</span>
+            </div>
+          )}
+          {/* Badge row at the bottom of the thumbnail */}
+          <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-end gap-1.5 px-2.5 py-1.5 bg-gradient-to-t from-black/80 to-transparent">
+            <span className={cn('flex items-center justify-center w-4 h-4 rounded text-[9px] font-bold', trade.rulesFollowed === 'followed' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 text-rose-500')}>
+              {trade.rulesFollowed === 'followed' ? <Check className="w-2.5 h-2.5" /> : <X className="w-2.5 h-2.5" />}
+            </span>
+          </div>
+        </div>
+        <div className={cn('p-3 min-w-0 flex items-end justify-between gap-2 transition-colors duration-200', outcomeCardClass)}>
+          <div className="min-w-0 flex-1">
+            <h4 className="font-semibold text-white truncate tracking-tight text-sm">{trade.symbol}</h4>
+            <p className="text-xs text-zinc-500 truncate mt-0.5 flex items-center gap-1.5">
+              <span className="truncate">{account?.name} · {formatDate(trade.date)}</span>
+              {trade.trackingNumber && <TrackingBadge value={trade.trackingNumber} size="sm" />}
+            </p>
+            <div className="flex items-center gap-1.5 flex-wrap mt-2">
+              {trade.session && <SessionBadge value={trade.session} size="sm" />}
+              {trade.setupTypes.slice(0, 1).map(s => (
+                <span key={s} className="px-1.5 py-0.5 bg-zinc-800/80 border border-zinc-700/50 rounded text-[10px] text-zinc-300 truncate max-w-[70px]">{s}</span>
+              ))}
+            </div>
+          </div>
+          <span className={cn('text-sm font-mono font-bold tracking-tight whitespace-nowrap flex-shrink-0', isWin ? 'text-emerald-400' : 'text-rose-500')}>
+            {formatCurrency(trade.profitLoss, privacyMode)}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
+  const renderOverviewView = () => (
+    <div className="space-y-8 min-w-0">
+      {/* Page header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="min-w-0">
           <h2 className={cn("text-2xl font-bold truncate", tc.text)}>Trade History</h2>
           <p className={cn("text-sm truncate", tc.textMuted)}>{filteredTrades.length} trades</p>
         </div>
-        <div className="flex items-center flex-wrap gap-2 flex-shrink-0">
-          <div className="relative" ref={tradeControlsPanelRef}>
-            <button
-              type="button"
-              onClick={() => setShowTradeControlsPanel(!showTradeControlsPanel)}
-              className={cn(
-                'flex items-center gap-2 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-zinc-300 hover:bg-zinc-700 transition-colors',
-                showTradeControlsPanel && 'bg-zinc-700 border-zinc-600 text-white'
-              )}
-            >
-              <SlidersHorizontal className="w-4 h-4 flex-shrink-0" />
-              <span>Filters & View</span>
-              {activeTradeFilterCount > 0 && (
-                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-white text-black text-[10px] font-bold flex-shrink-0">
-                  {activeTradeFilterCount}
-                </span>
-              )}
-              <ChevronDown className={cn('w-4 h-4 flex-shrink-0 transition-transform', showTradeControlsPanel && 'rotate-180')} />
-            </button>
-
-            {showTradeControlsPanel && (
-              <div className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl z-50 p-4 space-y-4 max-h-[80vh] overflow-y-auto">
-                <div>
-                  <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Result</p>
-                  <div className="flex items-center bg-zinc-800 rounded-lg p-1">
-                    {[
-                      { id: 'all' as TradeFilter, label: 'All' },
-                      { id: 'profit' as TradeFilter, label: 'Profit' },
-                      { id: 'loss' as TradeFilter, label: 'Loss' },
-                      { id: 'breakeven' as TradeFilter, label: 'B/E' },
-                    ].map(item => (
-                      <button key={item.id} onClick={() => setTradeFilter(item.id)} className={cn('flex-1 px-2 py-1.5 rounded text-xs font-medium transition-colors', tradeFilter === item.id ? 'bg-white text-black' : 'text-zinc-400 hover:text-white')}>
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="border-t border-zinc-800" />
-
-                <div>
-                  <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Sort By</p>
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center bg-zinc-800 rounded-lg p-1 flex-1">
-                      {(Object.keys(SORT_FIELD_LABELS) as TradeSortField[]).map(field => (
-                        <button key={field} onClick={() => setTradeSortField(field)} className={cn('flex-1 px-2 py-1.5 rounded text-xs font-medium transition-colors', tradeSortField === field ? 'bg-white text-black' : 'text-zinc-400 hover:text-white')}>
-                          {SORT_FIELD_LABELS[field]}
-                        </button>
-                      ))}
-                    </div>
-                    <button
-                      onClick={() => setTradeSortOrder(tradeSortOrder === 'asc' ? 'desc' : 'asc')}
-                      title={tradeSortOrder === 'asc' ? 'Ascending' : 'Descending'}
-                      className="flex items-center justify-center p-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-300 hover:text-white transition-colors flex-shrink-0"
-                    >
-                      <ArrowUpDown className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-zinc-500 mt-1.5">
-                    {SORT_FIELD_LABELS[tradeSortField as keyof typeof SORT_FIELD_LABELS] ?? 'Date'} &middot; {tradeSortOrder === 'asc' ? 'Ascending' : 'Descending'}
-                  </p>
-                </div>
-
-                <div className="border-t border-zinc-800" />
-
-                <div>
-                  <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">View</p>
-                  <div className="flex items-center bg-zinc-800 rounded-lg p-1">
-                    {[
-                      { id: 'list' as GalleryView, icon: List, label: 'List' },
-                      { id: 'preview' as GalleryView, icon: LayoutGrid, label: 'Preview' },
-                      { id: 'gallery' as GalleryView, icon: Grid, label: 'Gallery' },
-                    ].map(item => (
-                      <button key={item.id} onClick={() => setGalleryView(item.id)} className={cn('flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded text-xs font-medium transition-colors', galleryView === item.id ? 'bg-white text-black' : 'text-zinc-400 hover:text-white')}>
-                        <item.icon className="w-3.5 h-3.5" />
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {galleryView === 'gallery' && (
-                  <div>
-                    <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Card Size</p>
-                    <div className="flex items-center bg-zinc-800 rounded-lg p-1">
-                      {(Object.keys(GALLERY_SIZE_LABELS) as GallerySize[]).map(size => (
-                        <button type="button" key={size} onClick={() => setGallerySize(size)} className={cn('flex-1 py-1.5 rounded text-xs font-medium transition-colors', gallerySize === size ? 'bg-white text-black' : 'text-zinc-400 hover:text-white')}>
-                          {GALLERY_SIZE_LABELS[size]}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="border-t border-zinc-800" />
-
-                <button onClick={resetTradeControls} className="w-full py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">
-                  Reset filters & sorting
-                </button>
-              </div>
-            )}
-          </div>
-
+        <div className="flex items-center gap-2 flex-shrink-0">
           <button
             type="button"
             onClick={toggleTradeSelectMode}
             className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors border',
+              'flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm transition-colors border',
               tradeSelectMode
                 ? 'bg-white text-black border-white hover:bg-zinc-200'
-                : theme === 'dark'
+                : theme !== 'light'
                   ? 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700'
                   : 'bg-zinc-100 border-zinc-200 text-zinc-700 hover:bg-zinc-200'
             )}
           >
             <Check className="w-4 h-4" />
-            <span>{tradeSelectMode ? 'Cancel' : 'Select'}</span>
+            <span className="hidden sm:inline">{tradeSelectMode ? 'Cancel' : 'Select'}</span>
           </button>
-
-          <button onClick={() => { resetTradeForm(); resetCalculator(); setShowAddTrade(true); }} className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors">
+          <button onClick={() => { resetTradeForm(); resetCalculator(); setShowAddTrade(true); }} className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors">
             <Plus className="w-4 h-4" />
-            <span>Add Trade</span>
+            <span className="hidden sm:inline">Add Trade</span>
           </button>
         </div>
       </div>
@@ -3555,7 +4446,7 @@ function App() {
       {tradeSelectMode && (
         <div className={cn(
           'flex items-center justify-between flex-wrap gap-3 px-4 py-3 rounded-xl border sticky top-0 z-20',
-          theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'
+          theme !== 'light' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'
         )}>
           <div className="flex items-center gap-3">
             <button
@@ -3563,7 +4454,7 @@ function App() {
               onClick={toggleSelectAllTrades}
               className={cn(
                 'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border',
-                theme === 'dark' ? 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700' : 'bg-zinc-100 border-zinc-200 text-zinc-700 hover:bg-zinc-200'
+                theme !== 'light' ? 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700' : 'bg-zinc-100 border-zinc-200 text-zinc-700 hover:bg-zinc-200'
               )}
             >
               {selectedTradeIds.length === filteredTrades.length && filteredTrades.length > 0 ? 'Deselect All' : 'Select All'}
@@ -3574,7 +4465,7 @@ function App() {
             type="button"
             onClick={handleDeleteSelectedTrades}
             disabled={selectedTradeIds.length === 0}
-            className="flex items-center gap-2 px-4 py-1.5 bg-red-500/90 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
+            className="flex items-center gap-2 px-4 py-1.5 bg-rose-500/90 hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
           >
             <Trash2 className="w-4 h-4" />
             Delete Selected
@@ -3582,289 +4473,486 @@ function App() {
         </div>
       )}
 
-      {galleryView === 'list' && (
-        <div className="relative bg-gradient-to-b from-zinc-900/70 to-zinc-900/30 border border-zinc-800 rounded-xl overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-500/0 via-zinc-500/60 to-red-500/0" />
-          <div className="trade-table-scroll w-full overflow-x-auto block clear-both">
-            <table className="w-full min-w-[950px]" style={{ minWidth: '950px' }}>
-              <thead>
-                <tr className="border-b border-zinc-800 text-left bg-zinc-900/40">
-                  {tradeSelectMode && <th className="px-4 py-3 w-10"></th>}
-                  <th className="px-4 py-3 text-xs text-zinc-500 uppercase tracking-wider w-10">#</th>
-                  <th className="px-4 py-3 text-xs text-zinc-500 uppercase tracking-wider">Date</th>
-                  <th className="px-4 py-3 text-xs text-zinc-500 uppercase tracking-wider">Symbol</th>
-                  <th className="px-4 py-3 text-xs text-zinc-500 uppercase tracking-wider">Account</th>
-                  <th className="px-4 py-3 text-xs text-zinc-500 uppercase tracking-wider">Setup</th>
-                  <th className="px-4 py-3 text-xs text-zinc-500 uppercase tracking-wider">Session</th>
-                  <th className="px-4 py-3 text-xs text-zinc-500 uppercase tracking-wider">Trade #</th>
-                  <th className="px-4 py-3 text-xs text-zinc-500 uppercase tracking-wider">Rules</th>
-                  <th className="px-4 py-3 text-xs text-zinc-500 uppercase tracking-wider text-right">R:R</th>
-                  <th className="px-4 py-3 text-xs text-zinc-500 uppercase tracking-wider text-right">P&L</th>
-                  <th className="px-4 py-3 text-xs text-zinc-500 uppercase tracking-wider"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-800/70">
-                {filteredTrades.map((trade) => {
-                  const account = accounts.find(a => a.id === trade.accountId);
-                  const isWin = trade.profitLoss >= 0;
-                  const rowRR = trade.riskAmount > 0 ? trade.profitLoss / trade.riskAmount : null;
-                  const isSelected = selectedTradeIds.includes(trade.id);
-                  return (
-                    <tr
-                      key={trade.id}
-                      className={cn(
-                        'relative group cursor-pointer transition-colors',
-                        isSelected ? 'bg-white/[0.06]' : (isWin ? 'hover:bg-emerald-500/[0.05]' : 'hover:bg-red-500/[0.05]')
-                      )}
-                      onClick={() => tradeSelectMode ? toggleTradeSelected(trade.id) : setShowTradeDetail(trade.id)}
-                    >
-                      {tradeSelectMode && (
-                        <td className="px-4 py-3" onClick={(e) => { e.stopPropagation(); toggleTradeSelected(trade.id); }}>
-                          <span className={cn(
-                            'flex items-center justify-center w-5 h-5 rounded border transition-colors',
-                            isSelected ? 'bg-white border-white text-black' : 'border-zinc-600 text-transparent hover:border-zinc-400'
-                          )}>
-                            <Check className="w-3.5 h-3.5" />
-                          </span>
-                        </td>
-                      )}
-                      <td className="px-4 py-3 relative">
-                        <span className={cn('absolute left-0 top-0 bottom-0 w-[3px] opacity-0 group-hover:opacity-100 transition-opacity', isWin ? 'bg-emerald-400' : 'bg-red-400')} />
-                        <span className="text-sm text-zinc-500 font-mono">{getDisplayTradeNumber(trade)}</span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-zinc-400 whitespace-nowrap">{formatDate(trade.date)}</td>
-                      <td className="px-4 py-3 text-sm text-white font-semibold tracking-tight truncate max-w-[100px]">{trade.symbol}</td>
-                      <td className="px-4 py-3 text-sm text-zinc-400 truncate max-w-[120px]">{account?.name}</td>
-                      <td className="px-4 py-3 text-sm text-zinc-400 truncate max-w-[100px]">{trade.setupTypes.join(', ') || '-'}</td>
-                      <td className="px-4 py-3 text-sm text-zinc-400">
-                        {trade.session ? (SESSION_SHORT_LABEL[trade.session] || trade.session.toLowerCase()) : '-'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <TrackingBadge value={trade.trackingNumber} size="sm" />
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={cn('text-xs px-2 py-0.5 rounded flex items-center gap-1 w-fit', trade.rulesFollowed === 'followed' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400')}>
-                          {trade.rulesFollowed === 'followed' ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
-                          <span className="truncate">{trade.rulesFollowed}</span>
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-xs font-medium text-right whitespace-nowrap">
-                        {rowRR !== null ? (
-                          <span className={cn('px-1.5 py-0.5 rounded border', rowRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : rowRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-red-400 border-red-500/30 bg-red-500/10')}>
-                            {rowRR >= 1 ? '+' : ''}{rowRR.toFixed(2)}R
-                          </span>
-                        ) : '-'}
-                      </td>
-                      <td className="px-4 py-3 text-sm font-mono text-right font-bold whitespace-nowrap">
-                        <span className={isWin ? 'text-emerald-400' : 'text-red-400'}>{formatCurrency(trade.profitLoss, privacyMode)}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <button onClick={(e) => { e.stopPropagation(); openEditTrade(trade); }} className="p-1 text-zinc-600 hover:text-white transition-colors">
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+      {/* TOP SECTION — Featured Gallery Grid (scrollable frame, all trades) */}
+      {recentTrades.length > 0 && (
+        <div>
+          <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Recent Trades</h3>
+          {/* Frame — matches the Discipline Tracker card tone/border exactly */}
+          <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-4 shadow-xl">
+            <div className="max-h-[520px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                {recentTrades.map(renderFeaturedCard)}
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {galleryView === 'preview' && (
-        <div className="trade-table-scroll overflow-x-auto w-full">
-        <div className="space-y-2.5 min-w-[850px]">
-          {filteredTrades.map((trade) => {
-            const account = accounts.find(a => a.id === trade.accountId);
-            const coverImage = trade.executionImages[0]?.url || trade.timeframes.flatMap(tf => tf.images)[0]?.url;
-            const isWin = trade.profitLoss >= 0;
-            const rowRR = trade.riskAmount > 0 ? trade.profitLoss / trade.riskAmount : null;
-            const isSelected = selectedTradeIds.includes(trade.id);
-            return (
-              <div
-                key={trade.id}
-                onClick={() => tradeSelectMode ? toggleTradeSelected(trade.id) : setShowTradeDetail(trade.id)}
-                className={cn(
-                  'group relative flex gap-4 p-4 pl-5 bg-gradient-to-r from-zinc-900/70 to-zinc-900/30 border rounded-xl cursor-pointer transition-all duration-200 min-w-0 overflow-hidden hover:-translate-y-0.5',
-                  isSelected ? 'border-white/60' : (isWin ? 'border-zinc-800 hover:border-emerald-500/40 hover:shadow-[0_8px_24px_-8px_rgba(16,185,129,0.25)]' : 'border-zinc-800 hover:border-red-500/40 hover:shadow-[0_8px_24px_-8px_rgba(239,68,68,0.25)]')
-                )}
-              >
-                <div className={cn('absolute left-0 top-0 bottom-0 w-1', isWin ? 'bg-gradient-to-b from-emerald-500/70 to-emerald-500/20' : 'bg-gradient-to-b from-red-500/70 to-red-500/20')} />
-                <div className={cn('absolute top-0 left-5 right-0 h-[2px]', isWin ? 'bg-gradient-to-r from-emerald-500/0 via-emerald-400/60 to-emerald-500/0' : 'bg-gradient-to-r from-red-500/0 via-red-400/60 to-red-500/0')} />
-
-                {tradeSelectMode && (
-                  <div
-                    className="absolute top-3 right-3 z-10"
-                    onClick={(e) => { e.stopPropagation(); toggleTradeSelected(trade.id); }}
-                  >
-                    <span className={cn(
-                      'flex items-center justify-center w-6 h-6 rounded border transition-colors bg-zinc-950/80',
-                      isSelected ? 'bg-white border-white text-black' : 'border-zinc-600 text-transparent hover:border-zinc-400'
-                    )}>
-                      <Check className="w-4 h-4" />
-                    </span>
-                  </div>
-                )}
-
-                <div className="w-24 h-16 bg-zinc-800 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden border border-zinc-800 relative">
-                  <span className="absolute top-1 left-1 z-10 flex items-center justify-center w-4 h-4 rounded bg-black/70 backdrop-blur-sm text-[9px] font-mono text-zinc-300">
-                    {getDisplayTradeNumber(trade)}
-                  </span>
-                  <span className={cn('absolute top-1 right-1 z-10 w-1.5 h-1.5 rounded-full', isWin ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]' : 'bg-red-400 shadow-[0_0_6px_rgba(248,113,113,0.8)]')} />
-                  {coverImage ? (
-                    <img src={coverImage} alt="" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                  ) : (
-                    <ImageIcon className="w-6 h-6 text-zinc-600" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-4 mb-1.5">
-                    <div className="min-w-0 flex-1">
-                      <h4 className="font-semibold text-white truncate tracking-tight">{trade.symbol}</h4>
-                      <p className="text-xs text-zinc-500 truncate">{account?.name} · {formatDate(trade.date)}</p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {rowRR !== null && (
-                        <span className={cn('text-xs font-medium px-2 py-0.5 rounded border whitespace-nowrap', rowRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : rowRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-red-400 border-red-500/30 bg-red-500/10')}>
-                          {rowRR >= 1 ? '+' : ''}{rowRR.toFixed(2)}R
-                        </span>
-                      )}
-                      <p className={cn('font-mono font-bold', isWin ? 'text-emerald-400' : 'text-red-400')}>
-                        {formatCurrency(trade.profitLoss, privacyMode)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="h-px bg-zinc-800/70 mb-2" />
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {trade.setupTypes.length > 0 ? trade.setupTypes.slice(0, 2).map(s => (
-                      <span key={s} className="px-2 py-0.5 bg-zinc-800/80 border border-zinc-700/50 rounded text-xs text-zinc-300 truncate max-w-[80px]">{s}</span>
-                    )) : (
-                      <span className="text-xs text-zinc-600 italic">No setup tagged</span>
-                    )}
-                    <span className={cn('text-xs px-2 py-0.5 rounded flex items-center gap-1', trade.rulesFollowed === 'followed' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400')}>
-                      {trade.rulesFollowed === 'followed' ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
-                    </span>
-                    {trade.session && <SessionBadge value={trade.session} size="sm" />}
-                    {trade.trackingNumber && <TrackingBadge value={trade.trackingNumber} size="sm" />}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        </div>
-      )}
-
-      {galleryView === 'gallery' && (
-        <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${galleryColumnCount}, minmax(0, 1fr))` }}>
-          {filteredTrades.map((trade) => {
-            const account = accounts.find(a => a.id === trade.accountId);
-            const coverImage = trade.executionImages[0]?.url || trade.timeframes.flatMap(tf => tf.images)[0]?.url;
-            const cardRR = trade.riskAmount > 0 ? trade.profitLoss / trade.riskAmount : null;
-            const isWin = trade.profitLoss >= 0;
-            const isSelected = selectedTradeIds.includes(trade.id);
-            return (
-              <div
-                key={trade.id}
-                onClick={() => tradeSelectMode ? toggleTradeSelected(trade.id) : setShowTradeDetail(trade.id)}
-                className={cn(
-                  'group relative bg-gradient-to-b from-zinc-900/70 to-zinc-900/30 border rounded-xl overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-0.5 min-w-0',
-                  isSelected ? 'border-white/60' : (isWin ? 'border-zinc-800 hover:border-emerald-500/40 hover:shadow-[0_8px_24px_-8px_rgba(16,185,129,0.25)]' : 'border-zinc-800 hover:border-red-500/40 hover:shadow-[0_8px_24px_-8px_rgba(239,68,68,0.25)]')
-                )}
-              >
-                <div className={cn('absolute top-0 left-0 right-0 h-[2px] z-10', isWin ? 'bg-gradient-to-r from-emerald-500/0 via-emerald-400 to-emerald-500/0' : 'bg-gradient-to-r from-red-500/0 via-red-400 to-red-500/0')} />
-
-                {tradeSelectMode && (
-                  <div
-                    className="absolute top-2 right-2 z-20"
-                    onClick={(e) => { e.stopPropagation(); toggleTradeSelected(trade.id); }}
-                  >
-                    <span className={cn(
-                      'flex items-center justify-center w-6 h-6 rounded border transition-colors bg-zinc-950/80',
-                      isSelected ? 'bg-white border-white text-black' : 'border-zinc-600 text-transparent hover:border-zinc-400'
-                    )}>
-                      <Check className="w-4 h-4" />
-                    </span>
-                  </div>
-                )}
-
-                <div className="aspect-video bg-zinc-800 flex items-center justify-center relative overflow-hidden">
-                  <span className="absolute top-2 left-2 z-10 flex items-center justify-center w-5 h-5 rounded bg-black/70 backdrop-blur-sm text-[10px] font-mono text-zinc-300">
-                    {getDisplayTradeNumber(trade)}
-                  </span>
-                  <span className={cn('absolute top-2 right-2 z-10 w-2 h-2 rounded-full', isWin ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.8)]')} />
-                  {coverImage ? (
-                    <img src={coverImage} alt="" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                  ) : (
-                    <div className="flex flex-col items-center gap-2 text-zinc-600">
-                      <ImageIcon className="w-8 h-8" />
-                      <span className="text-xs">No image</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="p-3.5 min-w-0 overflow-hidden">
-                  <div className="mb-1.5 flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <h4 className="font-semibold text-white truncate tracking-tight">{trade.symbol}</h4>
-                      <p className="text-xs text-zinc-500 truncate">{account?.name}</p>
-                    </div>
-                    {trade.trackingNumber && <TrackingBadge value={trade.trackingNumber} size="sm" />}
-                  </div>
-
-                  <div className="flex items-center gap-1.5 flex-wrap mb-2.5">
-                    {trade.session && <SessionBadge value={trade.session} size="sm" />}
-                    <span className={cn('text-xs px-2 py-0.5 rounded flex items-center gap-1', trade.rulesFollowed === 'followed' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400')}>
-                      {trade.rulesFollowed === 'followed' ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 mb-2.5">
-                    <p className="text-[11px] text-zinc-500 whitespace-nowrap">{formatDate(trade.date)}</p>
-                    <div className="flex-1 h-px bg-gradient-to-r from-zinc-800 to-transparent" />
-                  </div>
-
-                  <div className="flex items-center justify-between gap-1.5 mb-2.5 min-w-0 flex-wrap">
-                    <span className={cn('text-sm sm:text-base font-mono font-bold tracking-tight truncate min-w-0', isWin ? 'text-emerald-400' : 'text-red-400')}>
-                      {formatCurrency(trade.profitLoss, privacyMode)}
-                    </span>
-                    {cardRR !== null && (
-                      <span className={cn('text-xs font-medium px-2 py-0.5 rounded border flex-shrink-0 whitespace-nowrap', cardRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : cardRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-red-400 border-red-500/30 bg-red-500/10')}>
-                        {cardRR >= 1 ? '+' : ''}{cardRR.toFixed(2)}R
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-1 flex-wrap pt-2.5 border-t border-zinc-800/70">
-                    {trade.setupTypes.length > 0 ? trade.setupTypes.slice(0, 2).map(s => (
-                      <span key={s} className="px-2 py-0.5 bg-zinc-800/80 border border-zinc-700/50 rounded text-xs text-zinc-300 truncate max-w-[70px]">{s}</span>
-                    )) : (
-                      <span className="text-xs text-zinc-600 italic">No setup tagged</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {filteredTrades.length === 0 && (
-        <div className="text-center py-12">
-          <div className="w-16 h-16 mx-auto rounded-full bg-zinc-800 flex items-center justify-center mb-4">
-            <TrendingUp className="w-8 h-8 text-zinc-600" />
-          </div>
-          <h3 className="text-lg font-medium text-white mb-2">No trades found</h3>
-          <p className="text-zinc-500 mb-4">Add your first trade or adjust your filters</p>
-          <button onClick={() => { resetTradeForm(); setShowAddTrade(true); }} className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors">
-            <Plus className="w-4 h-4" />
-            Add Trade
+      {/* BOTTOM SECTION — Recent Entry Log Preview */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Recent Entries</h3>
+          <button
+            type="button"
+            onClick={() => setTradeSubView('database')}
+            className="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
+          >
+            <Expand className="w-3.5 h-3.5" />
+            Open Full Database
           </button>
         </div>
-      )}
+
+        <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl overflow-hidden">
+          {recentPreviewTrades.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px]">
+                <thead>
+                  <tr className="border-b border-zinc-800/70 text-left">
+                    <th className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">#</th>
+                    <th className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Date</th>
+                    <th className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Symbol</th>
+                    <th className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Session</th>
+                    <th className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider font-medium text-right">R</th>
+                    <th className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider font-medium text-right">P&L</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentPreviewTrades.map(trade => {
+                    const isWin = trade.profitLoss >= 0;
+                    const rowRR = trade.riskAmount > 0 ? trade.profitLoss / trade.riskAmount : null;
+                    return (
+                      <tr
+                        key={trade.id}
+                        onClick={() => tradeSelectMode ? toggleTradeSelected(trade.id) : setShowTradeDetail(trade.id)}
+                        className="border-b border-zinc-800/70 hover:bg-white/[0.02] cursor-pointer transition-colors"
+                      >
+                        <td className="px-3 py-2 text-sm text-zinc-500 font-mono">{getDisplayTradeNumber(trade)}</td>
+                        <td className="px-3 py-2 text-sm text-zinc-400 whitespace-nowrap">{formatDate(trade.date)}</td>
+                        <td className="px-3 py-2 text-sm text-white font-semibold truncate max-w-[120px]">{trade.symbol}</td>
+                        <td className="px-3 py-2 text-sm text-zinc-400">
+                          {trade.session ? (SESSION_SHORT_LABEL[trade.session] || trade.session.toLowerCase()) : '-'}
+                        </td>
+                        <td className="px-3 py-2 text-xs font-medium text-right whitespace-nowrap">
+                          {rowRR !== null ? (
+                            <span className={cn('px-1.5 py-0.5 rounded border', rowRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : rowRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-rose-500 border-rose-500/30 bg-rose-500/10')}>
+                              {rowRR >= 1 ? '+' : ''}{rowRR.toFixed(2)}R
+                            </span>
+                          ) : '-'}
+                        </td>
+                        <td className="px-3 py-2 text-sm font-mono text-right font-bold whitespace-nowrap">
+                          <span className={isWin ? 'text-emerald-400' : 'text-rose-500'}>{formatCurrency(trade.profitLoss, privacyMode)}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-10">
+              <div className="w-14 h-14 mx-auto rounded-full bg-zinc-800 flex items-center justify-center mb-3">
+                <TrendingUp className="w-7 h-7 text-zinc-600" />
+              </div>
+              <h3 className="text-base font-medium text-white mb-1.5">No trades yet</h3>
+              <p className="text-zinc-500 mb-3 text-sm">Add your first trade to get started</p>
+              <button onClick={() => { resetTradeForm(); setShowAddTrade(true); }} className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors">
+                <Plus className="w-4 h-4" />
+                Add Trade
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
+
+  const renderDatabaseView = () => {
+    const activeDbFilterCount =
+      (dbSearch.trim() ? 1 : 0) +
+      (dbAccountFilter !== 'all' ? 1 : 0) +
+      (dbSessionFilter !== 'all' ? 1 : 0) +
+      (dbOutcomeFilter !== 'all' ? 1 : 0) +
+      (dbRulesFilter !== 'all' ? 1 : 0);
+
+    const resetDbFilters = () => {
+      setDbSearch('');
+      setDbAccountFilter('all');
+      setDbSessionFilter('all');
+      setDbOutcomeFilter('all');
+      setDbRulesFilter('all');
+      setDbPage(0);
+    };
+
+    return (
+      <div className="space-y-5 min-w-0">
+        {/* Breadcrumbs + back button */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-2 text-sm min-w-0">
+            <button
+              type="button"
+              onClick={() => setTradeSubView('overview')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-white/5 transition-colors flex-shrink-0"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Back to Overview</span>
+            </button>
+            <span className="text-zinc-700">/</span>
+            <span className="text-zinc-500 truncate">Trade History</span>
+            <span className="text-zinc-700">/</span>
+            <span className="text-white font-medium truncate">All Trades Database</span>
+          </div>
+          <button onClick={() => { resetTradeForm(); resetCalculator(); setShowAddTrade(true); }} className="flex items-center gap-2 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors flex-shrink-0">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Add Trade</span>
+          </button>
+        </div>
+
+        {/* Filter bar */}
+        <div className="flex items-center gap-2 flex-wrap p-3 bg-zinc-900/40 border border-zinc-800/80 rounded-xl">
+          <div className="relative flex-1 min-w-[180px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none" />
+            <input
+              type="text"
+              value={dbSearch}
+              onChange={(e) => { setDbSearch(e.target.value); setDbPage(0); }}
+              placeholder="Search trades..."
+              className="w-full pl-9 pr-3 py-2 bg-zinc-900 border border-white/10 rounded-lg text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500/50 transition-colors"
+            />
+          </div>
+          <select
+            value={dbAccountFilter}
+            onChange={(e) => { setDbAccountFilter(e.target.value); setDbPage(0); }}
+            className="px-3 py-2 bg-zinc-900 border border-white/10 rounded-lg text-sm text-zinc-300 focus:outline-none focus:border-indigo-500/50 transition-colors cursor-pointer"
+          >
+            <option value="all">All Accounts</option>
+            {accounts.map(a => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+          <select
+            value={dbSessionFilter}
+            onChange={(e) => { setDbSessionFilter(e.target.value); setDbPage(0); }}
+            className="px-3 py-2 bg-zinc-900 border border-white/10 rounded-lg text-sm text-zinc-300 focus:outline-none focus:border-indigo-500/50 transition-colors cursor-pointer"
+          >
+            <option value="all">All Sessions</option>
+            {SESSION_OPTIONS.map(s => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+          <select
+            value={dbOutcomeFilter}
+            onChange={(e) => { setDbOutcomeFilter(e.target.value as TradeFilter); setDbPage(0); }}
+            className="px-3 py-2 bg-zinc-900 border border-white/10 rounded-lg text-sm text-zinc-300 focus:outline-none focus:border-indigo-500/50 transition-colors cursor-pointer"
+          >
+            <option value="all">All Outcomes</option>
+            <option value="profit">Profit</option>
+            <option value="loss">Loss</option>
+            <option value="breakeven">Breakeven</option>
+          </select>
+          <select
+            value={dbRulesFilter}
+            onChange={(e) => { setDbRulesFilter(e.target.value as 'all' | 'followed' | 'broken'); setDbPage(0); }}
+            className="px-3 py-2 bg-zinc-900 border border-white/10 rounded-lg text-sm text-zinc-300 focus:outline-none focus:border-indigo-500/50 transition-colors cursor-pointer"
+          >
+            <option value="all">All Rules</option>
+            <option value="followed">Rules Followed</option>
+            <option value="broken">Rules Broken</option>
+          </select>
+          {activeDbFilterCount > 0 && (
+            <button
+              type="button"
+              onClick={resetDbFilters}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs text-zinc-400 hover:text-white transition-colors flex-shrink-0"
+            >
+              <X className="w-3.5 h-3.5" />
+              Clear ({activeDbFilterCount})
+            </button>
+          )}
+        </div>
+
+        {/* Result count */}
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <p className="text-sm text-zinc-500">
+            {dbFilteredTrades.length} {dbFilteredTrades.length === 1 ? 'trade' : 'trades'}
+          </p>
+        </div>
+
+        {/* Full-page table */}
+        {dbPagedTrades.length > 0 ? (
+          <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1100px]">
+                <thead>
+                  <tr className="border-b border-zinc-800/70 text-left bg-white/[0.02]">
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Outcome</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Date</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Trade #</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Session</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Position</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium text-right">Net P&L</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium text-right">R Multiple</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium text-right">Risk ($)</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Symbol</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Strategy</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Account</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dbPagedTrades.map(trade => {
+                    const account = accounts.find(a => a.id === trade.accountId);
+                    const isWin = trade.profitLoss >= 0;
+                    const isBreakeven = Math.abs(trade.profitLoss) < 10;
+                    const rowRR = trade.riskAmount > 0 ? trade.profitLoss / trade.riskAmount : null;
+                    const position = trade.profitLoss >= 0 ? 'Long' : 'Short';
+                    return (
+                      <tr
+                        key={trade.id}
+                        onClick={() => setShowTradeDetail(trade.id)}
+                        className="border-b border-zinc-800/70 hover:bg-white/[0.02] cursor-pointer transition-colors"
+                      >
+                        <td className="px-3 py-2.5">
+                          <span className={cn(
+                            'text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide',
+                            isBreakeven ? 'bg-zinc-700/40 text-zinc-300' : isWin ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/10 text-rose-500'
+                          )}>
+                            {isBreakeven ? 'B/E' : isWin ? 'Win' : 'Loss'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5 text-sm text-zinc-400 whitespace-nowrap">{formatDate(trade.date)}</td>
+                        <td className="px-3 py-2.5">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-sm text-zinc-500 font-mono flex-shrink-0">{getDisplayTradeNumber(trade)}</span>
+                            {trade.trackingNumber && <TrackingBadge value={trade.trackingNumber} size="sm" />}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2.5 text-sm text-zinc-400">
+                          {trade.session ? (SESSION_SHORT_LABEL[trade.session] || trade.session.toLowerCase()) : '-'}
+                        </td>
+                        <td className="px-3 py-2.5 text-sm text-zinc-400">{position}</td>
+                        <td className="px-3 py-2.5 text-sm font-mono text-right font-bold whitespace-nowrap">
+                          <span className={isWin ? 'text-emerald-400' : 'text-rose-500'}>{formatCurrency(trade.profitLoss, privacyMode)}</span>
+                        </td>
+                        <td className="px-3 py-2.5 text-xs font-medium text-right whitespace-nowrap">
+                          {rowRR !== null ? (
+                            <span className={cn('px-1.5 py-0.5 rounded border', rowRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : rowRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-rose-500 border-rose-500/30 bg-rose-500/10')}>
+                              {rowRR >= 1 ? '+' : ''}{rowRR.toFixed(2)}R
+                            </span>
+                          ) : '-'}
+                        </td>
+                        <td className="px-3 py-2.5 text-sm text-zinc-400 text-right whitespace-nowrap">
+                          {trade.riskAmount > 0 ? formatCurrencyAbsolute(trade.riskAmount, privacyMode) : '-'}
+                        </td>
+                        <td className="px-3 py-2.5 text-sm text-white font-semibold truncate max-w-[100px]">{trade.symbol}</td>
+                        <td className="px-3 py-2.5 text-sm text-zinc-400 truncate max-w-[120px]">{trade.setupTypes.join(', ') || '-'}</td>
+                        <td className="px-3 py-2.5 text-sm text-zinc-400 truncate max-w-[120px]">{account?.name || '-'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {dbPageCount > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-white/10 flex-wrap gap-2">
+                <p className="text-xs text-zinc-500">
+                  Page {dbPage + 1} of {dbPageCount} · {dbFilteredTrades.length} total
+                </p>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setDbPage(p => Math.max(0, p - 1))}
+                    disabled={dbPage === 0}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    Prev
+                  </button>
+                  <span className="text-xs text-zinc-500 px-2">{dbPage + 1} / {dbPageCount}</span>
+                  <button
+                    type="button"
+                    onClick={() => setDbPage(p => Math.min(dbPageCount - 1, p + 1))}
+                    disabled={dbPage >= dbPageCount - 1}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-12 bg-zinc-900/40 border border-zinc-800/80 rounded-xl">
+            <div className="w-14 h-14 mx-auto rounded-full bg-zinc-800 flex items-center justify-center mb-3">
+              <Database className="w-7 h-7 text-zinc-600" />
+            </div>
+            <h3 className="text-base font-medium text-white mb-1.5">No trades match your filters</h3>
+            <p className="text-zinc-500 mb-3 text-sm">Try adjusting or clearing your filters</p>
+            <button onClick={resetDbFilters} className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors">
+              Clear Filters
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderTradeHistory = () => (
+    <div className="space-y-6 min-w-0">
+      {tradeSubView === 'overview' ? renderOverviewView() : renderDatabaseView()}
+    </div>
+  );
+
+  // ---- Life Discipline Hub ----
+  // A separate, self-contained daily-habit checklist + N-day challenge grid.
+  // Intentionally decoupled from the trading journal's trade/rule data.
+  const renderLifeDisciplineHub = () => {
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const todayChecks = lifeDisciplineChecks[todayKey] || LIFE_DISCIPLINE_HABIT_GROUPS.map(g => g.items.map(() => false));
+
+    const totalItems = LIFE_DISCIPLINE_HABIT_GROUPS.reduce((sum, g) => sum + g.items.length, 0);
+    const checkedItems = todayChecks.reduce((sum, group) => sum + group.filter(Boolean).length, 0);
+    const todayComplete = checkedItems === totalItems;
+
+    // Build the Day 1..N grid against the stored challenge start date.
+    const start = new Date(lifeDisciplineStartDate + 'T00:00:00');
+    const today = new Date(todayKey + 'T00:00:00');
+    const gridDays = Array.from({ length: LIFE_DISCIPLINE_CHALLENGE_LENGTH }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      const dateKey = d.toISOString().slice(0, 10);
+      const isFuture = d.getTime() > today.getTime();
+      const isToday = d.getTime() === today.getTime();
+      const complete = isLifeDisciplineDayComplete(dateKey);
+      let status: 'upcoming' | 'complete' | 'failed' | 'pending';
+      if (isFuture) status = 'upcoming';
+      else if (complete) status = 'complete';
+      else if (isToday) status = 'pending';
+      else status = 'failed';
+      return { day: i + 1, dateKey, status };
+    });
+
+    const completedCount = gridDays.filter(d => d.status === 'complete').length;
+    const failedCount = gridDays.filter(d => d.status === 'failed').length;
+
+    const statusStyles: Record<string, string> = {
+      complete: 'bg-emerald-500 border-emerald-400 text-white',
+      failed: 'bg-rose-500/90 border-rose-400 text-white',
+      pending: 'bg-amber-500/20 border-amber-500/50 text-amber-300',
+      upcoming: theme !== 'light' ? 'bg-zinc-800/50 border-zinc-800 text-zinc-600' : 'bg-zinc-100 border-zinc-200 text-zinc-400',
+    };
+
+    return (
+      <div className="space-y-4 min-w-0">
+        {/* PAGE HEADER */}
+        <div>
+          <h2 className="text-2xl font-bold text-white truncate flex items-center gap-2">
+            <Flame className="w-6 h-6 text-amber-400 flex-shrink-0" />
+            Life Discipline Hub
+          </h2>
+          <p className="text-zinc-500 text-sm truncate">Tracking daily execution, one habit at a time</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {renderStatCard('Today\'s Progress', `${checkedItems}/${totalItems}`, <CheckCircle2 className="w-4 h-4" />, todayComplete ? 'text-emerald-400' : 'text-amber-400')}
+          {renderStatCard('Days Completed', completedCount, <Flame className="w-4 h-4" />, 'text-emerald-400')}
+          {renderStatCard('Days Failed', failedCount, <XCircle className="w-4 h-4" />, 'text-rose-400')}
+        </div>
+
+        {/* DAILY CHECKLIST SECTION */}
+        <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-5 min-w-0">
+          <h3 className="text-base font-semibold text-white flex items-center gap-2 mb-4">
+            <Shield className="w-4 h-4 text-zinc-400 flex-shrink-0" />
+            <span className="truncate">Daily Checklist — {formatDate(todayKey)}</span>
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {LIFE_DISCIPLINE_HABIT_GROUPS.map((group, gI) => {
+              const groupChecks = todayChecks[gI] || group.items.map(() => false);
+              const groupComplete = groupChecks.every(Boolean);
+              const GroupIcon = group.icon;
+              return (
+                <div
+                  key={group.id}
+                  className={cn(
+                    'rounded-xl border p-4 transition-colors',
+                    groupComplete ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-zinc-800/30 border-zinc-800/70'
+                  )}
+                >
+                  <div className="flex items-center gap-2 mb-3 pb-3 border-b border-zinc-800/60">
+                    <GroupIcon className={cn('w-4 h-4 flex-shrink-0', groupComplete ? 'text-emerald-400' : 'text-zinc-400')} />
+                    <span className="text-sm font-semibold text-white truncate">{group.label}</span>
+                    {groupComplete && <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 ml-auto" />}
+                  </div>
+                  <div className="space-y-2">
+                    {group.items.map((item, iI) => {
+                      const checked = !!groupChecks[iI];
+                      return (
+                        <label
+                          key={iI}
+                          className="flex items-center gap-2.5 cursor-pointer group select-none"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleLifeDisciplineItem(todayKey, gI, iI)}
+                            className="sr-only peer"
+                          />
+                          <span
+                            className={cn(
+                              'w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 transition-colors',
+                              checked ? 'bg-emerald-500 border-emerald-400' : 'border-zinc-600 group-hover:border-zinc-400'
+                            )}
+                          >
+                            {checked && <Check className="w-3.5 h-3.5 text-white" />}
+                          </span>
+                          <span className={cn('text-sm transition-colors', checked ? 'text-zinc-300 line-through decoration-zinc-600' : 'text-zinc-300')}>
+                            {item}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* DYNAMIC CHALLENGE PROGRESS GRID */}
+        <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-5 min-w-0">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <h3 className="text-base font-semibold text-white flex items-center gap-2">
+              <Target className="w-4 h-4 text-zinc-400 flex-shrink-0" />
+              <span className="truncate">{LIFE_DISCIPLINE_CHALLENGE_LENGTH}-Day Challenge Progress</span>
+            </h3>
+            <div className="flex items-center gap-3 text-xs text-zinc-400 flex-wrap">
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" /> Complete</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-rose-500/90" /> Failed</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-amber-500/20 border border-amber-500/50" /> Today</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-zinc-800 border border-zinc-700" /> Upcoming</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-10 sm:grid-cols-10 md:grid-cols-[repeat(20,minmax(0,1fr))] gap-1.5">
+            {gridDays.map(({ day, status }) => (
+              <div
+                key={day}
+                title={`Day ${day}`}
+                className={cn(
+                  'aspect-square rounded-md border flex items-center justify-center text-[10px] font-mono font-medium transition-colors',
+                  statusStyles[status]
+                )}
+              >
+                {day}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const renderDisciplineTracker = () => {
     const followedTrades = filteredTrades.filter(t => t.rulesFollowed === 'followed');
@@ -3932,7 +5020,7 @@ function App() {
             </span>
           ))}
           {mistakes.map(m => (
-            <span key={`m-${m}`} className="px-2 py-0.5 rounded-full bg-red-500/15 border border-red-500/25 text-red-300 text-xs font-medium leading-normal">
+            <span key={`m-${m}`} className="px-2 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/25 text-rose-300 text-xs font-medium leading-normal">
               {m}
             </span>
           ))}
@@ -3949,9 +5037,9 @@ function App() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {renderStatCard('Rules Followed', followedTrades.length, <CheckCircle2 className="w-4 h-4" />, 'text-emerald-400')}
-          {renderStatCard('Rules Broken', brokenTrades.length, <XCircle className="w-4 h-4" />, 'text-red-400')}
+          {renderStatCard('Rules Broken', brokenTrades.length, <XCircle className="w-4 h-4" />, 'text-rose-400')}
           {renderStatCard('Follow Rate', `${((followedTrades.length / (followedTrades.length + brokenTrades.length)) * 100 || 0).toFixed(1)}%`, <Target className="w-4 h-4" />)}
-          {renderStatCard('Avg Loss (Broken)', brokenTrades.length > 0 ? formatCurrency(brokenTrades.reduce((s, t) => s + t.profitLoss, 0) / brokenTrades.length, privacyMode) : '$0.00', <AlertCircle className="w-4 h-4" />, 'text-red-400')}
+          {renderStatCard('Avg Loss (Broken)', brokenTrades.length > 0 ? formatCurrency(brokenTrades.reduce((s, t) => s + t.profitLoss, 0) / brokenTrades.length, privacyMode) : '$0.00', <AlertCircle className="w-4 h-4" />, 'text-rose-400')}
         </div>
 
         {/* Rule Adherence Log — full width so trades have room to show every emotion/mistake tag, not just the first couple */}
@@ -3981,7 +5069,7 @@ function App() {
                             <p className="text-xs text-zinc-400 truncate">{account?.name} | {formatDate(trade.date)}</p>
                           </div>
                         </div>
-                        <p className={cn('font-mono font-medium text-sm flex-shrink-0', trade.profitLoss >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+                        <p className={cn('font-mono font-medium text-sm flex-shrink-0', trade.profitLoss >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
                           {formatCurrency(trade.profitLoss, privacyMode)}
                         </p>
                       </div>
@@ -4004,7 +5092,7 @@ function App() {
 
             <div className="flex flex-col min-w-0 md:pl-6 md:border-l md:border-zinc-800/70">
               <div className="flex items-center justify-between mb-3 pb-3 border-b border-zinc-800/70 flex-shrink-0">
-                <span className="flex items-center gap-1.5 text-sm font-semibold text-red-400 truncate">
+                <span className="flex items-center gap-1.5 text-sm font-semibold text-rose-400 truncate">
                   <XCircle className="w-4 h-4 flex-shrink-0" /> Broken
                 </span>
                 <span className="text-xs font-mono text-zinc-400 flex-shrink-0 px-2 py-0.5 rounded bg-zinc-800/60">{brokenTrades.length}</span>
@@ -4022,7 +5110,7 @@ function App() {
                             <p className="text-xs text-zinc-400 truncate">{account?.name} | {formatDate(trade.date)}</p>
                           </div>
                         </div>
-                        <p className={cn('font-mono font-medium text-sm flex-shrink-0', trade.profitLoss >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+                        <p className={cn('font-mono font-medium text-sm flex-shrink-0', trade.profitLoss >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
                           {formatCurrency(trade.profitLoss, privacyMode)}
                         </p>
                       </div>
@@ -4078,14 +5166,14 @@ function App() {
                       <div key={emotion} className="min-w-0">
                         <div className="flex items-center justify-between gap-2 mb-1.5">
                           <span className="text-sm text-zinc-300 truncate">{emotion}</span>
-                          <span className={cn('text-sm font-mono font-medium flex-shrink-0', isProfit ? 'text-emerald-400' : 'text-red-400')}>
+                          <span className={cn('text-sm font-mono font-medium flex-shrink-0', isProfit ? 'text-emerald-400' : 'text-rose-400')}>
                             {formatCurrency(pnl, privacyMode)}
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="h-1.5 flex-1 bg-zinc-800 rounded-full overflow-hidden">
                             <div
-                              className={cn('h-full rounded-full', isProfit ? 'bg-gradient-to-r from-emerald-600 to-emerald-400' : 'bg-gradient-to-r from-red-600 to-orange-400')}
+                              className={cn('h-full rounded-full', isProfit ? 'bg-gradient-to-r from-emerald-600 to-emerald-400' : 'bg-gradient-to-r from-rose-600 to-orange-400')}
                               style={{ width: `${(count / maxEmotionCount) * 100}%` }}
                             />
                           </div>
@@ -4099,7 +5187,7 @@ function App() {
             </div>
 
             <div className="md:pl-6 md:border-l md:border-zinc-800/70">
-              <h4 className="text-sm font-semibold text-red-400 mb-3 flex items-center gap-1.5">
+              <h4 className="text-sm font-semibold text-rose-400 mb-3 flex items-center gap-1.5">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 <span className="truncate">Top Mistakes Committed</span>
               </h4>
@@ -4111,14 +5199,14 @@ function App() {
                     <div key={mistake} className="min-w-0">
                       <div className="flex items-center justify-between gap-2 mb-1.5">
                         <span className="text-sm text-zinc-300 truncate">{mistake}</span>
-                        <span className="text-sm font-mono font-medium text-red-400 flex-shrink-0">
+                        <span className="text-sm font-mono font-medium text-rose-400 flex-shrink-0">
                           {formatCurrency(pnl, privacyMode)}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="h-1.5 flex-1 bg-zinc-800 rounded-full overflow-hidden">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-red-600 to-orange-400"
+                            className="h-full rounded-full bg-gradient-to-r from-rose-600 to-orange-400"
                             style={{ width: `${(count / maxMistakeCount) * 100}%` }}
                           />
                         </div>
@@ -4139,7 +5227,7 @@ function App() {
     <div className="space-y-4 min-w-0">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="min-w-0">
-          <h2 className={cn("text-2xl font-bold truncate", theme === 'dark' ? 'text-white' : 'text-zinc-900')}>Rules Playbook</h2>
+          <h2 className={cn("text-2xl font-bold truncate", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>Rules Playbook</h2>
           <p className="text-zinc-500 text-sm truncate">Your command center — logged trades passively track violations, no checklists required</p>
         </div>
         <button onClick={() => openAddRuleModal('risk')} className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors flex-shrink-0">
@@ -4158,19 +5246,19 @@ function App() {
               className={cn(
                 "rounded-xl border-t-4 flex flex-col min-w-0",
                 meta.accent,
-                theme === 'dark' ? 'bg-zinc-900/40 border-x border-b border-zinc-800' : 'bg-white border-x border-b border-zinc-200'
+                theme !== 'light' ? 'bg-zinc-900/40 border-x border-b border-zinc-800' : 'bg-white border-x border-b border-zinc-200'
               )}
             >
-              <div className={cn("flex items-center justify-between gap-2 px-3 py-2.5 border-b", theme === 'dark' ? 'border-zinc-800/60' : 'border-zinc-200')}>
+              <div className={cn("flex items-center justify-between gap-2 px-3 py-2.5 border-b", theme !== 'light' ? 'border-zinc-800/60' : 'border-zinc-200')}>
                 <div className="flex items-center gap-2 min-w-0">
                   <span className={cn("w-6 h-6 rounded-md flex items-center justify-center text-sm flex-shrink-0", meta.iconBg)}>{meta.icon}</span>
-                  <h3 className={cn("text-sm font-bold truncate", theme === 'dark' ? 'text-white' : 'text-zinc-900')}>{meta.label}</h3>
+                  <h3 className={cn("text-sm font-bold truncate", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>{meta.label}</h3>
                   <span className="text-[10px] text-zinc-500 flex-shrink-0">{pillarRules.length}</span>
                 </div>
                 <button
                   onClick={() => openAddRuleModal(pillar)}
                   title={`Add ${meta.label}`}
-                  className={cn("p-1 rounded transition-colors flex-shrink-0", theme === 'dark' ? 'text-zinc-500 hover:text-white hover:bg-zinc-800' : 'text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100')}
+                  className={cn("p-1 rounded transition-colors flex-shrink-0", theme !== 'light' ? 'text-zinc-500 hover:text-white hover:bg-zinc-800' : 'text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100')}
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </button>
@@ -4182,7 +5270,7 @@ function App() {
                     onClick={() => openAddRuleModal(pillar)}
                     className={cn(
                       "w-full text-center py-6 px-2 text-xs rounded-lg border border-dashed transition-colors",
-                      theme === 'dark' ? 'text-zinc-600 hover:text-zinc-400 border-zinc-800 hover:border-zinc-700' : 'text-zinc-400 hover:text-zinc-600 border-zinc-300 hover:border-zinc-400'
+                      theme !== 'light' ? 'text-zinc-600 hover:text-zinc-400 border-zinc-800 hover:border-zinc-700' : 'text-zinc-400 hover:text-zinc-600 border-zinc-300 hover:border-zinc-400'
                     )}
                   >
                     + Add your first rule
@@ -4195,35 +5283,35 @@ function App() {
                       key={rule.id}
                       className={cn(
                         "group relative rounded-lg p-2.5 border transition-colors",
-                        theme === 'dark' ? 'bg-zinc-900/60 border-zinc-800 hover:border-zinc-700' : 'bg-zinc-50 border-zinc-200 hover:border-zinc-300'
+                        theme !== 'light' ? 'bg-zinc-900/60 border-zinc-800 hover:border-zinc-700' : 'bg-zinc-50 border-zinc-200 hover:border-zinc-300'
                       )}
                     >
                       <div className="flex items-start justify-between gap-2 mb-1">
                         <div className="min-w-0 flex-1 flex items-center gap-1.5">
                           <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", severityMeta.dot)} title={severityMeta.label} />
-                          <h4 className={cn("text-sm font-semibold truncate", theme === 'dark' ? 'text-white' : 'text-zinc-900')}>{rule.title}</h4>
+                          <h4 className={cn("text-sm font-semibold truncate", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>{rule.title}</h4>
                         </div>
                         <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => openEditRuleModal(rule)} className={cn("p-1 rounded", theme === 'dark' ? 'text-zinc-500 hover:text-white' : 'text-zinc-400 hover:text-zinc-900')}>
+                          <button onClick={() => openEditRuleModal(rule)} className={cn("p-1 rounded", theme !== 'light' ? 'text-zinc-500 hover:text-white' : 'text-zinc-400 hover:text-zinc-900')}>
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => handleDeleteRule(rule.id)} className="p-1 rounded text-zinc-500 hover:text-red-400">
+                          <button onClick={() => handleDeleteRule(rule.id)} className="p-1 rounded text-zinc-500 hover:text-rose-400">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>
 
                       {rule.description && (
-                        <p className={cn("text-xs line-clamp-2 mb-2", theme === 'dark' ? 'text-zinc-500' : 'text-zinc-500')}>{rule.description}</p>
+                        <p className={cn("text-xs line-clamp-2 mb-2", theme !== 'light' ? 'text-zinc-500' : 'text-zinc-500')}>{rule.description}</p>
                       )}
 
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium", severityMeta.badge)}>{severityMeta.label}</span>
                         {rule.category && (
-                          <span className={cn("text-[10px] px-1.5 py-0.5 rounded truncate max-w-[8rem]", theme === 'dark' ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-200 text-zinc-600')}>{rule.category}</span>
+                          <span className={cn("text-[10px] px-1.5 py-0.5 rounded truncate max-w-[8rem]", theme !== 'light' ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-200 text-zinc-600')}>{rule.category}</span>
                         )}
                         {violations > 0 && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/20 font-semibold flex items-center gap-0.5">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/20 font-semibold flex items-center gap-0.5">
                             ⚠️ Violated {violations}x
                           </span>
                         )}
@@ -4239,54 +5327,231 @@ function App() {
     </div>
   );
 
-  const renderNotices = () => (
-    <div className="space-y-6 min-w-0">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="min-w-0">
-          <h2 className="text-2xl font-bold text-white truncate">Market Notices</h2>
-          <p className="text-zinc-500 text-sm truncate">Document market observations and scenarios</p>
-        </div>
-        <button onClick={() => setShowAddNotice(true)} className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors flex-shrink-0">
-          <Plus className="w-4 h-4" />
-          <span>Add Notice</span>
-        </button>
-      </div>
+  const renderNotices = () => {
+    const activeNotice = notices.find(n => n.id === activeNoticeId) || null;
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {notices.map(notice => (
-          <div key={notice.id} className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4 group min-w-0">
-            <div className="flex items-start justify-between mb-3 gap-2">
-              <h3 className="font-semibold text-white truncate flex-1">{notice.title}</h3>
-              <button onClick={() => handleDeleteNotice(notice.id)} className="p-1 text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                <Trash2 className="w-4 h-4" />
+    return (
+      <div className="space-y-10 min-w-0">
+        {/* Gallery */}
+        <div className="space-y-4 min-w-0">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="min-w-0">
+              <h2 className="text-2xl font-bold text-white truncate">Market Notices</h2>
+              <p className="text-zinc-500 text-sm truncate">Document market observations and scenarios</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {notices.map(notice => (
+              <div
+                key={notice.id}
+                className="group relative text-left rounded-xl overflow-hidden border border-zinc-800 bg-zinc-900/50 hover:border-zinc-700 transition-all cursor-pointer min-w-0"
+                onClick={() => setActiveNoticeId(notice.id)}
+              >
+                <div className="aspect-video w-full overflow-hidden bg-zinc-800 flex items-center justify-center">
+                  {notice.imageUrl ? (
+                    <img
+                      src={notice.imageUrl}
+                      alt={notice.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <ImageIcon className="w-6 h-6 text-zinc-700" />
+                  )}
+                </div>
+                <div className="flex items-center justify-between px-3 py-2.5 border-t border-zinc-800 gap-2">
+                  <span className="text-sm text-zinc-200 truncate">{notice.title}</span>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setActiveNoticeId(notice.id); }}
+                      className="p-1 text-zinc-500 hover:text-zinc-200 transition-colors"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteNotice(notice.id); }}
+                      className="p-1 text-zinc-600 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+                {notice.messages.length > 0 && (
+                  <div className="absolute top-2 right-2 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] text-zinc-300">
+                    <StickyNote className="w-3 h-3" />
+                    {notice.messages.length}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Add Notice card */}
+            <button
+              onClick={() => setShowAddNotice(true)}
+              className="flex flex-col items-center justify-center gap-2 aspect-video rounded-xl border border-dashed border-zinc-700 text-zinc-500 hover:text-zinc-300 hover:border-zinc-500 transition-all"
+            >
+              <Plus className="w-5 h-5" />
+              <span className="text-sm">New Notice</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Scenarios & Lessons table */}
+        <div className="min-w-0">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <h2 className="text-sm uppercase tracking-wider text-zinc-500">Scenarios &amp; Lessons</h2>
+            <button
+              onClick={() => setShowAddScenario(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs transition-colors flex-shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Row</span>
+            </button>
+          </div>
+
+          {noticeScenarios.length > 0 ? (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 overflow-x-auto">
+              <table className="w-full text-sm min-w-[640px]">
+                <thead>
+                  <tr className="border-b border-zinc-800 text-left text-xs uppercase tracking-wider text-zinc-500">
+                    <th className="px-4 py-3 w-12 font-medium">#</th>
+                    <th className="px-4 py-3 font-medium">Scenario</th>
+                    <th className="px-4 py-3 w-64 font-medium">Result / Tags</th>
+                    <th className="px-4 py-3 font-medium">Lesson</th>
+                    <th className="px-4 py-3 w-10 font-medium"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {noticeScenarios.map((row, idx) => (
+                    <tr
+                      key={row.id}
+                      className="group border-b border-zinc-800/70 last:border-b-0 hover:bg-zinc-800/30 transition-colors"
+                    >
+                      <td className="px-4 py-3 text-zinc-500 align-top">{idx + 1}</td>
+                      <td className="px-4 py-3 text-zinc-300 align-top">{row.scenario}</td>
+                      <td className="px-4 py-3 align-top">
+                        <div className="flex flex-wrap gap-1.5">
+                          {row.tags.map(tag => (
+                            <span
+                              key={tag}
+                              className={cn("px-2 py-0.5 rounded-full text-xs border", getScenarioTagStyle(tag))}
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-zinc-400 align-top">{row.lesson}</td>
+                      <td className="px-4 py-3 align-top">
+                        <button
+                          onClick={() => handleDeleteScenario(row.id)}
+                          className="p-1 text-zinc-600 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-10 rounded-xl border border-zinc-800 bg-zinc-900/50">
+              <p className="text-zinc-500 text-sm mb-3">No scenarios logged yet</p>
+              <button
+                onClick={() => setShowAddScenario(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Add Scenario
               </button>
             </div>
-            {notice.imageUrl && (
-              <div className="aspect-video bg-zinc-800 rounded mb-3 overflow-hidden">
-                <img src={notice.imageUrl} alt="" className="w-full h-full object-cover cursor-pointer hover:opacity-90" onClick={() => setLightboxImage(notice.imageUrl)} />
-              </div>
-            )}
-            <p className="text-sm text-zinc-400 line-clamp-3">{notice.description}</p>
-            <p className="text-xs text-zinc-600 mt-2">{formatDate(notice.timestamp)}</p>
-          </div>
-        ))}
-      </div>
-
-      {notices.length === 0 && (
-        <div className="text-center py-12">
-          <div className="w-16 h-16 mx-auto rounded-full bg-zinc-800 flex items-center justify-center mb-4">
-            <FileText className="w-8 h-8 text-zinc-600" />
-          </div>
-          <h3 className="text-lg font-medium text-white mb-2">No notices yet</h3>
-          <p className="text-zinc-500 mb-4">Document your market observations</p>
-          <button onClick={() => setShowAddNotice(true)} className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors">
-            <Plus className="w-4 h-4" />
-            Add Notice
-          </button>
+          )}
         </div>
-      )}
-    </div>
-  );
+
+        {/* Slide-out drawer: chart + observation chat log */}
+        {activeNotice && (
+          <div className="fixed inset-0 z-50 flex justify-end">
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => { setActiveNoticeId(null); setNoticeDraftMessage(''); }}
+            />
+            <div className="relative w-full max-w-md h-full bg-zinc-900 border-l border-zinc-800 flex flex-col shadow-2xl min-w-0">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 flex-shrink-0">
+                <h3 className="text-sm font-medium text-white truncate pr-2">{activeNotice.title}</h3>
+                <button
+                  onClick={() => { setActiveNoticeId(null); setNoticeDraftMessage(''); }}
+                  className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors flex-shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {activeNotice.imageUrl && (
+                <div className="relative border-b border-zinc-800 bg-zinc-950 flex-shrink-0">
+                  <img
+                    src={activeNotice.imageUrl}
+                    alt={activeNotice.title}
+                    className="w-full max-h-64 object-contain cursor-zoom-in"
+                    onClick={() => setLightboxImage(activeNotice.imageUrl)}
+                  />
+                  <button
+                    onClick={() => setLightboxImage(activeNotice.imageUrl)}
+                    className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-white transition-colors"
+                  >
+                    <ZoomIn className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              <div className="flex flex-col flex-1 min-h-0">
+                <div className="px-4 py-2.5 border-b border-zinc-800 flex-shrink-0">
+                  <span className="text-xs uppercase tracking-wider text-zinc-500">Observation Chat Log</span>
+                </div>
+
+                <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+                  {activeNotice.messages.length === 0 && (
+                    <p className="text-sm text-zinc-600 italic">
+                      No observations yet. Start logging what you notice about this setup.
+                    </p>
+                  )}
+                  {activeNotice.messages.map(msg => (
+                    <div key={msg.id} className="rounded-lg border border-zinc-800 bg-zinc-800/40 px-3 py-2">
+                      <p className="text-sm text-zinc-200 whitespace-pre-wrap break-words">{msg.text}</p>
+                      <span className="block mt-1 text-[11px] text-zinc-500">{formatDate(msg.timestamp)}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="p-3 border-t border-zinc-800 flex items-end gap-2 flex-shrink-0">
+                  <textarea
+                    value={noticeDraftMessage}
+                    onChange={(e) => setNoticeDraftMessage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendNoticeMessage();
+                      }
+                    }}
+                    placeholder="What are you noticing right now?"
+                    rows={1}
+                    className="flex-1 resize-none bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500 max-h-28"
+                  />
+                  <button
+                    onClick={handleSendNoticeMessage}
+                    disabled={!noticeDraftMessage.trim()}
+                    className="p-2.5 rounded-lg bg-zinc-100 text-zinc-900 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all flex-shrink-0"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderWiki = () => (
     <div className="space-y-6 min-w-0">
@@ -4309,7 +5574,7 @@ function App() {
                 <h3 className="font-semibold text-white truncate">{entry.title}</h3>
                 {entry.category && <span className="text-xs px-2 py-0.5 bg-zinc-800 text-zinc-400 rounded mt-1 inline-block truncate">{entry.category}</span>}
               </div>
-              <button onClick={() => handleDeleteWiki(entry.id)} className="p-1 text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+              <button onClick={() => handleDeleteWiki(entry.id)} className="p-1 text-zinc-600 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
@@ -4379,19 +5644,19 @@ function App() {
         </div>
 
         {/* Hero summary bar — big net P&L front and center like a prop-firm dashboard, stats trailing */}
-        <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5 flex flex-wrap items-center gap-x-8 gap-y-4">
-          <div className="flex items-center gap-3 pr-8 border-r border-zinc-800/80">
-            <div className={cn('w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0', totalPnL >= 0 ? 'bg-emerald-500/15 border border-emerald-500/25' : 'bg-red-500/15 border border-red-500/25')}>
-              <DollarSign className={cn('w-5 h-5', totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400')} />
+        <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-4 sm:p-5 flex flex-wrap items-center gap-x-4 sm:gap-x-8 gap-y-4">
+          <div className="flex items-center gap-3 pr-4 sm:pr-8 border-r border-zinc-800/80">
+            <div className={cn('w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0', totalPnL >= 0 ? 'bg-emerald-500/15 border border-emerald-500/25' : 'bg-rose-500/15 border border-rose-500/25')}>
+              <DollarSign className={cn('w-5 h-5', totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400')} />
             </div>
             <div>
               <p className="text-xs text-zinc-500 uppercase tracking-wider">Net P&L This Month</p>
-              <p className={cn('text-2xl font-bold font-mono', totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+              <p className={cn('text-2xl font-bold font-mono', totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
                 {formatCurrency(totalPnL, privacyMode)}
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+          <div className="flex flex-wrap items-center gap-x-4 sm:gap-x-8 gap-y-3">
             <div>
               <p className="text-xs text-zinc-500 uppercase tracking-wider mb-0.5">Trading Days</p>
               <p className="text-lg font-semibold text-white">{tradingDays}</p>
@@ -4402,7 +5667,7 @@ function App() {
             </div>
             <div>
               <p className="text-xs text-zinc-500 uppercase tracking-wider mb-0.5">Losing Days</p>
-              <p className="text-lg font-semibold text-red-400">{losingDays}</p>
+              <p className="text-lg font-semibold text-rose-400">{losingDays}</p>
             </div>
             <div>
               <p className="text-xs text-zinc-500 uppercase tracking-wider mb-0.5">Win Rate</p>
@@ -4415,75 +5680,139 @@ function App() {
           </div>
         </div>
 
-        <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-4">
-          <div className="grid grid-cols-8 gap-2 mb-2">
-            {dayNames.map(day => (
-              <div key={day} className="text-center text-xs text-zinc-500 font-medium py-2">{day}</div>
-            ))}
-            <div className="text-center text-xs text-zinc-500 font-medium py-2">Week</div>
-          </div>
+        <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-3 sm:p-4">
+          {/* Desktop/tablet: original 8-column grid (7 days + Week recap column) */}
+          <div className="hidden md:block">
+            <div className="grid grid-cols-8 gap-2 mb-2">
+              {dayNames.map(day => (
+                <div key={day} className="text-center text-xs text-zinc-500 font-medium py-2">{day}</div>
+              ))}
+              <div className="text-center text-xs text-zinc-500 font-medium py-2">Week</div>
+            </div>
 
-          <div className="space-y-2">
-            {weeks.map((week, wi) => {
-              const weekRealDays = week.filter(d => d.day !== null);
-              const weekPnl = weekRealDays.reduce((s, d) => s + d.pnl, 0);
-              const weekTradingDays = weekRealDays.filter(d => d.trades.length > 0).length;
-              const hasWeekData = weekTradingDays > 0;
-              return (
-                <div key={wi} className="grid grid-cols-8 gap-2">
-                  {week.map((day, di) => (
-                    <div
-                      key={di}
-                      className={cn(
-                        'rounded-xl p-2.5 min-h-[92px] flex flex-col justify-between min-w-0 transition-colors',
-                        day.day === null ? 'bg-transparent' :
-                        day.trades.length === 0 ? 'bg-zinc-800/30 border border-zinc-800/60' :
-                        day.pnl > 0 ? 'bg-emerald-500/15 border border-emerald-500/30 hover:bg-emerald-500/25 cursor-pointer' :
-                        day.pnl < 0 ? 'bg-red-500/15 border border-red-500/30 hover:bg-red-500/25 cursor-pointer' :
-                        'bg-zinc-800/40 border border-zinc-700/60'
-                      )}
-                    >
-                      {day.day !== null && (
+            <div className="space-y-2">
+              {weeks.map((week, wi) => {
+                const weekRealDays = week.filter(d => d.day !== null);
+                const weekPnl = weekRealDays.reduce((s, d) => s + d.pnl, 0);
+                const weekTradingDays = weekRealDays.filter(d => d.trades.length > 0).length;
+                const hasWeekData = weekTradingDays > 0;
+                return (
+                  <div key={wi} className="grid grid-cols-8 gap-2">
+                    {week.map((day, di) => (
+                      <div
+                        key={di}
+                        className={cn(
+                          'rounded-xl p-2.5 min-h-[92px] flex flex-col justify-between min-w-0 transition-colors',
+                          day.day === null ? 'bg-transparent' :
+                          day.trades.length === 0 ? 'bg-zinc-800/30 border border-zinc-800/60' :
+                          day.pnl > 0 ? 'bg-emerald-500/15 border border-emerald-500/30 hover:bg-emerald-500/25 cursor-pointer' :
+                          day.pnl < 0 ? 'bg-rose-500/15 border border-rose-500/30 hover:bg-rose-500/25 cursor-pointer' :
+                          'bg-zinc-800/40 border border-zinc-700/60'
+                        )}
+                      >
+                        {day.day !== null && (
+                          <>
+                            <span className="text-xs text-zinc-500 font-medium">{day.day}</span>
+                            {day.trades.length > 0 ? (
+                              <div className="min-w-0">
+                                <p className={cn('text-sm font-bold font-mono truncate', day.pnl > 0 ? 'text-emerald-400' : day.pnl < 0 ? 'text-rose-400' : 'text-zinc-300')}>
+                                  {formatCurrency(day.pnl, privacyMode)}
+                                </p>
+                                <p className="text-[10px] text-zinc-500 mt-0.5">{day.trades.length} trade{day.trades.length !== 1 ? 's' : ''}</p>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-zinc-700">—</span>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    ))}
+
+                    {/* Week recap cell */}
+                    <div className={cn(
+                      'rounded-xl p-2.5 min-h-[92px] flex flex-col items-center justify-center min-w-0 border',
+                      !hasWeekData ? 'bg-zinc-900/40 border-zinc-800/50' :
+                      weekPnl > 0 ? 'bg-emerald-500/10 border-emerald-500/25' :
+                      weekPnl < 0 ? 'bg-rose-500/10 border-rose-500/25' :
+                      'bg-zinc-800/40 border-zinc-700/60'
+                    )}>
+                      {hasWeekData ? (
                         <>
-                          <span className="text-xs text-zinc-500 font-medium">{day.day}</span>
-                          {day.trades.length > 0 ? (
-                            <div className="min-w-0">
-                              <p className={cn('text-sm font-bold font-mono truncate', day.pnl > 0 ? 'text-emerald-400' : day.pnl < 0 ? 'text-red-400' : 'text-zinc-300')}>
-                                {formatCurrency(day.pnl, privacyMode)}
-                              </p>
-                              <p className="text-[10px] text-zinc-500 mt-0.5">{day.trades.length} trade{day.trades.length !== 1 ? 's' : ''}</p>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-zinc-700">—</span>
-                          )}
+                          <p className="text-[9px] text-zinc-500 uppercase tracking-wider">Week {wi + 1}</p>
+                          <p className={cn('text-sm font-bold font-mono truncate', weekPnl > 0 ? 'text-emerald-400' : weekPnl < 0 ? 'text-rose-400' : 'text-zinc-300')}>
+                            {formatCurrency(weekPnl, privacyMode)}
+                          </p>
+                          <p className="text-[10px] text-zinc-600">{weekTradingDays} day{weekTradingDays !== 1 ? 's' : ''}</p>
                         </>
+                      ) : (
+                        <span className="text-xs text-zinc-700">—</span>
                       )}
                     </div>
-                  ))}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
-                  {/* Week recap cell */}
-                  <div className={cn(
-                    'rounded-xl p-2.5 min-h-[92px] flex flex-col items-center justify-center min-w-0 border',
-                    !hasWeekData ? 'bg-zinc-900/40 border-zinc-800/50' :
-                    weekPnl > 0 ? 'bg-emerald-500/10 border-emerald-500/25' :
-                    weekPnl < 0 ? 'bg-red-500/10 border-red-500/25' :
-                    'bg-zinc-800/40 border-zinc-700/60'
-                  )}>
-                    {hasWeekData ? (
-                      <>
-                        <p className="text-[9px] text-zinc-500 uppercase tracking-wider">Week {wi + 1}</p>
-                        <p className={cn('text-sm font-bold font-mono truncate', weekPnl > 0 ? 'text-emerald-400' : weekPnl < 0 ? 'text-red-400' : 'text-zinc-300')}>
+          {/* Mobile: 7-column grid sized for narrow screens. The Week recap moves
+              from an 8th squeezed column into a compact summary line under each
+              week's row, so day cells stay readable instead of shrinking to ~30px. */}
+          <div className="md:hidden">
+            <div className="grid grid-cols-7 gap-1">
+              {dayNames.map(day => (
+                <div key={day} className="text-center text-[10px] text-zinc-500 font-medium py-1 truncate">{day.slice(0, 2)}</div>
+              ))}
+            </div>
+
+            <div className="space-y-1 mt-1">
+              {weeks.map((week, wi) => {
+                const weekRealDays = week.filter(d => d.day !== null);
+                const weekPnl = weekRealDays.reduce((s, d) => s + d.pnl, 0);
+                const weekTradingDays = weekRealDays.filter(d => d.trades.length > 0).length;
+                const hasWeekData = weekTradingDays > 0;
+                return (
+                  <div key={wi} className="space-y-0.5">
+                    <div className="grid grid-cols-7 gap-1">
+                      {week.map((day, di) => (
+                        <div
+                          key={di}
+                          className={cn(
+                            'rounded-lg p-1 min-h-[44px] flex flex-col justify-between min-w-0 transition-colors',
+                            day.day === null ? 'bg-transparent' :
+                            day.trades.length === 0 ? 'bg-zinc-800/30 border border-zinc-800/60' :
+                            day.pnl > 0 ? 'bg-emerald-500/15 border border-emerald-500/30' :
+                            day.pnl < 0 ? 'bg-rose-500/15 border border-rose-500/30' :
+                            'bg-zinc-800/40 border border-zinc-700/60'
+                          )}
+                        >
+                          {day.day !== null && (
+                            <>
+                              <span className="text-[9px] text-zinc-500 font-medium">{day.day}</span>
+                              {day.trades.length > 0 ? (
+                                <p className={cn('text-[9px] font-bold font-mono truncate leading-tight', day.pnl > 0 ? 'text-emerald-400' : day.pnl < 0 ? 'text-rose-400' : 'text-zinc-300')}>
+                                  {formatCurrencyCompact(day.pnl, privacyMode)}
+                                </p>
+                              ) : (
+                                <span className="text-[9px] text-zinc-700">—</span>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {hasWeekData && (
+                      <div className="flex items-center justify-between px-1 text-[10px]">
+                        <span className="text-zinc-500">Week {wi + 1} · {weekTradingDays} day{weekTradingDays !== 1 ? 's' : ''}</span>
+                        <span className={cn('font-mono font-semibold', weekPnl > 0 ? 'text-emerald-400' : weekPnl < 0 ? 'text-rose-400' : 'text-zinc-400')}>
                           {formatCurrency(weekPnl, privacyMode)}
-                        </p>
-                        <p className="text-[10px] text-zinc-600">{weekTradingDays} day{weekTradingDays !== 1 ? 's' : ''}</p>
-                      </>
-                    ) : (
-                      <span className="text-xs text-zinc-700">—</span>
+                        </span>
+                      </div>
                     )}
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
 
           <div className="flex items-center gap-4 mt-4 pt-4 border-t border-zinc-800/70 flex-wrap">
@@ -4491,7 +5820,7 @@ function App() {
               <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500/40 border border-emerald-500/50" /> Profit
             </span>
             <span className="flex items-center gap-1.5 text-xs text-zinc-500">
-              <span className="w-2.5 h-2.5 rounded-sm bg-red-500/40 border border-red-500/50" /> Loss
+              <span className="w-2.5 h-2.5 rounded-sm bg-rose-500/40 border border-rose-500/50" /> Loss
             </span>
             <span className="flex items-center gap-1.5 text-xs text-zinc-500">
               <span className="w-2.5 h-2.5 rounded-sm bg-zinc-800/60 border border-zinc-700/60" /> No trades
@@ -4525,7 +5854,7 @@ function App() {
         onClose={() => setShowDisciplineReview(null)}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
           <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
@@ -4550,11 +5879,11 @@ function App() {
                   <CheckCircle2 className="w-3.5 h-3.5" /> Rule Followed
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-medium">
                   <XCircle className="w-3.5 h-3.5" /> Rule Broken
                 </span>
               )}
-              <span className={cn('font-mono text-sm font-medium', trade.profitLoss >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+              <span className={cn('font-mono text-sm font-medium', trade.profitLoss >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
                 {formatCurrency(trade.profitLoss, privacyMode)}
               </span>
             </div>
@@ -4597,7 +5926,7 @@ function App() {
                 options={mistakesList}
                 selected={disciplineReviewDraft.mistakes}
                 onChange={(selected) => setDisciplineReviewDraft(prev => ({ ...prev, mistakes: selected }))}
-                onAddNew={(name) => setMistakesList(prev => [...prev, { id: generateId(), name }])}
+                onAddNew={(name) => setMistakesList(prev => [...prev, { id: generateId(), name, color: 'red' }])}
                 onDeleteOption={handleDeleteMistakeType}
                 placeholder="No mistakes logged"
                 colorScheme="red"
@@ -4663,8 +5992,8 @@ function App() {
         onClose={() => { setShowTradeDetail(null); setShowExpandGallery(false); }}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-          <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center justify-between z-10">
+        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="sticky top-0 bg-[#13141b] border-b border-[#222430] px-6 py-4 flex items-center justify-between z-10">
             <div className="min-w-0 flex-1">
               <h3 className="text-xl font-bold text-white truncate">{trade.symbol}</h3>
               <p className="text-sm text-zinc-500 truncate">{account?.name} | {formatDate(trade.date)}</p>
@@ -4680,7 +6009,7 @@ function App() {
               <button onClick={() => { setShowTradeDetail(null); openEditTrade(trade); }} className="p-2 text-zinc-400 hover:text-white transition-colors">
                 <Edit2 className="w-5 h-5" />
               </button>
-              <button onClick={() => handleDeleteTrade(trade.id)} className="p-2 text-zinc-400 hover:text-red-400 transition-colors">
+              <button onClick={() => handleDeleteTrade(trade.id)} className="p-2 text-zinc-400 hover:text-rose-400 transition-colors">
                 <Trash2 className="w-5 h-5" />
               </button>
               <button onClick={() => setShowTradeDetail(null)} className="p-2 text-zinc-400 hover:text-white transition-colors">
@@ -4737,9 +6066,9 @@ function App() {
               </div>
             )}
 
-            <div className={cn('w-full flex items-center justify-center gap-3 py-4 px-4 rounded-xl border', trade.profitLoss >= 0 ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-red-500/10 border-red-500/20')}>
+            <div className={cn('w-full flex items-center justify-center gap-3 py-4 px-4 rounded-xl border', trade.profitLoss >= 0 ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20')}>
               <span className="text-sm text-zinc-400">P&L</span>
-              <span className={cn('text-2xl font-bold', trade.profitLoss >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+              <span className={cn('text-2xl font-bold', trade.profitLoss >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
                 {formatCurrency(trade.profitLoss, privacyMode)}
               </span>
             </div>
@@ -4794,7 +6123,7 @@ function App() {
                 {tradeRR !== null && (
                   <div className="bg-zinc-800/50 rounded-lg p-3 inline-block">
                     <p className="text-xs text-zinc-500 mb-1">Risk:Reward</p>
-                    <p className={cn('text-sm font-medium', tradeRR >= 1 ? 'text-emerald-400' : tradeRR >= 0 ? 'text-white' : 'text-red-400')}>
+                    <p className={cn('text-sm font-medium', tradeRR >= 1 ? 'text-emerald-400' : tradeRR >= 0 ? 'text-white' : 'text-rose-400')}>
                       {tradeRR >= 1 ? '+' : ''}{tradeRR.toFixed(2)}R
                     </p>
                   </div>
@@ -4812,7 +6141,7 @@ function App() {
               <button
                 type="button"
                 onClick={() => setDetailRulesFollowedDraft(prev => prev === 'followed' ? 'broken' : 'followed')}
-                className={cn('px-3 py-1.5 rounded-lg text-sm flex items-center gap-1 transition-colors', detailRulesFollowedDraft === 'followed' ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' : 'bg-red-500/20 text-red-400 hover:bg-red-500/30')}
+                className={cn('px-3 py-1.5 rounded-lg text-sm flex items-center gap-1 transition-colors', detailRulesFollowedDraft === 'followed' ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' : 'bg-rose-500/20 text-rose-400 hover:bg-rose-500/30')}
                 title="Click to toggle rule adherence"
               >
                 {detailRulesFollowedDraft === 'followed' ? <Check className="w-4 h-4 flex-shrink-0" /> : <X className="w-4 h-4 flex-shrink-0" />}
@@ -4825,7 +6154,7 @@ function App() {
                 <h4 className="text-sm text-zinc-500 mb-2">Mistakes Made</h4>
                 <div className="flex flex-wrap gap-2">
                   {trade.mistakes.map(m => (
-                    <span key={m} className="px-3 py-1.5 bg-red-500/20 text-red-400 rounded-lg text-sm truncate max-w-[150px]">{m}</span>
+                    <span key={m} className="px-3 py-1.5 bg-rose-500/20 text-rose-400 rounded-lg text-sm truncate max-w-[150px]">{m}</span>
                   ))}
                 </div>
               </div>
@@ -4847,7 +6176,7 @@ function App() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-zinc-800/30 rounded-lg p-4">
-                  <h5 className="text-sm font-medium text-red-400 mb-2 flex items-center gap-2">
+                  <h5 className="text-sm font-medium text-rose-400 mb-2 flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 flex-shrink-0" />
                     <span className="truncate">Mistakes Analysis</span>
                   </h5>
@@ -4963,7 +6292,7 @@ function App() {
     return (
       <ModalBackdrop
         onClose={() => setShowExpandGallery(false)}
-        className="fixed inset-0 bg-black/95 z-[70] flex flex-col p-4 md:p-8"
+        className="fixed inset-0 bg-black/95 z-[60] flex flex-col p-4 md:p-8"
       >
         <button onClick={() => setShowExpandGallery(false)} className="absolute top-4 right-4 p-2 bg-zinc-800 rounded-full text-white hover:bg-zinc-700 z-10">
           <X className="w-6 h-6" />
@@ -5025,8 +6354,8 @@ function App() {
           }}
           className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
         >
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center justify-between z-10">
+          <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-[#13141b] border-b border-[#222430] px-6 py-4 flex items-center justify-between z-10">
               <h3 className="text-lg font-bold text-white truncate">{isEditing ? 'Edit Account' : 'Add Trading Account'}</h3>
               <button onClick={() => { isEditing ? setShowEditAccount(null) : setShowAddAccount(false); resetCalculator(); }} className="p-1 text-zinc-400 hover:text-white">
                 <X className="w-5 h-5" />
@@ -5274,8 +6603,8 @@ function App() {
         onClose={() => { setShowAddTrade(false); resetCalculator(); }}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-          <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center justify-between z-20">
+        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="sticky top-0 bg-[#13141b] border-b border-[#222430] px-6 py-4 flex items-center justify-between z-20">
             <h3 className="text-xl font-bold text-white truncate">Add New Trade</h3>
             <button onClick={() => { setShowAddTrade(false); resetCalculator(); }} className="p-2 text-zinc-400 hover:text-white transition-colors">
               <X className="w-5 h-5" />
@@ -5283,248 +6612,190 @@ function App() {
           </div>
 
           <form className="p-6 space-y-4">
-            {/* Row 1: Account + Date */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Account</label>
-                <select
-                  value={newTrade.accountId || ''}
-                  onChange={(e) => setNewTrade(prev => ({ ...prev, accountId: e.target.value }))}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-zinc-600"
-                >
-                  {accounts.map(acc => (
-                    <option key={acc.id} value={acc.id}>{acc.name}</option>
-                  ))}
-                </select>
+            {/* ================= SECTION 1: Trade Execution & Metrics ================= */}
+            <div className="bg-[#15161e] border border-[#262833] p-4 rounded-xl space-y-3 shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]">
+              <div className="flex items-center gap-2 pb-1">
+                <span className="text-[10px] font-bold text-cyan-400 font-mono tracking-widest">01</span>
+                <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Trade Execution &amp; Metrics</h4>
               </div>
-              <div>
-                <DateInput
-                  value={newTrade.date || getTodayLocalDate()}
-                  onChange={(value) => setNewTrade(prev => ({ ...prev, date: value }))}
-                  label="Date"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowTradeTimeFields(v => !v)}
-                  className="mt-1.5 w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors"
-                >
-                  <Clock className="w-3.5 h-3.5" />
-                  {showTradeTimeFields ? 'Hide start / end time' : 'Add start / end time'}
-                  <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', showTradeTimeFields && 'rotate-180')} />
-                </button>
-              </div>
-            </div>
-
-            {showTradeTimeFields && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <TimeInput
-                  value={newTrade.startTime || ''}
-                  onChange={(value) => setNewTrade(prev => ({ ...prev, startTime: value }))}
-                  label="Start Time"
-                />
-                <TimeInput
-                  value={newTrade.endTime || ''}
-                  onChange={(value) => setNewTrade(prev => ({ ...prev, endTime: value }))}
-                  label="End Time"
-                />
-              </div>
-            )}
-
-            {/* Row 2: Symbol + Session + Trade # - sit side-by-side */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Symbol</label>
-                <div className="relative" ref={symbolDropdownRef}>
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Account</label>
+                  <select
+                    value={newTrade.accountId || ''}
+                    onChange={(e) => setNewTrade(prev => ({ ...prev, accountId: e.target.value }))}
+                    className="w-full bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-[#3d4152]"
+                  >
+                    {accounts.map(acc => (
+                      <option key={acc.id} value={acc.id}>{acc.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <DateInput
+                    value={newTrade.date || getTodayLocalDate()}
+                    onChange={(value) => setNewTrade(prev => ({ ...prev, date: value }))}
+                    label="Date"
+                  />
                   <button
                     type="button"
-                    onClick={() => setShowSymbolDropdown(!showSymbolDropdown)}
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-zinc-600 flex items-center justify-between"
+                    onClick={() => setShowTradeTimeFields(v => !v)}
+                    className="mt-1.5 w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors"
                   >
-                    <span className={cn(newTrade.symbol ? 'text-white' : 'text-zinc-500')}>
-                      {newTrade.symbol || 'Select...'}
-                    </span>
-                    <ChevronDown className="w-4 h-4 text-zinc-400" />
+                    <Clock className="w-3.5 h-3.5" />
+                    {showTradeTimeFields ? 'Hide start / end time' : 'Add start / end time'}
+                    <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', showTradeTimeFields && 'rotate-180')} />
                   </button>
-                  {showSymbolDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-30 max-h-40 overflow-y-auto">
-                      {PRESET_SYMBOLS.map(sym => (
-                        <button
-                          type="button"
-                          key={sym.value}
-                          onClick={() => { setNewTrade(prev => ({ ...prev, symbol: sym.value })); setShowSymbolDropdown(false); }}
-                          className={cn('w-full text-left px-3 py-2 text-sm hover:bg-zinc-700', newTrade.symbol === sym.value ? 'text-white bg-zinc-700' : 'text-zinc-400')}
-                        >
-                          {sym.name}
-                        </button>
-                      ))}
-                      {customSymbols.length > 0 && (
-                        <>
-                          <div className="border-t border-zinc-700 my-1" />
-                          {customSymbols.map(sym => (
-                            <button type="button" key={sym} onClick={() => { setNewTrade(prev => ({ ...prev, symbol: sym })); setShowSymbolDropdown(false); }}
-                              className={cn('w-full text-left px-3 py-2 text-sm hover:bg-zinc-700', newTrade.symbol === sym ? 'text-white bg-zinc-700' : 'text-zinc-400')}>
-                              {sym}
-                            </button>
-                          ))}
-                        </>
-                      )}
-                      <div className="border-t border-zinc-700 p-2">
-                        <input type="text" value={symbolCustomInput} onChange={(e) => setSymbolCustomInput(e.target.value.toUpperCase())}
-                          placeholder="Add custom..."
-                          className="w-full bg-zinc-700 border border-zinc-600 rounded px-2 py-1.5 text-xs text-white placeholder-zinc-400 focus:outline-none"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && symbolCustomInput.trim()) {
-                              setNewTrade(prev => ({ ...prev, symbol: symbolCustomInput.trim() }));
-                              if (!customSymbols.includes(symbolCustomInput.trim())) setCustomSymbols(prev => [...prev, symbolCustomInput.trim()]);
-                              setSymbolCustomInput('');
-                              setShowSymbolDropdown(false);
-                            }
-                          }}
-                        />
+                </div>
+              </div>
+
+              {showTradeTimeFields && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <TimeInput
+                    value={newTrade.startTime || ''}
+                    onChange={(value) => setNewTrade(prev => ({ ...prev, startTime: value }))}
+                    label="Start Time"
+                  />
+                  <TimeInput
+                    value={newTrade.endTime || ''}
+                    onChange={(value) => setNewTrade(prev => ({ ...prev, endTime: value }))}
+                    label="End Time"
+                  />
+                </div>
+              )}
+
+              {/* Row 2: Symbol + Session + Trade # - sit side-by-side */}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Symbol</label>
+                  <div className="relative" ref={symbolDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setShowSymbolDropdown(!showSymbolDropdown)}
+                      className="w-full bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-[#3d4152] flex items-center justify-between"
+                    >
+                      <span className={cn(newTrade.symbol ? 'text-white' : 'text-zinc-500')}>
+                        {newTrade.symbol || 'Select...'}
+                      </span>
+                      <ChevronDown className="w-4 h-4 text-zinc-400" />
+                    </button>
+                    {showSymbolDropdown && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-[#1c1d27] border border-[#2e303d] rounded-lg shadow-xl z-30 max-h-40 overflow-y-auto">
+                        {PRESET_SYMBOLS.map(sym => (
+                          <button
+                            type="button"
+                            key={sym.value}
+                            onClick={() => { setNewTrade(prev => ({ ...prev, symbol: sym.value })); setShowSymbolDropdown(false); }}
+                            className={cn('w-full text-left px-3 py-2 text-sm hover:bg-zinc-700', newTrade.symbol === sym.value ? 'text-white bg-zinc-700' : 'text-zinc-400')}
+                          >
+                            {sym.name}
+                          </button>
+                        ))}
+                        {customSymbols.length > 0 && (
+                          <>
+                            <div className="border-t border-zinc-700 my-1" />
+                            {customSymbols.map(sym => (
+                              <button type="button" key={sym} onClick={() => { setNewTrade(prev => ({ ...prev, symbol: sym })); setShowSymbolDropdown(false); }}
+                                className={cn('w-full text-left px-3 py-2 text-sm hover:bg-zinc-700', newTrade.symbol === sym ? 'text-white bg-zinc-700' : 'text-zinc-400')}>
+                                {sym}
+                              </button>
+                            ))}
+                          </>
+                        )}
+                        <div className="border-t border-zinc-700 p-2">
+                          <input type="text" value={symbolCustomInput} onChange={(e) => setSymbolCustomInput(e.target.value.toUpperCase())}
+                            placeholder="Add custom..."
+                            className="w-full bg-[#242631] border border-[#3d4152] rounded px-2 py-1.5 text-xs text-white placeholder-zinc-400 focus:outline-none"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && symbolCustomInput.trim()) {
+                                setNewTrade(prev => ({ ...prev, symbol: symbolCustomInput.trim() }));
+                                if (!customSymbols.includes(symbolCustomInput.trim())) setCustomSymbols(prev => [...prev, symbolCustomInput.trim()]);
+                                setSymbolCustomInput('');
+                                setShowSymbolDropdown(false);
+                              }
+                            }}
+                          />
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Session</label>
-                <div className="relative" ref={sessionDropdownRef}>
-                  <button
-                    type="button"
-                    onClick={() => setShowSessionDropdown(!showSessionDropdown)}
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-zinc-600 flex items-center justify-between"
-                  >
-                    <span className={cn(newTrade.session ? 'text-white' : 'text-zinc-500')}>
-                      {newTrade.session || 'Select...'}
-                    </span>
-                    <ChevronDown className="w-4 h-4 text-zinc-400" />
-                  </button>
-                  {showSessionDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-30 max-h-40 overflow-y-auto">
-                      {SESSION_OPTIONS.map(opt => (
-                        <button
-                          type="button"
-                          key={opt}
-                          onClick={() => { setNewTrade(prev => ({ ...prev, session: opt })); setShowSessionDropdown(false); }}
-                          className={cn('w-full text-left px-3 py-2 text-sm hover:bg-zinc-700', newTrade.session === opt ? 'text-white bg-zinc-700' : 'text-zinc-400')}
-                        >
-                          {opt}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Trade #</label>
-                <NumericInput
-                  value={newTrade.trackingNumber || ''}
-                  onChange={(sanitized) => setNewTrade(prev => ({ ...prev, trackingNumber: sanitized }))}
-                  onFocus={(e) => handleNumberInputFocus(e, 'trade-trackingNumber', newTrade.trackingNumber || '', false)}
-                  placeholder="e.g. 14, 15, 18"
-                  allowNegative={false}
-                  className="focus:border-emerald-500/50"
-                />
-              </div>
-            </div>
-
-            {/* Row 2: P&L + Risk - STRICT numeric inputs */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">P&L ($)</label>
-                <NumericInput
-                  value={priceInputs.profitLoss}
-                  onChange={(sanitized, numericValue) => {
-                    setPriceInputs(prev => ({ ...prev, profitLoss: sanitized }));
-                    setNewTrade(prev => ({ ...prev, profitLoss: numericValue }));
-                  }}
-                  onFocus={(e) => handleNumberInputFocus(e, 'trade-profitLoss', priceInputs.profitLoss, true)}
-                  placeholder="0"
-                  allowNegative={true}
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Risk ($)</label>
-                <NumericInput
-                  value={priceInputs.riskAmount}
-                  onChange={(sanitized, numericValue) => {
-                    setPriceInputs(prev => ({ ...prev, riskAmount: sanitized }));
-                    setNewTrade(prev => ({ ...prev, riskAmount: numericValue }));
-                  }}
-                  onFocus={(e) => handleNumberInputFocus(e, 'trade-riskAmount', priceInputs.riskAmount, false)}
-                  onBlur={() => setPriceInputs(prev => ({ ...prev, riskAmount: formatPriceInput(newTrade.riskAmount || 0) }))}
-                  placeholder="0"
-                  allowNegative={false}
-                />
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setShowTradePriceLevels(v => !v)}
-              className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors"
-            >
-              <Target className="w-3.5 h-3.5" />
-              {showTradePriceLevels ? 'Hide entry / stop loss / take profit' : 'Add entry / stop loss / take profit'}
-              <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', showTradePriceLevels && 'rotate-180')} />
-            </button>
-
-            {showTradePriceLevels && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
-                  <label className="block text-xs text-zinc-400 mb-1.5">Entry</label>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Session</label>
+                  <div className="relative" ref={sessionDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setShowSessionDropdown(!showSessionDropdown)}
+                      className="w-full bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-[#3d4152] flex items-center justify-between"
+                    >
+                      <span className={cn(newTrade.session ? 'text-white' : 'text-zinc-500')}>
+                        {newTrade.session || 'Select...'}
+                      </span>
+                      <ChevronDown className="w-4 h-4 text-zinc-400" />
+                    </button>
+                    {showSessionDropdown && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-[#1c1d27] border border-[#2e303d] rounded-lg shadow-xl z-30 max-h-40 overflow-y-auto">
+                        {SESSION_OPTIONS.map(opt => (
+                          <button
+                            type="button"
+                            key={opt}
+                            onClick={() => { setNewTrade(prev => ({ ...prev, session: opt })); setShowSessionDropdown(false); }}
+                            className={cn('w-full text-left px-3 py-2 text-sm hover:bg-zinc-700', newTrade.session === opt ? 'text-white bg-zinc-700' : 'text-zinc-400')}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Trade #</label>
                   <NumericInput
-                    value={priceInputs.entryPrice}
-                    onChange={(sanitized, numericValue) => {
-                      setPriceInputs(prev => ({ ...prev, entryPrice: sanitized }));
-                      setNewTrade(prev => ({
-                        ...prev,
-                        entryPrice: numericValue,
-                        slPoints: calculatePoints(prev.symbol || '', numericValue, prev.stopLoss || 0),
-                        tpPoints: calculatePoints(prev.symbol || '', numericValue, prev.takeProfit || 0),
-                      }));
-                    }}
-                    onFocus={(e) => handleNumberInputFocus(e, 'trade-entryPrice', priceInputs.entryPrice, false)}
-                    onBlur={() => setPriceInputs(prev => ({ ...prev, entryPrice: formatPriceInput(newTrade.entryPrice || 0) }))}
-                    placeholder="0"
+                    value={newTrade.trackingNumber || ''}
+                    onChange={(sanitized) => setNewTrade(prev => ({ ...prev, trackingNumber: sanitized }))}
+                    onFocus={(e) => handleNumberInputFocus(e, 'trade-trackingNumber', newTrade.trackingNumber || '', false)}
+                    placeholder="e.g. 14, 15, 18"
                     allowNegative={false}
+                    className="focus:border-emerald-500/50"
+                  />
+                </div>
+              </div>
+
+              {/* Row 2: P&L + Risk + R:R Ratio - STRICT numeric inputs, RR always visible */}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">P&L ($)</label>
+                  <NumericInput
+                    value={priceInputs.profitLoss}
+                    onChange={(sanitized, numericValue) => {
+                      setPriceInputs(prev => ({ ...prev, profitLoss: sanitized }));
+                      setNewTrade(prev => ({ ...prev, profitLoss: numericValue }));
+                    }}
+                    onFocus={(e) => handleNumberInputFocus(e, 'trade-profitLoss', priceInputs.profitLoss, true)}
+                    placeholder="0"
+                    allowNegative={true}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-zinc-400 mb-1.5">Stop Loss</label>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Risk ($)</label>
                   <NumericInput
-                    value={priceInputs.stopLoss}
+                    value={priceInputs.riskAmount}
                     onChange={(sanitized, numericValue) => {
-                      setPriceInputs(prev => ({ ...prev, stopLoss: sanitized }));
-                      setNewTrade(prev => ({ ...prev, stopLoss: numericValue, slPoints: calculatePoints(prev.symbol || '', prev.entryPrice || 0, numericValue) }));
+                      setPriceInputs(prev => ({ ...prev, riskAmount: sanitized }));
+                      setNewTrade(prev => ({ ...prev, riskAmount: numericValue }));
                     }}
-                    onFocus={(e) => handleNumberInputFocus(e, 'trade-stopLoss', priceInputs.stopLoss, false)}
-                    onBlur={() => setPriceInputs(prev => ({ ...prev, stopLoss: formatPriceInput(newTrade.stopLoss || 0) }))}
+                    onFocus={(e) => handleNumberInputFocus(e, 'trade-riskAmount', priceInputs.riskAmount, false)}
+                    onBlur={() => setPriceInputs(prev => ({ ...prev, riskAmount: formatPriceInput(newTrade.riskAmount || 0) }))}
                     placeholder="0"
                     allowNegative={false}
                   />
-                  {newTrade.slPoints !== undefined && newTrade.slPoints > 0 && <p className="text-[10px] text-zinc-500 mt-0.5">{newTrade.slPoints} pts</p>}
-                </div>
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1.5">Take Profit</label>
-                  <NumericInput
-                    value={priceInputs.takeProfit}
-                    onChange={(sanitized, numericValue) => {
-                      setPriceInputs(prev => ({ ...prev, takeProfit: sanitized }));
-                      setNewTrade(prev => ({ ...prev, takeProfit: numericValue, tpPoints: calculatePoints(prev.symbol || '', prev.entryPrice || 0, numericValue) }));
-                    }}
-                    onFocus={(e) => handleNumberInputFocus(e, 'trade-takeProfit', priceInputs.takeProfit, false)}
-                    onBlur={() => setPriceInputs(prev => ({ ...prev, takeProfit: formatPriceInput(newTrade.takeProfit || 0) }))}
-                    placeholder="0"
-                    allowNegative={false}
-                  />
-                  {newTrade.tpPoints !== undefined && newTrade.tpPoints > 0 && <p className="text-[10px] text-zinc-500 mt-0.5">{newTrade.tpPoints} pts</p>}
                 </div>
                 <div>
                   <label className="block text-xs text-zinc-400 mb-1.5">R:R Ratio</label>
-                  <div className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm">
+                  <div className="bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-3 text-sm">
                     {calculatedRR !== null ? (
-                      <span className={cn('font-medium', calculatedRR >= 1 ? 'text-emerald-400' : calculatedRR >= 0 ? 'text-zinc-400' : 'text-red-400')}>
+                      <span className={cn('font-medium', calculatedRR >= 1 ? 'text-emerald-400' : calculatedRR >= 0 ? 'text-zinc-400' : 'text-rose-400')}>
                         {calculatedRR.toFixed(2)}R
                       </span>
                     ) : (
@@ -5533,90 +6804,169 @@ function App() {
                   </div>
                 </div>
               </div>
-            )}
 
-            {/* Row 4: Rules Adherence + Setup Types */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Rules Adherence</label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setNewTrade(prev => ({ ...prev, rulesFollowed: 'followed' }))}
-                    className={cn('flex-1 flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm transition-colors',
-                      newTrade.rulesFollowed === 'followed' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700')}
-                  >
-                    <Check className="w-3.5 h-3.5" /> Followed
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNewTrade(prev => ({ ...prev, rulesFollowed: 'broken' }))}
-                    className={cn('flex-1 flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm transition-colors',
-                      newTrade.rulesFollowed === 'broken' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700')}
-                  >
-                    <X className="w-3.5 h-3.5" /> Broken
-                  </button>
+              <button
+                type="button"
+                onClick={() => setShowTradePriceLevels(v => !v)}
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors"
+              >
+                <Target className="w-3.5 h-3.5" />
+                {showTradePriceLevels ? 'Hide entry / stop loss / take profit' : 'Add entry / stop loss / take profit'}
+                <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', showTradePriceLevels && 'rotate-180')} />
+              </button>
+
+              {showTradePriceLevels && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1.5">Entry</label>
+                    <NumericInput
+                      value={priceInputs.entryPrice}
+                      onChange={(sanitized, numericValue) => {
+                        setPriceInputs(prev => ({ ...prev, entryPrice: sanitized }));
+                        setNewTrade(prev => ({
+                          ...prev,
+                          entryPrice: numericValue,
+                          slPoints: calculatePoints(prev.symbol || '', numericValue, prev.stopLoss || 0),
+                          tpPoints: calculatePoints(prev.symbol || '', numericValue, prev.takeProfit || 0),
+                        }));
+                      }}
+                      onFocus={(e) => handleNumberInputFocus(e, 'trade-entryPrice', priceInputs.entryPrice, false)}
+                      onBlur={() => setPriceInputs(prev => ({ ...prev, entryPrice: formatPriceInput(newTrade.entryPrice || 0) }))}
+                      placeholder="0"
+                      allowNegative={false}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1.5">Stop Loss</label>
+                    <NumericInput
+                      value={priceInputs.stopLoss}
+                      onChange={(sanitized, numericValue) => {
+                        setPriceInputs(prev => ({ ...prev, stopLoss: sanitized }));
+                        setNewTrade(prev => ({ ...prev, stopLoss: numericValue, slPoints: calculatePoints(prev.symbol || '', prev.entryPrice || 0, numericValue) }));
+                      }}
+                      onFocus={(e) => handleNumberInputFocus(e, 'trade-stopLoss', priceInputs.stopLoss, false)}
+                      onBlur={() => setPriceInputs(prev => ({ ...prev, stopLoss: formatPriceInput(newTrade.stopLoss || 0) }))}
+                      placeholder="0"
+                      allowNegative={false}
+                    />
+                    {newTrade.slPoints !== undefined && newTrade.slPoints > 0 && <p className="text-[10px] text-zinc-500 mt-0.5">{newTrade.slPoints} pts</p>}
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1.5">Take Profit</label>
+                    <NumericInput
+                      value={priceInputs.takeProfit}
+                      onChange={(sanitized, numericValue) => {
+                        setPriceInputs(prev => ({ ...prev, takeProfit: sanitized }));
+                        setNewTrade(prev => ({ ...prev, takeProfit: numericValue, tpPoints: calculatePoints(prev.symbol || '', prev.entryPrice || 0, numericValue) }));
+                      }}
+                      onFocus={(e) => handleNumberInputFocus(e, 'trade-takeProfit', priceInputs.takeProfit, false)}
+                      onBlur={() => setPriceInputs(prev => ({ ...prev, takeProfit: formatPriceInput(newTrade.takeProfit || 0) }))}
+                      placeholder="0"
+                      allowNegative={false}
+                    />
+                    {newTrade.tpPoints !== undefined && newTrade.tpPoints > 0 && <p className="text-[10px] text-zinc-500 mt-0.5">{newTrade.tpPoints} pts</p>}
+                  </div>
                 </div>
+              )}
+            </div>
+
+            {/* ================= HIGHLIGHTED BANNER: Rules Adherence ================= */}
+            <div className={cn(
+              'bg-[#161822] border-2 p-4 rounded-xl text-center space-y-3 transition-all',
+              newTrade.rulesFollowed === 'followed'
+                ? 'bg-emerald-950/30 border-emerald-500/60'
+                : newTrade.rulesFollowed === 'broken'
+                  ? 'bg-rose-950/30 border-rose-500/60'
+                  : 'border-slate-700/80'
+            )}>
+              <div className="flex items-center justify-center gap-2">
+                <Shield className="w-4 h-4 text-slate-200" />
+                <h4 className="text-sm font-bold uppercase tracking-widest text-slate-200">Rules Adherence</h4>
               </div>
-              <MultiSelectDropdown
-                label="Setup Types"
-                options={setupTypes}
-                selected={newTrade.setupTypes || []}
-                onChange={(selected) => setNewTrade(prev => ({ ...prev, setupTypes: selected }))}
-                onAddNew={(name) => setSetupTypes(prev => [...prev, { id: generateId(), name }])}
-                onDeleteOption={handleDeleteSetupType}
-                placeholder="Select setup types..."
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setNewTrade(prev => ({ ...prev, rulesFollowed: 'followed' })); setRulesAdherenceError(false); }}
+                  className={cn('w-full flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm font-medium border transition-colors',
+                    newTrade.rulesFollowed === 'followed'
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                      : rulesAdherenceError
+                        ? 'bg-zinc-800/60 text-zinc-400 border-rose-500/50 hover:bg-zinc-800 hover:border-rose-500/70'
+                        : 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:bg-zinc-800 hover:border-zinc-600')}
+                >
+                  <Check className="w-3.5 h-3.5" /> Followed
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setNewTrade(prev => ({ ...prev, rulesFollowed: 'broken' })); setRulesAdherenceError(false); }}
+                  className={cn('w-full flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm font-medium border transition-colors',
+                    newTrade.rulesFollowed === 'broken'
+                      ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                      : rulesAdherenceError
+                        ? 'bg-zinc-800/60 text-zinc-400 border-rose-500/50 hover:bg-zinc-800 hover:border-rose-500/70'
+                        : 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:bg-zinc-800 hover:border-zinc-600')}
+                >
+                  <X className="w-3.5 h-3.5" /> Broken
+                </button>
+              </div>
+              {rulesAdherenceError && (
+                <p className="text-xs text-rose-400">Please select whether rules were Followed or Broken</p>
+              )}
+            </div>
+
+            {/* ================= SECTION 2: Strategy & Tagging ================= */}
+            <div className="bg-[#15161e] border border-[#262833] p-4 rounded-xl space-y-3 shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]">
+              <div className="flex items-center gap-2 pb-1">
+                <span className="text-[10px] font-bold text-cyan-400 font-mono tracking-widest">02</span>
+                <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Strategy &amp; Tagging</h4>
+              </div>
+              {/* Tag groups: Setup Types + Confluences side by side, Mistakes Made full width below */}
+              <div className="grid grid-cols-2 gap-4">
+                <TagSelectDropdown
+                  label="Setup Types"
+                  options={setupTypes}
+                  selected={newTrade.setupTypes || []}
+                  onChange={(selected) => setNewTrade(prev => ({ ...prev, setupTypes: selected }))}
+                  onAddNew={(name) => setSetupTypes(prev => [...prev, { id: generateId(), name, color: 'gray' }])}
+                  onDeleteOption={handleDeleteSetupType}
+                  onColorChange={handleChangeSetupTypeColor}
+                  placeholder="Select Setup Types..."
+                  colorScheme="emerald"
+                />
+                <TagSelectDropdown
+                  label="Confluences"
+                  options={confluences}
+                  selected={newTrade.confluences || []}
+                  onChange={(selected) => setNewTrade(prev => ({ ...prev, confluences: selected }))}
+                  onAddNew={(name) => setConfluences(prev => [...prev, { id: generateId(), name, color: 'gray' }])}
+                  onDeleteOption={handleDeleteConfluence}
+                  onColorChange={handleChangeConfluenceColor}
+                  placeholder="Select Confluences..."
+                  colorScheme="emerald"
+                />
+              </div>
+
+              <TagSelectDropdown
+                label="Mistakes Made"
+                options={mistakesList}
+                selected={newTrade.mistakes || []}
+                onChange={(selected) => setNewTrade(prev => ({ ...prev, mistakes: selected }))}
+                onAddNew={(name) => setMistakesList(prev => [...prev, { id: generateId(), name, color: 'red' }])}
+                onDeleteOption={handleDeleteMistakeType}
+                onColorChange={handleChangeMistakeColor}
+                placeholder="Select Mistakes Made..."
+                colorScheme="rose"
               />
             </div>
 
-            <MultiSelectDropdown
-              label="Confluences"
-              options={confluences}
-              selected={newTrade.confluences || []}
-              onChange={(selected) => setNewTrade(prev => ({ ...prev, confluences: selected }))}
-              onAddNew={(name) => setConfluences(prev => [...prev, { id: generateId(), name }])}
-              onDeleteOption={handleDeleteConfluence}
-              placeholder="Select confluences..."
-            />
-
-            <MultiSelectDropdown
-              label="Mistakes Made"
-              options={mistakesList}
-              selected={newTrade.mistakes || []}
-              onChange={(selected) => setNewTrade(prev => ({ ...prev, mistakes: selected }))}
-              onAddNew={(name) => setMistakesList(prev => [...prev, { id: generateId(), name }])}
-              onDeleteOption={handleDeleteMistakeType}
-              placeholder="Select mistakes..."
-              colorScheme="red"
-            />
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Mistakes Analysis</label>
-                <textarea
-                  value={newTrade.mistakesAnalysis || ''}
-                  onChange={(e) => setNewTrade(prev => ({ ...prev, mistakesAnalysis: e.target.value }))}
-                  placeholder="What went wrong?"
-                  rows={3}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 placeholder-zinc-600 resize-none"
-                />
+            {/* ================= SECTION 3: Chart Screenshots ================= */}
+            <div className="bg-[#15161e] border border-[#262833] p-4 rounded-xl space-y-3 shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]">
+              <div className="flex items-center gap-2 pb-1">
+                <span className="text-[10px] font-bold text-cyan-400 font-mono tracking-widest">03</span>
+                <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Chart Screenshots</h4>
               </div>
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Lessons Learned</label>
-                <textarea
-                  value={newTrade.lessonsLearned || ''}
-                  onChange={(e) => setNewTrade(prev => ({ ...prev, lessonsLearned: e.target.value }))}
-                  placeholder="What did you learn?"
-                  rows={3}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 placeholder-zinc-600 resize-none"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs text-zinc-400 mb-1.5">Chart Screenshots</label>
-              <p className="text-xs text-zinc-500 mb-3">Attach images for each timeframe</p>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <p className="text-xs text-zinc-500">Attach images for each timeframe</p>
+              <div className="grid grid-cols-2 gap-3">
                 {TIMEFRAMES.map(tf => {
                   const tfData = (newTrade.timeframes || []).find(t => t.name === tf) || { name: tf, images: [], notes: '' };
                   return (
@@ -5628,11 +6978,43 @@ function App() {
                       onAddImage={(url) => handleAddImageUrl(url, tf)}
                       onUploadImage={(file) => handleFileUpload(file, tf)}
                       onRemoveImage={(imageId) => handleRemoveImage(tf, imageId)}
+                      onReorderImages={(fromIndex, toIndex) => handleReorderImages(tf, fromIndex, toIndex)}
+                      onPreviewImage={(url) => setLightboxImage(url)}
                       onNotesChange={(notes) => updateTimeframeNotes(tf, notes)}
                       isExecution={tf === 'Execution/Result'}
                     />
                   );
                 })}
+              </div>
+            </div>
+
+            {/* ================= SECTION 4: Post-Trade Reflection ================= */}
+            <div className="bg-[#15161e] border border-[#262833] p-4 rounded-xl space-y-3 shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]">
+              <div className="flex items-center gap-2 pb-1">
+                <span className="text-[10px] font-bold text-cyan-400 font-mono tracking-widest">04</span>
+                <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Post-Trade Reflection</h4>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Mistakes Analysis</label>
+                  <textarea
+                    value={newTrade.mistakesAnalysis || ''}
+                    onChange={(e) => setNewTrade(prev => ({ ...prev, mistakesAnalysis: e.target.value }))}
+                    placeholder="What went wrong?"
+                    rows={3}
+                    className="w-full bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#3d4152] placeholder-zinc-600 resize-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Lessons Learned</label>
+                  <textarea
+                    value={newTrade.lessonsLearned || ''}
+                    onChange={(e) => setNewTrade(prev => ({ ...prev, lessonsLearned: e.target.value }))}
+                    placeholder="What did you learn?"
+                    rows={3}
+                    className="w-full bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#3d4152] placeholder-zinc-600 resize-none"
+                  />
+                </div>
               </div>
             </div>
 
@@ -5678,8 +7060,8 @@ function App() {
         onClose={() => { setShowEditTrade(false); setEditingTrade(null); resetTradeForm(); resetCalculator(); }}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-          <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center justify-between z-20">
+        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="sticky top-0 bg-[#13141b] border-b border-[#222430] px-6 py-4 flex items-center justify-between z-20">
             <h3 className="text-xl font-bold text-white truncate">Edit Trade</h3>
             <button onClick={() => { setShowEditTrade(false); setEditingTrade(null); resetTradeForm(); resetCalculator(); }} className="p-2 text-zinc-400 hover:text-white transition-colors">
               <X className="w-5 h-5" />
@@ -5687,248 +7069,190 @@ function App() {
           </div>
 
           <form className="p-6 space-y-4">
-            {/* Row 1: Account + Date */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Account</label>
-                <select
-                  value={newTrade.accountId || ''}
-                  onChange={(e) => setNewTrade(prev => ({ ...prev, accountId: e.target.value }))}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-zinc-600"
-                >
-                  {accounts.map(acc => (
-                    <option key={acc.id} value={acc.id}>{acc.name}</option>
-                  ))}
-                </select>
+            {/* ================= SECTION 1: Trade Execution & Metrics ================= */}
+            <div className="bg-[#15161e] border border-[#262833] p-4 rounded-xl space-y-3 shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]">
+              <div className="flex items-center gap-2 pb-1">
+                <span className="text-[10px] font-bold text-cyan-400 font-mono tracking-widest">01</span>
+                <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Trade Execution &amp; Metrics</h4>
               </div>
-              <div>
-                <DateInput
-                  value={newTrade.date || getTodayLocalDate()}
-                  onChange={(value) => setNewTrade(prev => ({ ...prev, date: value }))}
-                  label="Date"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowTradeTimeFields(v => !v)}
-                  className="mt-1.5 w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors"
-                >
-                  <Clock className="w-3.5 h-3.5" />
-                  {showTradeTimeFields ? 'Hide start / end time' : 'Add start / end time'}
-                  <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', showTradeTimeFields && 'rotate-180')} />
-                </button>
-              </div>
-            </div>
-
-            {showTradeTimeFields && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <TimeInput
-                  value={newTrade.startTime || ''}
-                  onChange={(value) => setNewTrade(prev => ({ ...prev, startTime: value }))}
-                  label="Start Time"
-                />
-                <TimeInput
-                  value={newTrade.endTime || ''}
-                  onChange={(value) => setNewTrade(prev => ({ ...prev, endTime: value }))}
-                  label="End Time"
-                />
-              </div>
-            )}
-
-            {/* Row 2: Symbol + Session + Trade # - sit side-by-side */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Symbol</label>
-                <div className="relative" ref={symbolDropdownRef}>
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Account</label>
+                  <select
+                    value={newTrade.accountId || ''}
+                    onChange={(e) => setNewTrade(prev => ({ ...prev, accountId: e.target.value }))}
+                    className="w-full bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-[#3d4152]"
+                  >
+                    {accounts.map(acc => (
+                      <option key={acc.id} value={acc.id}>{acc.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <DateInput
+                    value={newTrade.date || getTodayLocalDate()}
+                    onChange={(value) => setNewTrade(prev => ({ ...prev, date: value }))}
+                    label="Date"
+                  />
                   <button
                     type="button"
-                    onClick={() => setShowSymbolDropdown(!showSymbolDropdown)}
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-zinc-600 flex items-center justify-between"
+                    onClick={() => setShowTradeTimeFields(v => !v)}
+                    className="mt-1.5 w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors"
                   >
-                    <span className={cn(newTrade.symbol ? 'text-white' : 'text-zinc-500')}>
-                      {newTrade.symbol || 'Select...'}
-                    </span>
-                    <ChevronDown className="w-4 h-4 text-zinc-400" />
+                    <Clock className="w-3.5 h-3.5" />
+                    {showTradeTimeFields ? 'Hide start / end time' : 'Add start / end time'}
+                    <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', showTradeTimeFields && 'rotate-180')} />
                   </button>
-                  {showSymbolDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-30 max-h-40 overflow-y-auto">
-                      {PRESET_SYMBOLS.map(sym => (
-                        <button
-                          type="button"
-                          key={sym.value}
-                          onClick={() => { setNewTrade(prev => ({ ...prev, symbol: sym.value })); setShowSymbolDropdown(false); }}
-                          className={cn('w-full text-left px-3 py-2 text-sm hover:bg-zinc-700', newTrade.symbol === sym.value ? 'text-white bg-zinc-700' : 'text-zinc-400')}
-                        >
-                          {sym.name}
-                        </button>
-                      ))}
-                      {customSymbols.length > 0 && (
-                        <>
-                          <div className="border-t border-zinc-700 my-1" />
-                          {customSymbols.map(sym => (
-                            <button type="button" key={sym} onClick={() => { setNewTrade(prev => ({ ...prev, symbol: sym })); setShowSymbolDropdown(false); }}
-                              className={cn('w-full text-left px-3 py-2 text-sm hover:bg-zinc-700', newTrade.symbol === sym ? 'text-white bg-zinc-700' : 'text-zinc-400')}>
-                              {sym}
-                            </button>
-                          ))}
-                        </>
-                      )}
-                      <div className="border-t border-zinc-700 p-2">
-                        <input type="text" value={symbolCustomInput} onChange={(e) => setSymbolCustomInput(e.target.value.toUpperCase())}
-                          placeholder="Add custom..."
-                          className="w-full bg-zinc-700 border border-zinc-600 rounded px-2 py-1.5 text-xs text-white placeholder-zinc-400 focus:outline-none"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && symbolCustomInput.trim()) {
-                              setNewTrade(prev => ({ ...prev, symbol: symbolCustomInput.trim() }));
-                              if (!customSymbols.includes(symbolCustomInput.trim())) setCustomSymbols(prev => [...prev, symbolCustomInput.trim()]);
-                              setSymbolCustomInput('');
-                              setShowSymbolDropdown(false);
-                            }
-                          }}
-                        />
+                </div>
+              </div>
+
+              {showTradeTimeFields && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <TimeInput
+                    value={newTrade.startTime || ''}
+                    onChange={(value) => setNewTrade(prev => ({ ...prev, startTime: value }))}
+                    label="Start Time"
+                  />
+                  <TimeInput
+                    value={newTrade.endTime || ''}
+                    onChange={(value) => setNewTrade(prev => ({ ...prev, endTime: value }))}
+                    label="End Time"
+                  />
+                </div>
+              )}
+
+              {/* Row 2: Symbol + Session + Trade # - sit side-by-side */}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Symbol</label>
+                  <div className="relative" ref={symbolDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setShowSymbolDropdown(!showSymbolDropdown)}
+                      className="w-full bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-[#3d4152] flex items-center justify-between"
+                    >
+                      <span className={cn(newTrade.symbol ? 'text-white' : 'text-zinc-500')}>
+                        {newTrade.symbol || 'Select...'}
+                      </span>
+                      <ChevronDown className="w-4 h-4 text-zinc-400" />
+                    </button>
+                    {showSymbolDropdown && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-[#1c1d27] border border-[#2e303d] rounded-lg shadow-xl z-30 max-h-40 overflow-y-auto">
+                        {PRESET_SYMBOLS.map(sym => (
+                          <button
+                            type="button"
+                            key={sym.value}
+                            onClick={() => { setNewTrade(prev => ({ ...prev, symbol: sym.value })); setShowSymbolDropdown(false); }}
+                            className={cn('w-full text-left px-3 py-2 text-sm hover:bg-zinc-700', newTrade.symbol === sym.value ? 'text-white bg-zinc-700' : 'text-zinc-400')}
+                          >
+                            {sym.name}
+                          </button>
+                        ))}
+                        {customSymbols.length > 0 && (
+                          <>
+                            <div className="border-t border-zinc-700 my-1" />
+                            {customSymbols.map(sym => (
+                              <button type="button" key={sym} onClick={() => { setNewTrade(prev => ({ ...prev, symbol: sym })); setShowSymbolDropdown(false); }}
+                                className={cn('w-full text-left px-3 py-2 text-sm hover:bg-zinc-700', newTrade.symbol === sym ? 'text-white bg-zinc-700' : 'text-zinc-400')}>
+                                {sym}
+                              </button>
+                            ))}
+                          </>
+                        )}
+                        <div className="border-t border-zinc-700 p-2">
+                          <input type="text" value={symbolCustomInput} onChange={(e) => setSymbolCustomInput(e.target.value.toUpperCase())}
+                            placeholder="Add custom..."
+                            className="w-full bg-[#242631] border border-[#3d4152] rounded px-2 py-1.5 text-xs text-white placeholder-zinc-400 focus:outline-none"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && symbolCustomInput.trim()) {
+                                setNewTrade(prev => ({ ...prev, symbol: symbolCustomInput.trim() }));
+                                if (!customSymbols.includes(symbolCustomInput.trim())) setCustomSymbols(prev => [...prev, symbolCustomInput.trim()]);
+                                setSymbolCustomInput('');
+                                setShowSymbolDropdown(false);
+                              }
+                            }}
+                          />
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Session</label>
-                <div className="relative" ref={sessionDropdownRef}>
-                  <button
-                    type="button"
-                    onClick={() => setShowSessionDropdown(!showSessionDropdown)}
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-zinc-600 flex items-center justify-between"
-                  >
-                    <span className={cn(newTrade.session ? 'text-white' : 'text-zinc-500')}>
-                      {newTrade.session || 'Select...'}
-                    </span>
-                    <ChevronDown className="w-4 h-4 text-zinc-400" />
-                  </button>
-                  {showSessionDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-30 max-h-40 overflow-y-auto">
-                      {SESSION_OPTIONS.map(opt => (
-                        <button
-                          type="button"
-                          key={opt}
-                          onClick={() => { setNewTrade(prev => ({ ...prev, session: opt })); setShowSessionDropdown(false); }}
-                          className={cn('w-full text-left px-3 py-2 text-sm hover:bg-zinc-700', newTrade.session === opt ? 'text-white bg-zinc-700' : 'text-zinc-400')}
-                        >
-                          {opt}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Trade #</label>
-                <NumericInput
-                  value={newTrade.trackingNumber || ''}
-                  onChange={(sanitized) => setNewTrade(prev => ({ ...prev, trackingNumber: sanitized }))}
-                  onFocus={(e) => handleNumberInputFocus(e, 'trade-trackingNumber', newTrade.trackingNumber || '', false)}
-                  placeholder="e.g. 14, 15, 18"
-                  allowNegative={false}
-                  className="focus:border-emerald-500/50"
-                />
-              </div>
-            </div>
-
-            {/* P&L + Risk - STRICT numeric validation */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">P&L ($)</label>
-                <NumericInput
-                  value={priceInputs.profitLoss}
-                  onChange={(sanitized, numericValue) => {
-                    setPriceInputs(prev => ({ ...prev, profitLoss: sanitized }));
-                    setNewTrade(prev => ({ ...prev, profitLoss: numericValue }));
-                  }}
-                  onFocus={(e) => handleNumberInputFocus(e, 'trade-profitLoss', priceInputs.profitLoss, true)}
-                  placeholder="0"
-                  allowNegative={true}
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Risk ($)</label>
-                <NumericInput
-                  value={priceInputs.riskAmount}
-                  onChange={(sanitized, numericValue) => {
-                    setPriceInputs(prev => ({ ...prev, riskAmount: sanitized }));
-                    setNewTrade(prev => ({ ...prev, riskAmount: numericValue }));
-                  }}
-                  onFocus={(e) => handleNumberInputFocus(e, 'trade-riskAmount', priceInputs.riskAmount, false)}
-                  onBlur={() => setPriceInputs(prev => ({ ...prev, riskAmount: formatPriceInput(newTrade.riskAmount || 0) }))}
-                  placeholder="0"
-                  allowNegative={false}
-                />
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setShowTradePriceLevels(v => !v)}
-              className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors"
-            >
-              <Target className="w-3.5 h-3.5" />
-              {showTradePriceLevels ? 'Hide entry / stop loss / take profit' : 'Add entry / stop loss / take profit'}
-              <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', showTradePriceLevels && 'rotate-180')} />
-            </button>
-
-            {showTradePriceLevels && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
-                  <label className="block text-xs text-zinc-400 mb-1.5">Entry</label>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Session</label>
+                  <div className="relative" ref={sessionDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setShowSessionDropdown(!showSessionDropdown)}
+                      className="w-full bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-[#3d4152] flex items-center justify-between"
+                    >
+                      <span className={cn(newTrade.session ? 'text-white' : 'text-zinc-500')}>
+                        {newTrade.session || 'Select...'}
+                      </span>
+                      <ChevronDown className="w-4 h-4 text-zinc-400" />
+                    </button>
+                    {showSessionDropdown && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-[#1c1d27] border border-[#2e303d] rounded-lg shadow-xl z-30 max-h-40 overflow-y-auto">
+                        {SESSION_OPTIONS.map(opt => (
+                          <button
+                            type="button"
+                            key={opt}
+                            onClick={() => { setNewTrade(prev => ({ ...prev, session: opt })); setShowSessionDropdown(false); }}
+                            className={cn('w-full text-left px-3 py-2 text-sm hover:bg-zinc-700', newTrade.session === opt ? 'text-white bg-zinc-700' : 'text-zinc-400')}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Trade #</label>
                   <NumericInput
-                    value={priceInputs.entryPrice}
-                    onChange={(sanitized, numericValue) => {
-                      setPriceInputs(prev => ({ ...prev, entryPrice: sanitized }));
-                      setNewTrade(prev => ({
-                        ...prev,
-                        entryPrice: numericValue,
-                        slPoints: calculatePoints(prev.symbol || '', numericValue, prev.stopLoss || 0),
-                        tpPoints: calculatePoints(prev.symbol || '', numericValue, prev.takeProfit || 0),
-                      }));
-                    }}
-                    onFocus={(e) => handleNumberInputFocus(e, 'trade-entryPrice', priceInputs.entryPrice, false)}
-                    onBlur={() => setPriceInputs(prev => ({ ...prev, entryPrice: formatPriceInput(newTrade.entryPrice || 0) }))}
-                    placeholder="0"
+                    value={newTrade.trackingNumber || ''}
+                    onChange={(sanitized) => setNewTrade(prev => ({ ...prev, trackingNumber: sanitized }))}
+                    onFocus={(e) => handleNumberInputFocus(e, 'trade-trackingNumber', newTrade.trackingNumber || '', false)}
+                    placeholder="e.g. 14, 15, 18"
                     allowNegative={false}
+                    className="focus:border-emerald-500/50"
+                  />
+                </div>
+              </div>
+
+              {/* Row 2: P&L + Risk + R:R Ratio - STRICT numeric inputs, RR always visible */}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">P&L ($)</label>
+                  <NumericInput
+                    value={priceInputs.profitLoss}
+                    onChange={(sanitized, numericValue) => {
+                      setPriceInputs(prev => ({ ...prev, profitLoss: sanitized }));
+                      setNewTrade(prev => ({ ...prev, profitLoss: numericValue }));
+                    }}
+                    onFocus={(e) => handleNumberInputFocus(e, 'trade-profitLoss', priceInputs.profitLoss, true)}
+                    placeholder="0"
+                    allowNegative={true}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-zinc-400 mb-1.5">Stop Loss</label>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Risk ($)</label>
                   <NumericInput
-                    value={priceInputs.stopLoss}
+                    value={priceInputs.riskAmount}
                     onChange={(sanitized, numericValue) => {
-                      setPriceInputs(prev => ({ ...prev, stopLoss: sanitized }));
-                      setNewTrade(prev => ({ ...prev, stopLoss: numericValue, slPoints: calculatePoints(prev.symbol || '', prev.entryPrice || 0, numericValue) }));
+                      setPriceInputs(prev => ({ ...prev, riskAmount: sanitized }));
+                      setNewTrade(prev => ({ ...prev, riskAmount: numericValue }));
                     }}
-                    onFocus={(e) => handleNumberInputFocus(e, 'trade-stopLoss', priceInputs.stopLoss, false)}
-                    onBlur={() => setPriceInputs(prev => ({ ...prev, stopLoss: formatPriceInput(newTrade.stopLoss || 0) }))}
+                    onFocus={(e) => handleNumberInputFocus(e, 'trade-riskAmount', priceInputs.riskAmount, false)}
+                    onBlur={() => setPriceInputs(prev => ({ ...prev, riskAmount: formatPriceInput(newTrade.riskAmount || 0) }))}
                     placeholder="0"
                     allowNegative={false}
                   />
-                  {newTrade.slPoints !== undefined && newTrade.slPoints > 0 && <p className="text-[10px] text-zinc-500 mt-0.5">{newTrade.slPoints} pts</p>}
-                </div>
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1.5">Take Profit</label>
-                  <NumericInput
-                    value={priceInputs.takeProfit}
-                    onChange={(sanitized, numericValue) => {
-                      setPriceInputs(prev => ({ ...prev, takeProfit: sanitized }));
-                      setNewTrade(prev => ({ ...prev, takeProfit: numericValue, tpPoints: calculatePoints(prev.symbol || '', prev.entryPrice || 0, numericValue) }));
-                    }}
-                    onFocus={(e) => handleNumberInputFocus(e, 'trade-takeProfit', priceInputs.takeProfit, false)}
-                    onBlur={() => setPriceInputs(prev => ({ ...prev, takeProfit: formatPriceInput(newTrade.takeProfit || 0) }))}
-                    placeholder="0"
-                    allowNegative={false}
-                  />
-                  {newTrade.tpPoints !== undefined && newTrade.tpPoints > 0 && <p className="text-[10px] text-zinc-500 mt-0.5">{newTrade.tpPoints} pts</p>}
                 </div>
                 <div>
                   <label className="block text-xs text-zinc-400 mb-1.5">R:R Ratio</label>
-                  <div className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm">
+                  <div className="bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-3 text-sm">
                     {calculatedRR !== null ? (
-                      <span className={cn('font-medium', calculatedRR >= 1 ? 'text-emerald-400' : calculatedRR >= 0 ? 'text-zinc-400' : 'text-red-400')}>
+                      <span className={cn('font-medium', calculatedRR >= 1 ? 'text-emerald-400' : calculatedRR >= 0 ? 'text-zinc-400' : 'text-rose-400')}>
                         {calculatedRR.toFixed(2)}R
                       </span>
                     ) : (
@@ -5937,89 +7261,169 @@ function App() {
                   </div>
                 </div>
               </div>
-            )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Rules Adherence</label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setNewTrade(prev => ({ ...prev, rulesFollowed: 'followed' }))}
-                    className={cn('flex-1 flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm transition-colors',
-                      newTrade.rulesFollowed === 'followed' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700')}
-                  >
-                    <Check className="w-3.5 h-3.5" /> Followed
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNewTrade(prev => ({ ...prev, rulesFollowed: 'broken' }))}
-                    className={cn('flex-1 flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm transition-colors',
-                      newTrade.rulesFollowed === 'broken' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700')}
-                  >
-                    <X className="w-3.5 h-3.5" /> Broken
-                  </button>
+              <button
+                type="button"
+                onClick={() => setShowTradePriceLevels(v => !v)}
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors"
+              >
+                <Target className="w-3.5 h-3.5" />
+                {showTradePriceLevels ? 'Hide entry / stop loss / take profit' : 'Add entry / stop loss / take profit'}
+                <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', showTradePriceLevels && 'rotate-180')} />
+              </button>
+
+              {showTradePriceLevels && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1.5">Entry</label>
+                    <NumericInput
+                      value={priceInputs.entryPrice}
+                      onChange={(sanitized, numericValue) => {
+                        setPriceInputs(prev => ({ ...prev, entryPrice: sanitized }));
+                        setNewTrade(prev => ({
+                          ...prev,
+                          entryPrice: numericValue,
+                          slPoints: calculatePoints(prev.symbol || '', numericValue, prev.stopLoss || 0),
+                          tpPoints: calculatePoints(prev.symbol || '', numericValue, prev.takeProfit || 0),
+                        }));
+                      }}
+                      onFocus={(e) => handleNumberInputFocus(e, 'trade-entryPrice', priceInputs.entryPrice, false)}
+                      onBlur={() => setPriceInputs(prev => ({ ...prev, entryPrice: formatPriceInput(newTrade.entryPrice || 0) }))}
+                      placeholder="0"
+                      allowNegative={false}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1.5">Stop Loss</label>
+                    <NumericInput
+                      value={priceInputs.stopLoss}
+                      onChange={(sanitized, numericValue) => {
+                        setPriceInputs(prev => ({ ...prev, stopLoss: sanitized }));
+                        setNewTrade(prev => ({ ...prev, stopLoss: numericValue, slPoints: calculatePoints(prev.symbol || '', prev.entryPrice || 0, numericValue) }));
+                      }}
+                      onFocus={(e) => handleNumberInputFocus(e, 'trade-stopLoss', priceInputs.stopLoss, false)}
+                      onBlur={() => setPriceInputs(prev => ({ ...prev, stopLoss: formatPriceInput(newTrade.stopLoss || 0) }))}
+                      placeholder="0"
+                      allowNegative={false}
+                    />
+                    {newTrade.slPoints !== undefined && newTrade.slPoints > 0 && <p className="text-[10px] text-zinc-500 mt-0.5">{newTrade.slPoints} pts</p>}
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1.5">Take Profit</label>
+                    <NumericInput
+                      value={priceInputs.takeProfit}
+                      onChange={(sanitized, numericValue) => {
+                        setPriceInputs(prev => ({ ...prev, takeProfit: sanitized }));
+                        setNewTrade(prev => ({ ...prev, takeProfit: numericValue, tpPoints: calculatePoints(prev.symbol || '', prev.entryPrice || 0, numericValue) }));
+                      }}
+                      onFocus={(e) => handleNumberInputFocus(e, 'trade-takeProfit', priceInputs.takeProfit, false)}
+                      onBlur={() => setPriceInputs(prev => ({ ...prev, takeProfit: formatPriceInput(newTrade.takeProfit || 0) }))}
+                      placeholder="0"
+                      allowNegative={false}
+                    />
+                    {newTrade.tpPoints !== undefined && newTrade.tpPoints > 0 && <p className="text-[10px] text-zinc-500 mt-0.5">{newTrade.tpPoints} pts</p>}
+                  </div>
                 </div>
+              )}
+            </div>
+
+            {/* ================= HIGHLIGHTED BANNER: Rules Adherence ================= */}
+            <div className={cn(
+              'bg-[#161822] border-2 p-4 rounded-xl text-center space-y-3 transition-all',
+              newTrade.rulesFollowed === 'followed'
+                ? 'bg-emerald-950/30 border-emerald-500/60'
+                : newTrade.rulesFollowed === 'broken'
+                  ? 'bg-rose-950/30 border-rose-500/60'
+                  : 'border-slate-700/80'
+            )}>
+              <div className="flex items-center justify-center gap-2">
+                <Shield className="w-4 h-4 text-slate-200" />
+                <h4 className="text-sm font-bold uppercase tracking-widest text-slate-200">Rules Adherence</h4>
               </div>
-              <MultiSelectDropdown
-                label="Setup Types"
-                options={setupTypes}
-                selected={newTrade.setupTypes || []}
-                onChange={(selected) => setNewTrade(prev => ({ ...prev, setupTypes: selected }))}
-                onAddNew={(name) => setSetupTypes(prev => [...prev, { id: generateId(), name }])}
-                onDeleteOption={handleDeleteSetupType}
-                placeholder="Select setup types..."
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setNewTrade(prev => ({ ...prev, rulesFollowed: 'followed' })); setRulesAdherenceError(false); }}
+                  className={cn('w-full flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm font-medium border transition-colors',
+                    newTrade.rulesFollowed === 'followed'
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                      : rulesAdherenceError
+                        ? 'bg-zinc-800/60 text-zinc-400 border-rose-500/50 hover:bg-zinc-800 hover:border-rose-500/70'
+                        : 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:bg-zinc-800 hover:border-zinc-600')}
+                >
+                  <Check className="w-3.5 h-3.5" /> Followed
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setNewTrade(prev => ({ ...prev, rulesFollowed: 'broken' })); setRulesAdherenceError(false); }}
+                  className={cn('w-full flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm font-medium border transition-colors',
+                    newTrade.rulesFollowed === 'broken'
+                      ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                      : rulesAdherenceError
+                        ? 'bg-zinc-800/60 text-zinc-400 border-rose-500/50 hover:bg-zinc-800 hover:border-rose-500/70'
+                        : 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:bg-zinc-800 hover:border-zinc-600')}
+                >
+                  <X className="w-3.5 h-3.5" /> Broken
+                </button>
+              </div>
+              {rulesAdherenceError && (
+                <p className="text-xs text-rose-400">Please select whether rules were Followed or Broken</p>
+              )}
+            </div>
+
+            {/* ================= SECTION 2: Strategy & Tagging ================= */}
+            <div className="bg-[#15161e] border border-[#262833] p-4 rounded-xl space-y-3 shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]">
+              <div className="flex items-center gap-2 pb-1">
+                <span className="text-[10px] font-bold text-cyan-400 font-mono tracking-widest">02</span>
+                <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Strategy &amp; Tagging</h4>
+              </div>
+              {/* Tag groups: Setup Types + Confluences side by side, Mistakes Made full width below */}
+              <div className="grid grid-cols-2 gap-4">
+                <TagSelectDropdown
+                  label="Setup Types"
+                  options={setupTypes}
+                  selected={newTrade.setupTypes || []}
+                  onChange={(selected) => setNewTrade(prev => ({ ...prev, setupTypes: selected }))}
+                  onAddNew={(name) => setSetupTypes(prev => [...prev, { id: generateId(), name, color: 'gray' }])}
+                  onDeleteOption={handleDeleteSetupType}
+                  onColorChange={handleChangeSetupTypeColor}
+                  placeholder="Select Setup Types..."
+                  colorScheme="emerald"
+                />
+                <TagSelectDropdown
+                  label="Confluences"
+                  options={confluences}
+                  selected={newTrade.confluences || []}
+                  onChange={(selected) => setNewTrade(prev => ({ ...prev, confluences: selected }))}
+                  onAddNew={(name) => setConfluences(prev => [...prev, { id: generateId(), name, color: 'gray' }])}
+                  onDeleteOption={handleDeleteConfluence}
+                  onColorChange={handleChangeConfluenceColor}
+                  placeholder="Select Confluences..."
+                  colorScheme="emerald"
+                />
+              </div>
+
+              <TagSelectDropdown
+                label="Mistakes Made"
+                options={mistakesList}
+                selected={newTrade.mistakes || []}
+                onChange={(selected) => setNewTrade(prev => ({ ...prev, mistakes: selected }))}
+                onAddNew={(name) => setMistakesList(prev => [...prev, { id: generateId(), name, color: 'red' }])}
+                onDeleteOption={handleDeleteMistakeType}
+                onColorChange={handleChangeMistakeColor}
+                placeholder="Select Mistakes Made..."
+                colorScheme="rose"
               />
             </div>
 
-            <MultiSelectDropdown
-              label="Confluences"
-              options={confluences}
-              selected={newTrade.confluences || []}
-              onChange={(selected) => setNewTrade(prev => ({ ...prev, confluences: selected }))}
-              onAddNew={(name) => setConfluences(prev => [...prev, { id: generateId(), name }])}
-              onDeleteOption={handleDeleteConfluence}
-              placeholder="Select confluences..."
-            />
-
-            <MultiSelectDropdown
-              label="Mistakes Made"
-              options={mistakesList}
-              selected={newTrade.mistakes || []}
-              onChange={(selected) => setNewTrade(prev => ({ ...prev, mistakes: selected }))}
-              onAddNew={(name) => setMistakesList(prev => [...prev, { id: generateId(), name }])}
-              onDeleteOption={handleDeleteMistakeType}
-              placeholder="Select mistakes..."
-              colorScheme="red"
-            />
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Mistakes Analysis</label>
-                <textarea
-                  value={newTrade.mistakesAnalysis || ''}
-                  onChange={(e) => setNewTrade(prev => ({ ...prev, mistakesAnalysis: e.target.value }))}
-                  placeholder="What went wrong?"
-                  rows={3}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 placeholder-zinc-600 resize-none"
-                />
+            {/* ================= SECTION 3: Chart Screenshots ================= */}
+            <div className="bg-[#15161e] border border-[#262833] p-4 rounded-xl space-y-3 shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]">
+              <div className="flex items-center gap-2 pb-1">
+                <span className="text-[10px] font-bold text-cyan-400 font-mono tracking-widest">03</span>
+                <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Chart Screenshots</h4>
               </div>
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Lessons Learned</label>
-                <textarea
-                  value={newTrade.lessonsLearned || ''}
-                  onChange={(e) => setNewTrade(prev => ({ ...prev, lessonsLearned: e.target.value }))}
-                  placeholder="What did you learn?"
-                  rows={3}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 placeholder-zinc-600 resize-none"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs text-zinc-400 mb-1.5">Chart Screenshots</label>
-              <p className="text-xs text-zinc-500 mb-3">Attach images for each timeframe</p>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <p className="text-xs text-zinc-500">Attach images for each timeframe</p>
+              <div className="grid grid-cols-2 gap-3">
                 {TIMEFRAMES.map(tf => {
                   const tfData = (newTrade.timeframes || []).find(t => t.name === tf) || { name: tf, images: [], notes: '' };
                   return (
@@ -6031,11 +7435,43 @@ function App() {
                       onAddImage={(url) => handleAddImageUrl(url, tf)}
                       onUploadImage={(file) => handleFileUpload(file, tf)}
                       onRemoveImage={(imageId) => handleRemoveImage(tf, imageId)}
+                      onReorderImages={(fromIndex, toIndex) => handleReorderImages(tf, fromIndex, toIndex)}
+                      onPreviewImage={(url) => setLightboxImage(url)}
                       onNotesChange={(notes) => updateTimeframeNotes(tf, notes)}
                       isExecution={tf === 'Execution/Result'}
                     />
                   );
                 })}
+              </div>
+            </div>
+
+            {/* ================= SECTION 4: Post-Trade Reflection ================= */}
+            <div className="bg-[#15161e] border border-[#262833] p-4 rounded-xl space-y-3 shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]">
+              <div className="flex items-center gap-2 pb-1">
+                <span className="text-[10px] font-bold text-cyan-400 font-mono tracking-widest">04</span>
+                <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Post-Trade Reflection</h4>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Mistakes Analysis</label>
+                  <textarea
+                    value={newTrade.mistakesAnalysis || ''}
+                    onChange={(e) => setNewTrade(prev => ({ ...prev, mistakesAnalysis: e.target.value }))}
+                    placeholder="What went wrong?"
+                    rows={3}
+                    className="w-full bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#3d4152] placeholder-zinc-600 resize-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Lessons Learned</label>
+                  <textarea
+                    value={newTrade.lessonsLearned || ''}
+                    onChange={(e) => setNewTrade(prev => ({ ...prev, lessonsLearned: e.target.value }))}
+                    placeholder="What did you learn?"
+                    rows={3}
+                    className="w-full bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#3d4152] placeholder-zinc-600 resize-none"
+                  />
+                </div>
               </div>
             </div>
 
@@ -6081,7 +7517,7 @@ function App() {
         onClose={closeRuleModal}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
           <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
             <h3 className="text-lg font-bold text-white truncate">{editingRuleId ? 'Edit Trading Rule' : 'Add Trading Rule'}</h3>
             <button onClick={closeRuleModal} className="p-1 text-zinc-400 hover:text-white">
@@ -6162,7 +7598,7 @@ function App() {
         onClose={() => setShowAddNotice(false)}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
           <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
             <h3 className="text-lg font-bold text-white truncate">Add Market Notice</h3>
             <button onClick={() => setShowAddNotice(false)} className="p-1 text-zinc-400 hover:text-white">
@@ -6171,18 +7607,67 @@ function App() {
           </div>
           <div className="p-6 space-y-4">
             <div>
+              <label className="block text-sm text-zinc-400 mb-2">Chart Image</label>
+              <button
+                type="button"
+                onClick={() => noticeImageInputRef.current?.click()}
+                className="w-full aspect-video rounded-lg border border-dashed border-zinc-700 hover:border-zinc-500 flex flex-col items-center justify-center gap-2 text-zinc-500 hover:text-zinc-300 transition-all overflow-hidden bg-zinc-950"
+              >
+                {newNotice.imageUrl ? (
+                  <img src={newNotice.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                ) : (
+                  <>
+                    <ImagePlus className="w-5 h-5" />
+                    <span className="text-xs">Upload chart image</span>
+                  </>
+                )}
+              </button>
+              <input ref={noticeImageInputRef} type="file" accept="image/*" className="hidden" onChange={handleNoticeImagePick} />
+            </div>
+            <div>
               <label className="block text-sm text-zinc-400 mb-2">Title</label>
               <input type="text" value={newNotice.title || ''} onChange={(e) => setNewNotice(prev => ({ ...prev, title: e.target.value }))} placeholder="Market Observation" className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600" />
             </div>
             <div>
-              <label className="block text-sm text-zinc-400 mb-2">Description</label>
-              <textarea value={newNotice.description || ''} onChange={(e) => setNewNotice(prev => ({ ...prev, description: e.target.value }))} placeholder="Describe the market scenario..." rows={4} className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600 resize-none" />
+              <label className="block text-sm text-zinc-400 mb-2">Initial Observation (optional)</label>
+              <textarea value={newNoticeNote} onChange={(e) => setNewNoticeNote(e.target.value)} placeholder="What are you noticing about this setup..." rows={3} className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600 resize-none" />
+              <p className="text-xs text-zinc-600 mt-1.5">This becomes the first entry in the setup's Observation Chat Log. You can add more anytime.</p>
+            </div>
+            <button type="button" onClick={handleAddNotice} disabled={!newNotice.title.trim()} className="w-full py-2.5 bg-white hover:bg-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed text-black rounded-lg text-sm font-medium transition-colors">Add Notice</button>
+          </div>
+        </div>
+      </ModalBackdrop>
+    )
+  );
+
+  const renderAddScenarioModal = () => (
+    showAddScenario && (
+      <ModalBackdrop
+        onClose={() => setShowAddScenario(false)}
+        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
+      >
+        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+          <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
+            <h3 className="text-lg font-bold text-white truncate">Add Scenario</h3>
+            <button onClick={() => setShowAddScenario(false)} className="p-1 text-zinc-400 hover:text-white">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="p-6 space-y-4">
+            <div>
+              <label className="block text-sm text-zinc-400 mb-2">Scenario</label>
+              <textarea value={newScenario.scenario} onChange={(e) => setNewScenario(prev => ({ ...prev, scenario: e.target.value }))} placeholder="What happened..." rows={3} className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600 resize-none" />
             </div>
             <div>
-              <label className="block text-sm text-zinc-400 mb-2">Image URL (optional)</label>
-              <input type="text" value={newNotice.imageUrl || ''} onChange={(e) => setNewNotice(prev => ({ ...prev, imageUrl: e.target.value }))} placeholder="https://..." className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600" />
+              <label className="block text-sm text-zinc-400 mb-2">Tags</label>
+              <input type="text" value={newScenario.tags} onChange={(e) => setNewScenario(prev => ({ ...prev, tags: e.target.value }))} placeholder="overtrade, chase, FOMO" className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600" />
+              <p className="text-xs text-zinc-600 mt-1.5">Comma-separated. Each becomes a colored pill.</p>
             </div>
-            <button type="button" onClick={handleAddNotice} className="w-full py-2.5 bg-white hover:bg-zinc-200 text-black rounded-lg text-sm font-medium transition-colors">Add Notice</button>
+            <div>
+              <label className="block text-sm text-zinc-400 mb-2">Lesson</label>
+              <textarea value={newScenario.lesson} onChange={(e) => setNewScenario(prev => ({ ...prev, lesson: e.target.value }))} placeholder="What to do differently next time..." rows={2} className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600 resize-none" />
+            </div>
+            <button type="button" onClick={handleAddScenario} disabled={!newScenario.scenario.trim()} className="w-full py-2.5 bg-white hover:bg-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed text-black rounded-lg text-sm font-medium transition-colors">Add Scenario</button>
           </div>
         </div>
       </ModalBackdrop>
@@ -6195,7 +7680,7 @@ function App() {
         onClose={() => setShowAddWiki(false)}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
           <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
             <h3 className="text-lg font-bold text-white truncate">Add Knowledge Entry</h3>
             <button onClick={() => setShowAddWiki(false)} className="p-1 text-zinc-400 hover:text-white">
@@ -6229,10 +7714,10 @@ function App() {
         onClose={() => setShowDeleteSelectedConfirm(false)}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
       >
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-full bg-red-500/15 flex items-center justify-center flex-shrink-0">
-              <Trash2 className="w-5 h-5 text-red-400" />
+            <div className="w-10 h-10 rounded-full bg-rose-500/15 flex items-center justify-center flex-shrink-0">
+              <Trash2 className="w-5 h-5 text-rose-400" />
             </div>
             <h3 className="text-lg font-bold text-white">Delete trades?</h3>
           </div>
@@ -6250,7 +7735,7 @@ function App() {
             <button
               type="button"
               onClick={confirmDeleteSelectedTrades}
-              className="px-4 py-2 bg-red-500/90 hover:bg-red-500 text-white rounded-lg text-sm font-medium transition-colors"
+              className="px-4 py-2 bg-rose-500/90 hover:bg-rose-500 text-white rounded-lg text-sm font-medium transition-colors"
             >
               Delete
             </button>
@@ -6270,10 +7755,10 @@ function App() {
         onClose={() => setAccountPendingDelete(null)}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
       >
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-full bg-red-500/15 flex items-center justify-center flex-shrink-0">
-              <Trash2 className="w-5 h-5 text-red-400" />
+            <div className="w-10 h-10 rounded-full bg-rose-500/15 flex items-center justify-center flex-shrink-0">
+              <Trash2 className="w-5 h-5 text-rose-400" />
             </div>
             <h3 className="text-lg font-bold text-white">Delete "{account?.name || 'this account'}"?</h3>
           </div>
@@ -6291,7 +7776,7 @@ function App() {
             <button
               type="button"
               onClick={confirmDeleteAccount}
-              className="px-4 py-2 bg-red-500/90 hover:bg-red-500 text-white rounded-lg text-sm font-medium transition-colors"
+              className="px-4 py-2 bg-rose-500/90 hover:bg-rose-500 text-white rounded-lg text-sm font-medium transition-colors"
             >
               Delete
             </button>
@@ -6306,7 +7791,7 @@ function App() {
     lightboxImage && (
       <ModalBackdrop
         onClose={() => setLightboxImage(null)}
-        className="fixed inset-0 bg-black/95 z-[60] flex items-center justify-center p-4"
+        className="fixed inset-0 bg-black/95 z-[100] flex items-center justify-center p-4"
       >
         <button onClick={() => setLightboxImage(null)} className="absolute top-4 right-4 p-2 bg-zinc-800 rounded-full text-white hover:bg-zinc-700">
           <X className="w-6 h-6" />
@@ -6317,8 +7802,10 @@ function App() {
   );
 
   return (
-    <div className={cn("h-screen flex overflow-hidden transition-colors duration-300", theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-50 theme-light-fix')}>
+    <div className={cn("h-screen w-full flex overflow-hidden bg-[#0b0c0e] text-white", theme === 'minecraft' && 'theme-minecraft')}>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
         * {
           scrollbar-width: none;
           -ms-overflow-style: none;
@@ -6329,7 +7816,14 @@ function App() {
           height: 0;
         }
         html, body {
+          margin: 0;
+          padding: 0;
+          height: 100%;
           scroll-behavior: smooth;
+          /* Matches the dark root background so mobile elastic/rubber-band
+             overscroll never reveals the browser's default white canvas
+             underneath tall pages (e.g. the 100-day grid). */
+          background-color: #0b0c0e;
         }
         /* Trade History (List / Preview) tables force horizontal scroll on
            narrow screens — restore a slim, themed scrollbar here so users
@@ -6409,18 +7903,222 @@ function App() {
         .theme-light-fix [class~="border-zinc-500"] { border-color: #d4d4d8 !important; }
         .theme-light-fix [class~="hover:border-zinc-500"]:hover { border-color: #71717a !important; }
         .theme-light-fix [class~="bg-zinc-500"] { background-color: #d4d4d8 !important; }
+
+        /* ---- Minecraft theme ----
+           The base markup is authored with dark zinc-* utility classes.
+           Rather than thread a third branch through every ternary in the
+           file, we reskin those same classes here (same pattern as the
+           light-fix block above) whenever the root wrapper carries
+           .theme-minecraft. Every theme === 'dark' check in the component
+           tree was widened to theme !== 'light', so Minecraft mode renders
+           the existing dark-styled markup, and this stylesheet retextures it
+           into a Minecraft inventory-GUI look. */
+
+        .theme-minecraft, .theme-minecraft * {
+          font-family: 'VT323', monospace !important;
+          letter-spacing: 0.02em;
+        }
+        .theme-minecraft [class*="rounded"] { border-radius: 0 !important; }
+        .theme-minecraft [class*="blur"] { filter: none !important; }
+        .theme-minecraft [class*="backdrop-blur"] { backdrop-filter: none !important; }
+        .theme-minecraft * { transition-duration: 60ms !important; }
+
+        /* Main page canvas: pixelated deepslate/stone grid, not a flat color */
+        .theme-minecraft {
+          background-color: #2b2b2b;
+          background-image:
+            repeating-linear-gradient(0deg, rgba(0,0,0,0.28) 0px, rgba(0,0,0,0.28) 4px, transparent 4px, transparent 16px),
+            repeating-linear-gradient(90deg, rgba(0,0,0,0.28) 0px, rgba(0,0,0,0.28) 4px, transparent 4px, transparent 16px),
+            repeating-linear-gradient(45deg, #363636 0px, #363636 16px, #2f2f2f 16px, #2f2f2f 32px);
+        }
+        .theme-minecraft [class~="bg-zinc-950"],
+        .theme-minecraft [class~="bg-zinc-950/80"] {
+          background-color: #2b2b2b !important;
+          background-image:
+            repeating-linear-gradient(0deg, rgba(0,0,0,0.28) 0px, rgba(0,0,0,0.28) 4px, transparent 4px, transparent 16px),
+            repeating-linear-gradient(90deg, rgba(0,0,0,0.28) 0px, rgba(0,0,0,0.28) 4px, transparent 4px, transparent 16px),
+            repeating-linear-gradient(45deg, #363636 0px, #363636 16px, #2f2f2f 16px, #2f2f2f 32px) !important;
+        }
+
+        /* Cards / panels / sidebar: solid stone slab with a 2px beveled edge
+           (light highlight top-left, dark shadow bottom-right) */
+        .theme-minecraft [class~="bg-zinc-900"],
+        .theme-minecraft [class~="bg-zinc-900/40"],
+        .theme-minecraft [class~="bg-zinc-900/50"],
+        .theme-minecraft [class~="bg-zinc-900/60"],
+        .theme-minecraft [class~="bg-zinc-900/70"],
+        .theme-minecraft [class~="bg-zinc-900/95"],
+        .theme-minecraft [class~="bg-zinc-800"],
+        .theme-minecraft [class~="bg-zinc-800/30"],
+        .theme-minecraft [class~="bg-zinc-800/40"],
+        .theme-minecraft [class~="bg-zinc-800/50"],
+        .theme-minecraft [class~="bg-zinc-800/60"],
+        .theme-minecraft [class~="bg-zinc-800/70"],
+        .theme-minecraft [class~="bg-zinc-800/80"],
+        .theme-minecraft [class~="bg-zinc-700"],
+        .theme-minecraft [class~="bg-zinc-700/50"],
+        .theme-minecraft [class~="bg-zinc-600"],
+        .theme-minecraft [class*="from-zinc-"],
+        .theme-minecraft [class*="to-zinc-"],
+        .theme-minecraft [class*="via-zinc-"] {
+          background-color: #4a4a4a !important;
+          background-image: none !important;
+          border-color: transparent !important;
+          box-shadow:
+            inset 2px 2px 0 0 #7a7a7a,
+            inset -2px -2px 0 0 #1e1e1e !important;
+        }
+
+        /* Standalone borders (no bg override above) still read as a bevel */
+        .theme-minecraft [class~="border-zinc-800"],
+        .theme-minecraft [class~="border-zinc-800/50"],
+        .theme-minecraft [class~="border-zinc-800/60"],
+        .theme-minecraft [class~="border-zinc-800/70"],
+        .theme-minecraft [class~="border-zinc-800/80"],
+        .theme-minecraft [class~="border-zinc-700"],
+        .theme-minecraft [class~="border-zinc-700/50"],
+        .theme-minecraft [class~="border-zinc-700/60"],
+        .theme-minecraft [class~="border-zinc-700/80"],
+        .theme-minecraft [class~="border-zinc-600"],
+        .theme-minecraft [class~="border-zinc-600/50"],
+        .theme-minecraft [class~="border-zinc-500"] {
+          border-color: #1e1e1e !important;
+          border-style: solid !important;
+        }
+
+        /* Inputs render as a recessed Minecraft text-field slot */
+        .theme-minecraft input,
+        .theme-minecraft select,
+        .theme-minecraft textarea {
+          background-color: #2b2b2b !important;
+          border: none !important;
+          border-radius: 0 !important;
+          color: #ffffff !important;
+          box-shadow:
+            inset 2px 2px 0 0 #1e1e1e,
+            inset -2px -2px 0 0 #6b6b6b !important;
+        }
+
+        /* Buttons: blocky Minecraft menu-button styling with a hard 3D
+           drop shadow, brightening border + white text on hover */
+        .theme-minecraft button {
+          border-radius: 0 !important;
+          background-color: #4a4a4a;
+          box-shadow:
+            inset 2px 2px 0 0 #7a7a7a,
+            inset -2px -2px 0 0 #1e1e1e,
+            3px 3px 0 0 #000000;
+        }
+        .theme-minecraft button:hover {
+          color: #ffffff !important;
+          box-shadow:
+            inset 2px 2px 0 0 #a3a3a3,
+            inset -2px -2px 0 0 #1e1e1e,
+            0 0 0 2px #e6e6e6,
+            3px 3px 0 0 #000000;
+        }
+        .theme-minecraft button:active {
+          box-shadow:
+            inset 2px 2px 0 0 #1e1e1e,
+            inset -2px -2px 0 0 #7a7a7a;
+          transform: translate(2px, 2px);
+        }
+
+        /* Text palette: chat off-white / light gray labels, Diamond Blue and
+           Emerald Green for important + active states */
+        .theme-minecraft [class~="text-white"] { color: #ffffff !important; }
+        .theme-minecraft [class~="text-zinc-300"],
+        .theme-minecraft [class~="text-zinc-400"],
+        .theme-minecraft [class~="text-zinc-500"] { color: #aaaaaa !important; }
+        .theme-minecraft [class*="text-emerald"],
+        .theme-minecraft [class*="text-green"] { color: #55ff55 !important; }
+        .theme-minecraft [class*="text-blue"],
+        .theme-minecraft [class*="text-cyan"],
+        .theme-minecraft [class*="text-violet"],
+        .theme-minecraft [class*="text-indigo"] { color: #55ffff !important; }
+        .theme-minecraft [class*="text-red"],
+        .theme-minecraft [class*="text-rose"] { color: #ff5555 !important; }
+        .theme-minecraft [class*="text-amber"],
+        .theme-minecraft [class*="text-yellow"] { color: #ffff55 !important; }
+
+        /* Headings, stat numbers and button labels lean on the pixel font
+           at a slightly larger size so they read the way Minecraft's GUI
+           text does (VT323 is narrow/small at 1:1) */
+        .theme-minecraft h1, .theme-minecraft h2, .theme-minecraft h3,
+        .theme-minecraft h4, .theme-minecraft button, .theme-minecraft [class*="text-2xl"],
+        .theme-minecraft [class*="text-3xl"], .theme-minecraft [class*="text-xl"] {
+          font-family: 'VT323', monospace !important;
+          letter-spacing: 0.04em;
+        }
+
+        /* Scrollbar reskin so it doesn't look like a stray glassy sliver */
+        .theme-minecraft ::-webkit-scrollbar-thumb {
+          background-color: #6b6b6b !important;
+          border-radius: 0 !important;
+        }
       `}</style>
 
-      {renderSidebar()}
+      {/* MOBILE SIDEBAR (Drawer Mode) — its own isolated tree; only ever exists in the DOM while isMobileSidebarOpen is true, and only below md. */}
+      {isMobileSidebarOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          {/* Backdrop overlay */}
+          <div
+            className="fixed inset-0 bg-black/50"
+            onClick={() => setIsMobileSidebarOpen(false)}
+            aria-hidden="true"
+          />
+          {/* Actual Mobile Sidebar Panel */}
+          <aside className={cn(
+            "relative w-64 h-full flex flex-col",
+            theme !== 'light' ? 'bg-zinc-900 border-r border-zinc-800' : 'bg-white border-r border-zinc-200'
+          )}>
+            {renderSidebarContent(true)}
+          </aside>
+        </div>
+      )}
 
-      <main className={cn("flex-1 overflow-y-auto p-6 min-w-0 transition-colors duration-300", theme === 'dark' ? 'text-white' : 'text-zinc-900')}>
-        {view === 'dashboard' && renderDashboard()}
-        {view === 'trades' && renderTradeHistory()}
-        {view === 'discipline' && renderDisciplineTracker()}
-        {view === 'playbook' && renderPlaybook()}
-        {view === 'notices' && renderNotices()}
-        {view === 'wiki' && renderWiki()}
-        {view === 'calendar' && renderCalendar()}
+      {/* DESKTOP SIDEBAR (Permanent Layout) - FIXED HEIGHT */}
+      <aside className={cn(
+        "hidden md:flex flex-col h-screen flex-shrink-0 overflow-hidden transition-all duration-300",
+        theme !== 'light' ? 'bg-zinc-900 border-r border-zinc-800' : 'bg-white border-r border-zinc-200',
+        sidebarCollapsed ? "w-[72px]" : "w-64"
+      )}>
+        {renderSidebarContent(false)}
+      </aside>
+
+      {/* MAIN WORKSPACE - ISOLATED SCROLL */}
+      <main className={cn("flex-1 min-w-0 h-screen flex flex-col overflow-y-auto transition-colors duration-300", theme !== 'light' ? 'bg-zinc-950 text-white' : 'bg-zinc-50 text-zinc-900')}>
+        {/* MOBILE STICKY TOP BAR */}
+        <div className={cn(
+          "md:hidden sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b backdrop-blur-sm",
+          theme !== 'light' ? 'bg-zinc-900/95 border-zinc-800' : 'bg-white/95 border-zinc-200'
+        )}>
+          <button
+            type="button"
+            onClick={() => setIsMobileSidebarOpen(true)}
+            aria-label="Open menu"
+            className={cn(
+              "p-2 -ml-2 rounded-lg transition-colors",
+              theme !== 'light' ? 'text-zinc-300 hover:text-white hover:bg-zinc-800' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+            )}
+          >
+            <PanelLeft className="w-5 h-5" />
+          </button>
+          <span className={cn("font-bold text-base uppercase tracking-wider", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>
+            VSX
+          </span>
+        </div>
+
+        <div className="p-4 sm:p-6">
+          {view === 'dashboard' && renderDashboard()}
+          {view === 'trades' && renderTradeHistory()}
+          {view === 'discipline' && renderDisciplineTracker()}
+          {view === 'lifeDiscipline' && renderLifeDisciplineHub()}
+          {view === 'playbook' && renderPlaybook()}
+          {view === 'notices' && renderNotices()}
+          {view === 'wiki' && renderWiki()}
+          {view === 'calendar' && renderCalendar()}
+        </div>
       </main>
 
       {renderAccountModal()}
@@ -6431,10 +8129,43 @@ function App() {
       {renderExpandGallery()}
       {renderAddRuleModal()}
       {renderAddNoticeModal()}
+      {renderAddScenarioModal()}
       {renderAddWikiModal()}
       {renderDeleteSelectedConfirm()}
       {renderDeleteAccountConfirm()}
       {renderLightbox()}
+
+      {isExportConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-sm mx-4 rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl">
+            <div className="p-5">
+              <h2 className="text-base font-semibold text-white">
+                Export Journal Backup?
+              </h2>
+              <p className="mt-2 text-sm text-zinc-400">
+                This will create a backup file of your current journal data.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-zinc-800 px-5 py-3">
+              <button
+                onClick={() => setIsExportConfirmOpen(false)}
+                className="px-3 py-1.5 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  exportBackup();
+                  setIsExportConfirmOpen(false);
+                }}
+                className="px-3 py-1.5 rounded-lg text-sm bg-zinc-100 text-zinc-900 hover:bg-white transition-all font-medium"
+              >
+                Confirm Export
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
