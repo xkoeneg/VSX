@@ -552,7 +552,7 @@ const buildLiveTimestamp = (dateStr: string): string => {
 
 const formatCurrency = (value: number, blur: boolean = false) => {
   if (blur) return '****';
-  const prefix = value >= 0 ? '+' : '';
+  const prefix = value >= 0 ? '+' : '-';
   return `${prefix}$${Math.abs(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
@@ -4420,7 +4420,7 @@ function App() {
         )}
       >
         <div className="aspect-video bg-zinc-800 flex items-center justify-center relative overflow-hidden flex-shrink-0">
-          <span className="absolute top-2 left-2 z-10 flex items-center justify-center w-5 h-5 rounded bg-white text-[10px] font-mono font-bold text-black shadow-[0_1px_4px_rgba(0,0,0,0.6)] ring-1 ring-black/20">
+          <span className="absolute top-2 left-2 z-10 flex items-center justify-center w-5 h-5 rounded bg-black/60 text-[10px] font-mono font-bold text-zinc-300 border border-white/10 backdrop-blur-md shadow-[0_1px_4px_rgba(0,0,0,0.6)]">
             {getDisplayTradeNumber(trade)}
           </span>
           {tradeSelectMode && (
@@ -4454,7 +4454,7 @@ function App() {
             <div className="absolute inset-0 bg-indigo-500/10 z-[5] pointer-events-none" />
           )}
         </div>
-        <div className={cn('p-3 min-w-0 flex-1 flex flex-col transition-colors duration-200', outcomeCardClass)}>
+        <div className={cn('p-3.5 min-w-0 flex-1 flex flex-col transition-colors duration-200', outcomeCardClass)}>
           <div className="flex items-start justify-between gap-2">
             <h4 className="font-semibold text-white truncate tracking-tight text-sm min-w-0">{trade.symbol}</h4>
             <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -4465,12 +4465,15 @@ function App() {
             </div>
           </div>
           <p className="text-xs text-zinc-500 truncate mt-0.5">{account?.name}</p>
-          {trade.session && (
-            <div className="flex items-center mt-2">
-              <SessionBadge value={trade.session} size="sm" />
-            </div>
-          )}
-          <div className="flex items-center justify-between gap-2 mt-auto pt-2 min-w-0">
+          {/* Fixed-height row so cards without a session still take up the same
+              vertical space as cards that have one — keeps every card (and every
+              grid row) the exact same height. */}
+          <div className="flex items-center mt-2 min-h-[20px]">
+            {trade.session && <SessionBadge value={trade.session} size="sm" />}
+          </div>
+          {/* Fixed-height footer row so cards without setup badges still match
+              the height of cards that have them. */}
+          <div className="flex items-center justify-between gap-2 mt-auto pt-2 min-h-[26px] min-w-0">
             <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
               {trade.setupTypes.slice(0, 1).map(s => (
                 <span key={s} className="px-1.5 py-0.5 bg-zinc-800/80 border border-zinc-700/50 rounded text-[10px] text-zinc-300 whitespace-nowrap">{s}</span>
