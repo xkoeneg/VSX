@@ -6236,7 +6236,7 @@ function App() {
             )}
 
             {/* Row 2: Symbol + Session + Trade # - sit side-by-side */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs text-zinc-400 mb-1.5">Symbol</label>
                 <div className="relative" ref={symbolDropdownRef}>
@@ -6334,7 +6334,7 @@ function App() {
             </div>
 
             {/* Row 2: P&L + Risk + R:R Ratio - STRICT numeric inputs, RR always visible */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs text-zinc-400 mb-1.5">P&L ($)</label>
                 <NumericInput
@@ -6441,7 +6441,7 @@ function App() {
             )}
 
             {/* Row 4: Rules Adherence + Setup Types */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4 items-start">
               <div>
                 <label className="block text-xs text-zinc-400 mb-1.5">Rules Adherence</label>
                 <div className="flex gap-2">
