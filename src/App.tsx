@@ -6643,266 +6643,282 @@ function App() {
           </div>
 
           <form className="p-6 space-y-4">
-            {/* Row 1: Account + Date */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Account</label>
-                <select
-                  value={newTrade.accountId || ''}
-                  onChange={(e) => setNewTrade(prev => ({ ...prev, accountId: e.target.value }))}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-zinc-600"
-                >
-                  {accounts.map(acc => (
-                    <option key={acc.id} value={acc.id}>{acc.name}</option>
-                  ))}
-                </select>
+            {/* ================= SECTION 1: Trade Execution & Metrics ================= */}
+            <div className="bg-[#16171d] border border-[#232429] p-4 rounded-xl space-y-3">
+              <div className="flex items-center gap-2 pb-1">
+                <span className="text-[10px] font-bold text-zinc-600 tracking-widest">01</span>
+                <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Trade Execution &amp; Metrics</h4>
               </div>
-              <div>
-                <DateInput
-                  value={newTrade.date || getTodayLocalDate()}
-                  onChange={(value) => setNewTrade(prev => ({ ...prev, date: value }))}
-                  label="Date"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowTradeTimeFields(v => !v)}
-                  className="mt-1.5 w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors"
-                >
-                  <Clock className="w-3.5 h-3.5" />
-                  {showTradeTimeFields ? 'Hide start / end time' : 'Add start / end time'}
-                  <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', showTradeTimeFields && 'rotate-180')} />
-                </button>
-              </div>
-            </div>
-
-            {showTradeTimeFields && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <TimeInput
-                  value={newTrade.startTime || ''}
-                  onChange={(value) => setNewTrade(prev => ({ ...prev, startTime: value }))}
-                  label="Start Time"
-                />
-                <TimeInput
-                  value={newTrade.endTime || ''}
-                  onChange={(value) => setNewTrade(prev => ({ ...prev, endTime: value }))}
-                  label="End Time"
-                />
-              </div>
-            )}
-
-            {/* Row 2: Symbol + Session + Trade # - sit side-by-side */}
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Symbol</label>
-                <div className="relative" ref={symbolDropdownRef}>
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Account</label>
+                  <select
+                    value={newTrade.accountId || ''}
+                    onChange={(e) => setNewTrade(prev => ({ ...prev, accountId: e.target.value }))}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-zinc-600"
+                  >
+                    {accounts.map(acc => (
+                      <option key={acc.id} value={acc.id}>{acc.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <DateInput
+                    value={newTrade.date || getTodayLocalDate()}
+                    onChange={(value) => setNewTrade(prev => ({ ...prev, date: value }))}
+                    label="Date"
+                  />
                   <button
                     type="button"
-                    onClick={() => setShowSymbolDropdown(!showSymbolDropdown)}
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-zinc-600 flex items-center justify-between"
+                    onClick={() => setShowTradeTimeFields(v => !v)}
+                    className="mt-1.5 w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors"
                   >
-                    <span className={cn(newTrade.symbol ? 'text-white' : 'text-zinc-500')}>
-                      {newTrade.symbol || 'Select...'}
-                    </span>
-                    <ChevronDown className="w-4 h-4 text-zinc-400" />
+                    <Clock className="w-3.5 h-3.5" />
+                    {showTradeTimeFields ? 'Hide start / end time' : 'Add start / end time'}
+                    <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', showTradeTimeFields && 'rotate-180')} />
                   </button>
-                  {showSymbolDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-30 max-h-40 overflow-y-auto">
-                      {PRESET_SYMBOLS.map(sym => (
-                        <button
-                          type="button"
-                          key={sym.value}
-                          onClick={() => { setNewTrade(prev => ({ ...prev, symbol: sym.value })); setShowSymbolDropdown(false); }}
-                          className={cn('w-full text-left px-3 py-2 text-sm hover:bg-zinc-700', newTrade.symbol === sym.value ? 'text-white bg-zinc-700' : 'text-zinc-400')}
-                        >
-                          {sym.name}
-                        </button>
-                      ))}
-                      {customSymbols.length > 0 && (
-                        <>
-                          <div className="border-t border-zinc-700 my-1" />
-                          {customSymbols.map(sym => (
-                            <button type="button" key={sym} onClick={() => { setNewTrade(prev => ({ ...prev, symbol: sym })); setShowSymbolDropdown(false); }}
-                              className={cn('w-full text-left px-3 py-2 text-sm hover:bg-zinc-700', newTrade.symbol === sym ? 'text-white bg-zinc-700' : 'text-zinc-400')}>
-                              {sym}
-                            </button>
-                          ))}
-                        </>
-                      )}
-                      <div className="border-t border-zinc-700 p-2">
-                        <input type="text" value={symbolCustomInput} onChange={(e) => setSymbolCustomInput(e.target.value.toUpperCase())}
-                          placeholder="Add custom..."
-                          className="w-full bg-zinc-700 border border-zinc-600 rounded px-2 py-1.5 text-xs text-white placeholder-zinc-400 focus:outline-none"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && symbolCustomInput.trim()) {
-                              setNewTrade(prev => ({ ...prev, symbol: symbolCustomInput.trim() }));
-                              if (!customSymbols.includes(symbolCustomInput.trim())) setCustomSymbols(prev => [...prev, symbolCustomInput.trim()]);
-                              setSymbolCustomInput('');
-                              setShowSymbolDropdown(false);
-                            }
-                          }}
-                        />
+                </div>
+              </div>
+
+              {showTradeTimeFields && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <TimeInput
+                    value={newTrade.startTime || ''}
+                    onChange={(value) => setNewTrade(prev => ({ ...prev, startTime: value }))}
+                    label="Start Time"
+                  />
+                  <TimeInput
+                    value={newTrade.endTime || ''}
+                    onChange={(value) => setNewTrade(prev => ({ ...prev, endTime: value }))}
+                    label="End Time"
+                  />
+                </div>
+              )}
+
+              {/* Row 2: Symbol + Session + Trade # - sit side-by-side */}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Symbol</label>
+                  <div className="relative" ref={symbolDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setShowSymbolDropdown(!showSymbolDropdown)}
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-zinc-600 flex items-center justify-between"
+                    >
+                      <span className={cn(newTrade.symbol ? 'text-white' : 'text-zinc-500')}>
+                        {newTrade.symbol || 'Select...'}
+                      </span>
+                      <ChevronDown className="w-4 h-4 text-zinc-400" />
+                    </button>
+                    {showSymbolDropdown && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-30 max-h-40 overflow-y-auto">
+                        {PRESET_SYMBOLS.map(sym => (
+                          <button
+                            type="button"
+                            key={sym.value}
+                            onClick={() => { setNewTrade(prev => ({ ...prev, symbol: sym.value })); setShowSymbolDropdown(false); }}
+                            className={cn('w-full text-left px-3 py-2 text-sm hover:bg-zinc-700', newTrade.symbol === sym.value ? 'text-white bg-zinc-700' : 'text-zinc-400')}
+                          >
+                            {sym.name}
+                          </button>
+                        ))}
+                        {customSymbols.length > 0 && (
+                          <>
+                            <div className="border-t border-zinc-700 my-1" />
+                            {customSymbols.map(sym => (
+                              <button type="button" key={sym} onClick={() => { setNewTrade(prev => ({ ...prev, symbol: sym })); setShowSymbolDropdown(false); }}
+                                className={cn('w-full text-left px-3 py-2 text-sm hover:bg-zinc-700', newTrade.symbol === sym ? 'text-white bg-zinc-700' : 'text-zinc-400')}>
+                                {sym}
+                              </button>
+                            ))}
+                          </>
+                        )}
+                        <div className="border-t border-zinc-700 p-2">
+                          <input type="text" value={symbolCustomInput} onChange={(e) => setSymbolCustomInput(e.target.value.toUpperCase())}
+                            placeholder="Add custom..."
+                            className="w-full bg-zinc-700 border border-zinc-600 rounded px-2 py-1.5 text-xs text-white placeholder-zinc-400 focus:outline-none"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && symbolCustomInput.trim()) {
+                                setNewTrade(prev => ({ ...prev, symbol: symbolCustomInput.trim() }));
+                                if (!customSymbols.includes(symbolCustomInput.trim())) setCustomSymbols(prev => [...prev, symbolCustomInput.trim()]);
+                                setSymbolCustomInput('');
+                                setShowSymbolDropdown(false);
+                              }
+                            }}
+                          />
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Session</label>
+                  <div className="relative" ref={sessionDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setShowSessionDropdown(!showSessionDropdown)}
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-zinc-600 flex items-center justify-between"
+                    >
+                      <span className={cn(newTrade.session ? 'text-white' : 'text-zinc-500')}>
+                        {newTrade.session || 'Select...'}
+                      </span>
+                      <ChevronDown className="w-4 h-4 text-zinc-400" />
+                    </button>
+                    {showSessionDropdown && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-30 max-h-40 overflow-y-auto">
+                        {SESSION_OPTIONS.map(opt => (
+                          <button
+                            type="button"
+                            key={opt}
+                            onClick={() => { setNewTrade(prev => ({ ...prev, session: opt })); setShowSessionDropdown(false); }}
+                            className={cn('w-full text-left px-3 py-2 text-sm hover:bg-zinc-700', newTrade.session === opt ? 'text-white bg-zinc-700' : 'text-zinc-400')}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Trade #</label>
+                  <NumericInput
+                    value={newTrade.trackingNumber || ''}
+                    onChange={(sanitized) => setNewTrade(prev => ({ ...prev, trackingNumber: sanitized }))}
+                    onFocus={(e) => handleNumberInputFocus(e, 'trade-trackingNumber', newTrade.trackingNumber || '', false)}
+                    placeholder="e.g. 14, 15, 18"
+                    allowNegative={false}
+                    className="focus:border-emerald-500/50"
+                  />
                 </div>
               </div>
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Session</label>
-                <div className="relative" ref={sessionDropdownRef}>
-                  <button
-                    type="button"
-                    onClick={() => setShowSessionDropdown(!showSessionDropdown)}
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-zinc-600 flex items-center justify-between"
-                  >
-                    <span className={cn(newTrade.session ? 'text-white' : 'text-zinc-500')}>
-                      {newTrade.session || 'Select...'}
-                    </span>
-                    <ChevronDown className="w-4 h-4 text-zinc-400" />
-                  </button>
-                  {showSessionDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-30 max-h-40 overflow-y-auto">
-                      {SESSION_OPTIONS.map(opt => (
-                        <button
-                          type="button"
-                          key={opt}
-                          onClick={() => { setNewTrade(prev => ({ ...prev, session: opt })); setShowSessionDropdown(false); }}
-                          className={cn('w-full text-left px-3 py-2 text-sm hover:bg-zinc-700', newTrade.session === opt ? 'text-white bg-zinc-700' : 'text-zinc-400')}
-                        >
-                          {opt}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+
+              {/* Row 2: P&L + Risk + R:R Ratio - STRICT numeric inputs, RR always visible */}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">P&L ($)</label>
+                  <NumericInput
+                    value={priceInputs.profitLoss}
+                    onChange={(sanitized, numericValue) => {
+                      setPriceInputs(prev => ({ ...prev, profitLoss: sanitized }));
+                      setNewTrade(prev => ({ ...prev, profitLoss: numericValue }));
+                    }}
+                    onFocus={(e) => handleNumberInputFocus(e, 'trade-profitLoss', priceInputs.profitLoss, true)}
+                    placeholder="0"
+                    allowNegative={true}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Risk ($)</label>
+                  <NumericInput
+                    value={priceInputs.riskAmount}
+                    onChange={(sanitized, numericValue) => {
+                      setPriceInputs(prev => ({ ...prev, riskAmount: sanitized }));
+                      setNewTrade(prev => ({ ...prev, riskAmount: numericValue }));
+                    }}
+                    onFocus={(e) => handleNumberInputFocus(e, 'trade-riskAmount', priceInputs.riskAmount, false)}
+                    onBlur={() => setPriceInputs(prev => ({ ...prev, riskAmount: formatPriceInput(newTrade.riskAmount || 0) }))}
+                    placeholder="0"
+                    allowNegative={false}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">R:R Ratio</label>
+                  <div className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm">
+                    {calculatedRR !== null ? (
+                      <span className={cn('font-medium', calculatedRR >= 1 ? 'text-emerald-400' : calculatedRR >= 0 ? 'text-zinc-400' : 'text-red-400')}>
+                        {calculatedRR.toFixed(2)}R
+                      </span>
+                    ) : (
+                      <span className="text-zinc-500">--</span>
+                    )}
+                  </div>
                 </div>
               </div>
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Trade #</label>
-                <NumericInput
-                  value={newTrade.trackingNumber || ''}
-                  onChange={(sanitized) => setNewTrade(prev => ({ ...prev, trackingNumber: sanitized }))}
-                  onFocus={(e) => handleNumberInputFocus(e, 'trade-trackingNumber', newTrade.trackingNumber || '', false)}
-                  placeholder="e.g. 14, 15, 18"
-                  allowNegative={false}
-                  className="focus:border-emerald-500/50"
-                />
-              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowTradePriceLevels(v => !v)}
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors"
+              >
+                <Target className="w-3.5 h-3.5" />
+                {showTradePriceLevels ? 'Hide entry / stop loss / take profit' : 'Add entry / stop loss / take profit'}
+                <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', showTradePriceLevels && 'rotate-180')} />
+              </button>
+
+              {showTradePriceLevels && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1.5">Entry</label>
+                    <NumericInput
+                      value={priceInputs.entryPrice}
+                      onChange={(sanitized, numericValue) => {
+                        setPriceInputs(prev => ({ ...prev, entryPrice: sanitized }));
+                        setNewTrade(prev => ({
+                          ...prev,
+                          entryPrice: numericValue,
+                          slPoints: calculatePoints(prev.symbol || '', numericValue, prev.stopLoss || 0),
+                          tpPoints: calculatePoints(prev.symbol || '', numericValue, prev.takeProfit || 0),
+                        }));
+                      }}
+                      onFocus={(e) => handleNumberInputFocus(e, 'trade-entryPrice', priceInputs.entryPrice, false)}
+                      onBlur={() => setPriceInputs(prev => ({ ...prev, entryPrice: formatPriceInput(newTrade.entryPrice || 0) }))}
+                      placeholder="0"
+                      allowNegative={false}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1.5">Stop Loss</label>
+                    <NumericInput
+                      value={priceInputs.stopLoss}
+                      onChange={(sanitized, numericValue) => {
+                        setPriceInputs(prev => ({ ...prev, stopLoss: sanitized }));
+                        setNewTrade(prev => ({ ...prev, stopLoss: numericValue, slPoints: calculatePoints(prev.symbol || '', prev.entryPrice || 0, numericValue) }));
+                      }}
+                      onFocus={(e) => handleNumberInputFocus(e, 'trade-stopLoss', priceInputs.stopLoss, false)}
+                      onBlur={() => setPriceInputs(prev => ({ ...prev, stopLoss: formatPriceInput(newTrade.stopLoss || 0) }))}
+                      placeholder="0"
+                      allowNegative={false}
+                    />
+                    {newTrade.slPoints !== undefined && newTrade.slPoints > 0 && <p className="text-[10px] text-zinc-500 mt-0.5">{newTrade.slPoints} pts</p>}
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1.5">Take Profit</label>
+                    <NumericInput
+                      value={priceInputs.takeProfit}
+                      onChange={(sanitized, numericValue) => {
+                        setPriceInputs(prev => ({ ...prev, takeProfit: sanitized }));
+                        setNewTrade(prev => ({ ...prev, takeProfit: numericValue, tpPoints: calculatePoints(prev.symbol || '', prev.entryPrice || 0, numericValue) }));
+                      }}
+                      onFocus={(e) => handleNumberInputFocus(e, 'trade-takeProfit', priceInputs.takeProfit, false)}
+                      onBlur={() => setPriceInputs(prev => ({ ...prev, takeProfit: formatPriceInput(newTrade.takeProfit || 0) }))}
+                      placeholder="0"
+                      allowNegative={false}
+                    />
+                    {newTrade.tpPoints !== undefined && newTrade.tpPoints > 0 && <p className="text-[10px] text-zinc-500 mt-0.5">{newTrade.tpPoints} pts</p>}
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Row 2: P&L + Risk + R:R Ratio - STRICT numeric inputs, RR always visible */}
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">P&L ($)</label>
-                <NumericInput
-                  value={priceInputs.profitLoss}
-                  onChange={(sanitized, numericValue) => {
-                    setPriceInputs(prev => ({ ...prev, profitLoss: sanitized }));
-                    setNewTrade(prev => ({ ...prev, profitLoss: numericValue }));
-                  }}
-                  onFocus={(e) => handleNumberInputFocus(e, 'trade-profitLoss', priceInputs.profitLoss, true)}
-                  placeholder="0"
-                  allowNegative={true}
-                />
+            {/* ================= HIGHLIGHTED BANNER: Rules Adherence ================= */}
+            <div className={cn(
+              'bg-[#1a1b23] border-2 p-4 rounded-xl text-center space-y-3 transition-all',
+              newTrade.rulesFollowed === 'followed'
+                ? 'bg-emerald-950/30 border-emerald-500/60'
+                : newTrade.rulesFollowed === 'broken'
+                  ? 'bg-rose-950/30 border-rose-500/60'
+                  : 'border-zinc-700'
+            )}>
+              <div className="flex items-center justify-center gap-2">
+                <Shield className="w-4 h-4 text-zinc-400" />
+                <h4 className="text-sm font-bold uppercase tracking-widest text-zinc-300">Rules Adherence</h4>
               </div>
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Risk ($)</label>
-                <NumericInput
-                  value={priceInputs.riskAmount}
-                  onChange={(sanitized, numericValue) => {
-                    setPriceInputs(prev => ({ ...prev, riskAmount: sanitized }));
-                    setNewTrade(prev => ({ ...prev, riskAmount: numericValue }));
-                  }}
-                  onFocus={(e) => handleNumberInputFocus(e, 'trade-riskAmount', priceInputs.riskAmount, false)}
-                  onBlur={() => setPriceInputs(prev => ({ ...prev, riskAmount: formatPriceInput(newTrade.riskAmount || 0) }))}
-                  placeholder="0"
-                  allowNegative={false}
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">R:R Ratio</label>
-                <div className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm">
-                  {calculatedRR !== null ? (
-                    <span className={cn('font-medium', calculatedRR >= 1 ? 'text-emerald-400' : calculatedRR >= 0 ? 'text-zinc-400' : 'text-red-400')}>
-                      {calculatedRR.toFixed(2)}R
-                    </span>
-                  ) : (
-                    <span className="text-zinc-500">--</span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setShowTradePriceLevels(v => !v)}
-              className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors"
-            >
-              <Target className="w-3.5 h-3.5" />
-              {showTradePriceLevels ? 'Hide entry / stop loss / take profit' : 'Add entry / stop loss / take profit'}
-              <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', showTradePriceLevels && 'rotate-180')} />
-            </button>
-
-            {showTradePriceLevels && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1.5">Entry</label>
-                  <NumericInput
-                    value={priceInputs.entryPrice}
-                    onChange={(sanitized, numericValue) => {
-                      setPriceInputs(prev => ({ ...prev, entryPrice: sanitized }));
-                      setNewTrade(prev => ({
-                        ...prev,
-                        entryPrice: numericValue,
-                        slPoints: calculatePoints(prev.symbol || '', numericValue, prev.stopLoss || 0),
-                        tpPoints: calculatePoints(prev.symbol || '', numericValue, prev.takeProfit || 0),
-                      }));
-                    }}
-                    onFocus={(e) => handleNumberInputFocus(e, 'trade-entryPrice', priceInputs.entryPrice, false)}
-                    onBlur={() => setPriceInputs(prev => ({ ...prev, entryPrice: formatPriceInput(newTrade.entryPrice || 0) }))}
-                    placeholder="0"
-                    allowNegative={false}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1.5">Stop Loss</label>
-                  <NumericInput
-                    value={priceInputs.stopLoss}
-                    onChange={(sanitized, numericValue) => {
-                      setPriceInputs(prev => ({ ...prev, stopLoss: sanitized }));
-                      setNewTrade(prev => ({ ...prev, stopLoss: numericValue, slPoints: calculatePoints(prev.symbol || '', prev.entryPrice || 0, numericValue) }));
-                    }}
-                    onFocus={(e) => handleNumberInputFocus(e, 'trade-stopLoss', priceInputs.stopLoss, false)}
-                    onBlur={() => setPriceInputs(prev => ({ ...prev, stopLoss: formatPriceInput(newTrade.stopLoss || 0) }))}
-                    placeholder="0"
-                    allowNegative={false}
-                  />
-                  {newTrade.slPoints !== undefined && newTrade.slPoints > 0 && <p className="text-[10px] text-zinc-500 mt-0.5">{newTrade.slPoints} pts</p>}
-                </div>
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1.5">Take Profit</label>
-                  <NumericInput
-                    value={priceInputs.takeProfit}
-                    onChange={(sanitized, numericValue) => {
-                      setPriceInputs(prev => ({ ...prev, takeProfit: sanitized }));
-                      setNewTrade(prev => ({ ...prev, takeProfit: numericValue, tpPoints: calculatePoints(prev.symbol || '', prev.entryPrice || 0, numericValue) }));
-                    }}
-                    onFocus={(e) => handleNumberInputFocus(e, 'trade-takeProfit', priceInputs.takeProfit, false)}
-                    onBlur={() => setPriceInputs(prev => ({ ...prev, takeProfit: formatPriceInput(newTrade.takeProfit || 0) }))}
-                    placeholder="0"
-                    allowNegative={false}
-                  />
-                  {newTrade.tpPoints !== undefined && newTrade.tpPoints > 0 && <p className="text-[10px] text-zinc-500 mt-0.5">{newTrade.tpPoints} pts</p>}
-                </div>
-              </div>
-            )}
-
-            {/* Row 4: Rules Adherence - dedicated full-width row, required field */}
-            <div>
-              <label className="block text-xs text-zinc-400 mb-1.5">Rules Adherence</label>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => { setNewTrade(prev => ({ ...prev, rulesFollowed: 'followed' })); setRulesAdherenceError(false); }}
-                  className={cn('flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm font-medium border transition-colors',
+                  className={cn('w-full flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm font-medium border transition-colors',
                     newTrade.rulesFollowed === 'followed'
                       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                       : rulesAdherenceError
@@ -6914,7 +6930,7 @@ function App() {
                 <button
                   type="button"
                   onClick={() => { setNewTrade(prev => ({ ...prev, rulesFollowed: 'broken' })); setRulesAdherenceError(false); }}
-                  className={cn('flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm font-medium border transition-colors',
+                  className={cn('w-full flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm font-medium border transition-colors',
                     newTrade.rulesFollowed === 'broken'
                       ? 'bg-red-500/10 text-red-400 border-red-500/30'
                       : rulesAdherenceError
@@ -6925,51 +6941,62 @@ function App() {
                 </button>
               </div>
               {rulesAdherenceError && (
-                <p className="text-xs text-red-400 mt-1.5">Please select whether rules were Followed or Broken</p>
+                <p className="text-xs text-red-400">Please select whether rules were Followed or Broken</p>
               )}
             </div>
 
-            {/* Tag groups: Setup Types + Confluences side by side, Mistakes Made full width below */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* ================= SECTION 2: Strategy & Tagging ================= */}
+            <div className="bg-[#16171d] border border-[#232429] p-4 rounded-xl space-y-3">
+              <div className="flex items-center gap-2 pb-1">
+                <span className="text-[10px] font-bold text-zinc-600 tracking-widest">02</span>
+                <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Strategy &amp; Tagging</h4>
+              </div>
+              {/* Tag groups: Setup Types + Confluences side by side, Mistakes Made full width below */}
+              <div className="grid grid-cols-2 gap-4">
+                <TagSelectDropdown
+                  label="Setup Types"
+                  options={setupTypes}
+                  selected={newTrade.setupTypes || []}
+                  onChange={(selected) => setNewTrade(prev => ({ ...prev, setupTypes: selected }))}
+                  onAddNew={(name) => setSetupTypes(prev => [...prev, { id: generateId(), name, color: 'gray' }])}
+                  onDeleteOption={handleDeleteSetupType}
+                  onColorChange={handleChangeSetupTypeColor}
+                  placeholder="Select Setup Types..."
+                  colorScheme="emerald"
+                />
+                <TagSelectDropdown
+                  label="Confluences"
+                  options={confluences}
+                  selected={newTrade.confluences || []}
+                  onChange={(selected) => setNewTrade(prev => ({ ...prev, confluences: selected }))}
+                  onAddNew={(name) => setConfluences(prev => [...prev, { id: generateId(), name, color: 'gray' }])}
+                  onDeleteOption={handleDeleteConfluence}
+                  onColorChange={handleChangeConfluenceColor}
+                  placeholder="Select Confluences..."
+                  colorScheme="emerald"
+                />
+              </div>
+
               <TagSelectDropdown
-                label="Setup Types"
-                options={setupTypes}
-                selected={newTrade.setupTypes || []}
-                onChange={(selected) => setNewTrade(prev => ({ ...prev, setupTypes: selected }))}
-                onAddNew={(name) => setSetupTypes(prev => [...prev, { id: generateId(), name, color: 'gray' }])}
-                onDeleteOption={handleDeleteSetupType}
-                onColorChange={handleChangeSetupTypeColor}
-                placeholder="Select Setup Types..."
-                colorScheme="emerald"
-              />
-              <TagSelectDropdown
-                label="Confluences"
-                options={confluences}
-                selected={newTrade.confluences || []}
-                onChange={(selected) => setNewTrade(prev => ({ ...prev, confluences: selected }))}
-                onAddNew={(name) => setConfluences(prev => [...prev, { id: generateId(), name, color: 'gray' }])}
-                onDeleteOption={handleDeleteConfluence}
-                onColorChange={handleChangeConfluenceColor}
-                placeholder="Select Confluences..."
-                colorScheme="emerald"
+                label="Mistakes Made"
+                options={mistakesList}
+                selected={newTrade.mistakes || []}
+                onChange={(selected) => setNewTrade(prev => ({ ...prev, mistakes: selected }))}
+                onAddNew={(name) => setMistakesList(prev => [...prev, { id: generateId(), name, color: 'red' }])}
+                onDeleteOption={handleDeleteMistakeType}
+                onColorChange={handleChangeMistakeColor}
+                placeholder="Select Mistakes Made..."
+                colorScheme="rose"
               />
             </div>
 
-            <TagSelectDropdown
-              label="Mistakes Made"
-              options={mistakesList}
-              selected={newTrade.mistakes || []}
-              onChange={(selected) => setNewTrade(prev => ({ ...prev, mistakes: selected }))}
-              onAddNew={(name) => setMistakesList(prev => [...prev, { id: generateId(), name, color: 'red' }])}
-              onDeleteOption={handleDeleteMistakeType}
-              onColorChange={handleChangeMistakeColor}
-              placeholder="Select Mistakes Made..."
-              colorScheme="rose"
-            />
-
-            <div>
-              <label className="block text-xs text-zinc-400 mb-1.5">Chart Screenshots</label>
-              <p className="text-xs text-zinc-500 mb-3">Attach images for each timeframe</p>
+            {/* ================= SECTION 3: Chart Screenshots ================= */}
+            <div className="bg-[#16171d] border border-[#232429] p-4 rounded-xl space-y-3">
+              <div className="flex items-center gap-2 pb-1">
+                <span className="text-[10px] font-bold text-zinc-600 tracking-widest">03</span>
+                <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Chart Screenshots</h4>
+              </div>
+              <p className="text-xs text-zinc-500">Attach images for each timeframe</p>
               <div className="grid grid-cols-2 gap-3">
                 {TIMEFRAMES.map(tf => {
                   const tfData = (newTrade.timeframes || []).find(t => t.name === tf) || { name: tf, images: [], notes: '' };
@@ -6992,26 +7019,33 @@ function App() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Mistakes Analysis</label>
-                <textarea
-                  value={newTrade.mistakesAnalysis || ''}
-                  onChange={(e) => setNewTrade(prev => ({ ...prev, mistakesAnalysis: e.target.value }))}
-                  placeholder="What went wrong?"
-                  rows={3}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 placeholder-zinc-600 resize-none"
-                />
+            {/* ================= SECTION 4: Post-Trade Reflection ================= */}
+            <div className="bg-[#16171d] border border-[#232429] p-4 rounded-xl space-y-3">
+              <div className="flex items-center gap-2 pb-1">
+                <span className="text-[10px] font-bold text-zinc-600 tracking-widest">04</span>
+                <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Post-Trade Reflection</h4>
               </div>
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Lessons Learned</label>
-                <textarea
-                  value={newTrade.lessonsLearned || ''}
-                  onChange={(e) => setNewTrade(prev => ({ ...prev, lessonsLearned: e.target.value }))}
-                  placeholder="What did you learn?"
-                  rows={3}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 placeholder-zinc-600 resize-none"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Mistakes Analysis</label>
+                  <textarea
+                    value={newTrade.mistakesAnalysis || ''}
+                    onChange={(e) => setNewTrade(prev => ({ ...prev, mistakesAnalysis: e.target.value }))}
+                    placeholder="What went wrong?"
+                    rows={3}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 placeholder-zinc-600 resize-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Lessons Learned</label>
+                  <textarea
+                    value={newTrade.lessonsLearned || ''}
+                    onChange={(e) => setNewTrade(prev => ({ ...prev, lessonsLearned: e.target.value }))}
+                    placeholder="What did you learn?"
+                    rows={3}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 placeholder-zinc-600 resize-none"
+                  />
+                </div>
               </div>
             </div>
 
@@ -7066,266 +7100,282 @@ function App() {
           </div>
 
           <form className="p-6 space-y-4">
-            {/* Row 1: Account + Date */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Account</label>
-                <select
-                  value={newTrade.accountId || ''}
-                  onChange={(e) => setNewTrade(prev => ({ ...prev, accountId: e.target.value }))}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-zinc-600"
-                >
-                  {accounts.map(acc => (
-                    <option key={acc.id} value={acc.id}>{acc.name}</option>
-                  ))}
-                </select>
+            {/* ================= SECTION 1: Trade Execution & Metrics ================= */}
+            <div className="bg-[#16171d] border border-[#232429] p-4 rounded-xl space-y-3">
+              <div className="flex items-center gap-2 pb-1">
+                <span className="text-[10px] font-bold text-zinc-600 tracking-widest">01</span>
+                <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Trade Execution &amp; Metrics</h4>
               </div>
-              <div>
-                <DateInput
-                  value={newTrade.date || getTodayLocalDate()}
-                  onChange={(value) => setNewTrade(prev => ({ ...prev, date: value }))}
-                  label="Date"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowTradeTimeFields(v => !v)}
-                  className="mt-1.5 w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors"
-                >
-                  <Clock className="w-3.5 h-3.5" />
-                  {showTradeTimeFields ? 'Hide start / end time' : 'Add start / end time'}
-                  <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', showTradeTimeFields && 'rotate-180')} />
-                </button>
-              </div>
-            </div>
-
-            {showTradeTimeFields && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <TimeInput
-                  value={newTrade.startTime || ''}
-                  onChange={(value) => setNewTrade(prev => ({ ...prev, startTime: value }))}
-                  label="Start Time"
-                />
-                <TimeInput
-                  value={newTrade.endTime || ''}
-                  onChange={(value) => setNewTrade(prev => ({ ...prev, endTime: value }))}
-                  label="End Time"
-                />
-              </div>
-            )}
-
-            {/* Row 2: Symbol + Session + Trade # - sit side-by-side */}
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Symbol</label>
-                <div className="relative" ref={symbolDropdownRef}>
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Account</label>
+                  <select
+                    value={newTrade.accountId || ''}
+                    onChange={(e) => setNewTrade(prev => ({ ...prev, accountId: e.target.value }))}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-zinc-600"
+                  >
+                    {accounts.map(acc => (
+                      <option key={acc.id} value={acc.id}>{acc.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <DateInput
+                    value={newTrade.date || getTodayLocalDate()}
+                    onChange={(value) => setNewTrade(prev => ({ ...prev, date: value }))}
+                    label="Date"
+                  />
                   <button
                     type="button"
-                    onClick={() => setShowSymbolDropdown(!showSymbolDropdown)}
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-zinc-600 flex items-center justify-between"
+                    onClick={() => setShowTradeTimeFields(v => !v)}
+                    className="mt-1.5 w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors"
                   >
-                    <span className={cn(newTrade.symbol ? 'text-white' : 'text-zinc-500')}>
-                      {newTrade.symbol || 'Select...'}
-                    </span>
-                    <ChevronDown className="w-4 h-4 text-zinc-400" />
+                    <Clock className="w-3.5 h-3.5" />
+                    {showTradeTimeFields ? 'Hide start / end time' : 'Add start / end time'}
+                    <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', showTradeTimeFields && 'rotate-180')} />
                   </button>
-                  {showSymbolDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-30 max-h-40 overflow-y-auto">
-                      {PRESET_SYMBOLS.map(sym => (
-                        <button
-                          type="button"
-                          key={sym.value}
-                          onClick={() => { setNewTrade(prev => ({ ...prev, symbol: sym.value })); setShowSymbolDropdown(false); }}
-                          className={cn('w-full text-left px-3 py-2 text-sm hover:bg-zinc-700', newTrade.symbol === sym.value ? 'text-white bg-zinc-700' : 'text-zinc-400')}
-                        >
-                          {sym.name}
-                        </button>
-                      ))}
-                      {customSymbols.length > 0 && (
-                        <>
-                          <div className="border-t border-zinc-700 my-1" />
-                          {customSymbols.map(sym => (
-                            <button type="button" key={sym} onClick={() => { setNewTrade(prev => ({ ...prev, symbol: sym })); setShowSymbolDropdown(false); }}
-                              className={cn('w-full text-left px-3 py-2 text-sm hover:bg-zinc-700', newTrade.symbol === sym ? 'text-white bg-zinc-700' : 'text-zinc-400')}>
-                              {sym}
-                            </button>
-                          ))}
-                        </>
-                      )}
-                      <div className="border-t border-zinc-700 p-2">
-                        <input type="text" value={symbolCustomInput} onChange={(e) => setSymbolCustomInput(e.target.value.toUpperCase())}
-                          placeholder="Add custom..."
-                          className="w-full bg-zinc-700 border border-zinc-600 rounded px-2 py-1.5 text-xs text-white placeholder-zinc-400 focus:outline-none"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && symbolCustomInput.trim()) {
-                              setNewTrade(prev => ({ ...prev, symbol: symbolCustomInput.trim() }));
-                              if (!customSymbols.includes(symbolCustomInput.trim())) setCustomSymbols(prev => [...prev, symbolCustomInput.trim()]);
-                              setSymbolCustomInput('');
-                              setShowSymbolDropdown(false);
-                            }
-                          }}
-                        />
+                </div>
+              </div>
+
+              {showTradeTimeFields && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <TimeInput
+                    value={newTrade.startTime || ''}
+                    onChange={(value) => setNewTrade(prev => ({ ...prev, startTime: value }))}
+                    label="Start Time"
+                  />
+                  <TimeInput
+                    value={newTrade.endTime || ''}
+                    onChange={(value) => setNewTrade(prev => ({ ...prev, endTime: value }))}
+                    label="End Time"
+                  />
+                </div>
+              )}
+
+              {/* Row 2: Symbol + Session + Trade # - sit side-by-side */}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Symbol</label>
+                  <div className="relative" ref={symbolDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setShowSymbolDropdown(!showSymbolDropdown)}
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-zinc-600 flex items-center justify-between"
+                    >
+                      <span className={cn(newTrade.symbol ? 'text-white' : 'text-zinc-500')}>
+                        {newTrade.symbol || 'Select...'}
+                      </span>
+                      <ChevronDown className="w-4 h-4 text-zinc-400" />
+                    </button>
+                    {showSymbolDropdown && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-30 max-h-40 overflow-y-auto">
+                        {PRESET_SYMBOLS.map(sym => (
+                          <button
+                            type="button"
+                            key={sym.value}
+                            onClick={() => { setNewTrade(prev => ({ ...prev, symbol: sym.value })); setShowSymbolDropdown(false); }}
+                            className={cn('w-full text-left px-3 py-2 text-sm hover:bg-zinc-700', newTrade.symbol === sym.value ? 'text-white bg-zinc-700' : 'text-zinc-400')}
+                          >
+                            {sym.name}
+                          </button>
+                        ))}
+                        {customSymbols.length > 0 && (
+                          <>
+                            <div className="border-t border-zinc-700 my-1" />
+                            {customSymbols.map(sym => (
+                              <button type="button" key={sym} onClick={() => { setNewTrade(prev => ({ ...prev, symbol: sym })); setShowSymbolDropdown(false); }}
+                                className={cn('w-full text-left px-3 py-2 text-sm hover:bg-zinc-700', newTrade.symbol === sym ? 'text-white bg-zinc-700' : 'text-zinc-400')}>
+                                {sym}
+                              </button>
+                            ))}
+                          </>
+                        )}
+                        <div className="border-t border-zinc-700 p-2">
+                          <input type="text" value={symbolCustomInput} onChange={(e) => setSymbolCustomInput(e.target.value.toUpperCase())}
+                            placeholder="Add custom..."
+                            className="w-full bg-zinc-700 border border-zinc-600 rounded px-2 py-1.5 text-xs text-white placeholder-zinc-400 focus:outline-none"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && symbolCustomInput.trim()) {
+                                setNewTrade(prev => ({ ...prev, symbol: symbolCustomInput.trim() }));
+                                if (!customSymbols.includes(symbolCustomInput.trim())) setCustomSymbols(prev => [...prev, symbolCustomInput.trim()]);
+                                setSymbolCustomInput('');
+                                setShowSymbolDropdown(false);
+                              }
+                            }}
+                          />
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Session</label>
+                  <div className="relative" ref={sessionDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setShowSessionDropdown(!showSessionDropdown)}
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-zinc-600 flex items-center justify-between"
+                    >
+                      <span className={cn(newTrade.session ? 'text-white' : 'text-zinc-500')}>
+                        {newTrade.session || 'Select...'}
+                      </span>
+                      <ChevronDown className="w-4 h-4 text-zinc-400" />
+                    </button>
+                    {showSessionDropdown && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-30 max-h-40 overflow-y-auto">
+                        {SESSION_OPTIONS.map(opt => (
+                          <button
+                            type="button"
+                            key={opt}
+                            onClick={() => { setNewTrade(prev => ({ ...prev, session: opt })); setShowSessionDropdown(false); }}
+                            className={cn('w-full text-left px-3 py-2 text-sm hover:bg-zinc-700', newTrade.session === opt ? 'text-white bg-zinc-700' : 'text-zinc-400')}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Trade #</label>
+                  <NumericInput
+                    value={newTrade.trackingNumber || ''}
+                    onChange={(sanitized) => setNewTrade(prev => ({ ...prev, trackingNumber: sanitized }))}
+                    onFocus={(e) => handleNumberInputFocus(e, 'trade-trackingNumber', newTrade.trackingNumber || '', false)}
+                    placeholder="e.g. 14, 15, 18"
+                    allowNegative={false}
+                    className="focus:border-emerald-500/50"
+                  />
                 </div>
               </div>
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Session</label>
-                <div className="relative" ref={sessionDropdownRef}>
-                  <button
-                    type="button"
-                    onClick={() => setShowSessionDropdown(!showSessionDropdown)}
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-zinc-600 flex items-center justify-between"
-                  >
-                    <span className={cn(newTrade.session ? 'text-white' : 'text-zinc-500')}>
-                      {newTrade.session || 'Select...'}
-                    </span>
-                    <ChevronDown className="w-4 h-4 text-zinc-400" />
-                  </button>
-                  {showSessionDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-30 max-h-40 overflow-y-auto">
-                      {SESSION_OPTIONS.map(opt => (
-                        <button
-                          type="button"
-                          key={opt}
-                          onClick={() => { setNewTrade(prev => ({ ...prev, session: opt })); setShowSessionDropdown(false); }}
-                          className={cn('w-full text-left px-3 py-2 text-sm hover:bg-zinc-700', newTrade.session === opt ? 'text-white bg-zinc-700' : 'text-zinc-400')}
-                        >
-                          {opt}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+
+              {/* Row 2: P&L + Risk + R:R Ratio - STRICT numeric inputs, RR always visible */}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">P&L ($)</label>
+                  <NumericInput
+                    value={priceInputs.profitLoss}
+                    onChange={(sanitized, numericValue) => {
+                      setPriceInputs(prev => ({ ...prev, profitLoss: sanitized }));
+                      setNewTrade(prev => ({ ...prev, profitLoss: numericValue }));
+                    }}
+                    onFocus={(e) => handleNumberInputFocus(e, 'trade-profitLoss', priceInputs.profitLoss, true)}
+                    placeholder="0"
+                    allowNegative={true}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Risk ($)</label>
+                  <NumericInput
+                    value={priceInputs.riskAmount}
+                    onChange={(sanitized, numericValue) => {
+                      setPriceInputs(prev => ({ ...prev, riskAmount: sanitized }));
+                      setNewTrade(prev => ({ ...prev, riskAmount: numericValue }));
+                    }}
+                    onFocus={(e) => handleNumberInputFocus(e, 'trade-riskAmount', priceInputs.riskAmount, false)}
+                    onBlur={() => setPriceInputs(prev => ({ ...prev, riskAmount: formatPriceInput(newTrade.riskAmount || 0) }))}
+                    placeholder="0"
+                    allowNegative={false}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">R:R Ratio</label>
+                  <div className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm">
+                    {calculatedRR !== null ? (
+                      <span className={cn('font-medium', calculatedRR >= 1 ? 'text-emerald-400' : calculatedRR >= 0 ? 'text-zinc-400' : 'text-red-400')}>
+                        {calculatedRR.toFixed(2)}R
+                      </span>
+                    ) : (
+                      <span className="text-zinc-500">--</span>
+                    )}
+                  </div>
                 </div>
               </div>
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Trade #</label>
-                <NumericInput
-                  value={newTrade.trackingNumber || ''}
-                  onChange={(sanitized) => setNewTrade(prev => ({ ...prev, trackingNumber: sanitized }))}
-                  onFocus={(e) => handleNumberInputFocus(e, 'trade-trackingNumber', newTrade.trackingNumber || '', false)}
-                  placeholder="e.g. 14, 15, 18"
-                  allowNegative={false}
-                  className="focus:border-emerald-500/50"
-                />
-              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowTradePriceLevels(v => !v)}
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors"
+              >
+                <Target className="w-3.5 h-3.5" />
+                {showTradePriceLevels ? 'Hide entry / stop loss / take profit' : 'Add entry / stop loss / take profit'}
+                <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', showTradePriceLevels && 'rotate-180')} />
+              </button>
+
+              {showTradePriceLevels && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1.5">Entry</label>
+                    <NumericInput
+                      value={priceInputs.entryPrice}
+                      onChange={(sanitized, numericValue) => {
+                        setPriceInputs(prev => ({ ...prev, entryPrice: sanitized }));
+                        setNewTrade(prev => ({
+                          ...prev,
+                          entryPrice: numericValue,
+                          slPoints: calculatePoints(prev.symbol || '', numericValue, prev.stopLoss || 0),
+                          tpPoints: calculatePoints(prev.symbol || '', numericValue, prev.takeProfit || 0),
+                        }));
+                      }}
+                      onFocus={(e) => handleNumberInputFocus(e, 'trade-entryPrice', priceInputs.entryPrice, false)}
+                      onBlur={() => setPriceInputs(prev => ({ ...prev, entryPrice: formatPriceInput(newTrade.entryPrice || 0) }))}
+                      placeholder="0"
+                      allowNegative={false}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1.5">Stop Loss</label>
+                    <NumericInput
+                      value={priceInputs.stopLoss}
+                      onChange={(sanitized, numericValue) => {
+                        setPriceInputs(prev => ({ ...prev, stopLoss: sanitized }));
+                        setNewTrade(prev => ({ ...prev, stopLoss: numericValue, slPoints: calculatePoints(prev.symbol || '', prev.entryPrice || 0, numericValue) }));
+                      }}
+                      onFocus={(e) => handleNumberInputFocus(e, 'trade-stopLoss', priceInputs.stopLoss, false)}
+                      onBlur={() => setPriceInputs(prev => ({ ...prev, stopLoss: formatPriceInput(newTrade.stopLoss || 0) }))}
+                      placeholder="0"
+                      allowNegative={false}
+                    />
+                    {newTrade.slPoints !== undefined && newTrade.slPoints > 0 && <p className="text-[10px] text-zinc-500 mt-0.5">{newTrade.slPoints} pts</p>}
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1.5">Take Profit</label>
+                    <NumericInput
+                      value={priceInputs.takeProfit}
+                      onChange={(sanitized, numericValue) => {
+                        setPriceInputs(prev => ({ ...prev, takeProfit: sanitized }));
+                        setNewTrade(prev => ({ ...prev, takeProfit: numericValue, tpPoints: calculatePoints(prev.symbol || '', prev.entryPrice || 0, numericValue) }));
+                      }}
+                      onFocus={(e) => handleNumberInputFocus(e, 'trade-takeProfit', priceInputs.takeProfit, false)}
+                      onBlur={() => setPriceInputs(prev => ({ ...prev, takeProfit: formatPriceInput(newTrade.takeProfit || 0) }))}
+                      placeholder="0"
+                      allowNegative={false}
+                    />
+                    {newTrade.tpPoints !== undefined && newTrade.tpPoints > 0 && <p className="text-[10px] text-zinc-500 mt-0.5">{newTrade.tpPoints} pts</p>}
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Row 2: P&L + Risk + R:R Ratio - STRICT numeric inputs, RR always visible */}
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">P&L ($)</label>
-                <NumericInput
-                  value={priceInputs.profitLoss}
-                  onChange={(sanitized, numericValue) => {
-                    setPriceInputs(prev => ({ ...prev, profitLoss: sanitized }));
-                    setNewTrade(prev => ({ ...prev, profitLoss: numericValue }));
-                  }}
-                  onFocus={(e) => handleNumberInputFocus(e, 'trade-profitLoss', priceInputs.profitLoss, true)}
-                  placeholder="0"
-                  allowNegative={true}
-                />
+            {/* ================= HIGHLIGHTED BANNER: Rules Adherence ================= */}
+            <div className={cn(
+              'bg-[#1a1b23] border-2 p-4 rounded-xl text-center space-y-3 transition-all',
+              newTrade.rulesFollowed === 'followed'
+                ? 'bg-emerald-950/30 border-emerald-500/60'
+                : newTrade.rulesFollowed === 'broken'
+                  ? 'bg-rose-950/30 border-rose-500/60'
+                  : 'border-zinc-700'
+            )}>
+              <div className="flex items-center justify-center gap-2">
+                <Shield className="w-4 h-4 text-zinc-400" />
+                <h4 className="text-sm font-bold uppercase tracking-widest text-zinc-300">Rules Adherence</h4>
               </div>
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Risk ($)</label>
-                <NumericInput
-                  value={priceInputs.riskAmount}
-                  onChange={(sanitized, numericValue) => {
-                    setPriceInputs(prev => ({ ...prev, riskAmount: sanitized }));
-                    setNewTrade(prev => ({ ...prev, riskAmount: numericValue }));
-                  }}
-                  onFocus={(e) => handleNumberInputFocus(e, 'trade-riskAmount', priceInputs.riskAmount, false)}
-                  onBlur={() => setPriceInputs(prev => ({ ...prev, riskAmount: formatPriceInput(newTrade.riskAmount || 0) }))}
-                  placeholder="0"
-                  allowNegative={false}
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">R:R Ratio</label>
-                <div className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm">
-                  {calculatedRR !== null ? (
-                    <span className={cn('font-medium', calculatedRR >= 1 ? 'text-emerald-400' : calculatedRR >= 0 ? 'text-zinc-400' : 'text-red-400')}>
-                      {calculatedRR.toFixed(2)}R
-                    </span>
-                  ) : (
-                    <span className="text-zinc-500">--</span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setShowTradePriceLevels(v => !v)}
-              className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors"
-            >
-              <Target className="w-3.5 h-3.5" />
-              {showTradePriceLevels ? 'Hide entry / stop loss / take profit' : 'Add entry / stop loss / take profit'}
-              <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', showTradePriceLevels && 'rotate-180')} />
-            </button>
-
-            {showTradePriceLevels && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1.5">Entry</label>
-                  <NumericInput
-                    value={priceInputs.entryPrice}
-                    onChange={(sanitized, numericValue) => {
-                      setPriceInputs(prev => ({ ...prev, entryPrice: sanitized }));
-                      setNewTrade(prev => ({
-                        ...prev,
-                        entryPrice: numericValue,
-                        slPoints: calculatePoints(prev.symbol || '', numericValue, prev.stopLoss || 0),
-                        tpPoints: calculatePoints(prev.symbol || '', numericValue, prev.takeProfit || 0),
-                      }));
-                    }}
-                    onFocus={(e) => handleNumberInputFocus(e, 'trade-entryPrice', priceInputs.entryPrice, false)}
-                    onBlur={() => setPriceInputs(prev => ({ ...prev, entryPrice: formatPriceInput(newTrade.entryPrice || 0) }))}
-                    placeholder="0"
-                    allowNegative={false}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1.5">Stop Loss</label>
-                  <NumericInput
-                    value={priceInputs.stopLoss}
-                    onChange={(sanitized, numericValue) => {
-                      setPriceInputs(prev => ({ ...prev, stopLoss: sanitized }));
-                      setNewTrade(prev => ({ ...prev, stopLoss: numericValue, slPoints: calculatePoints(prev.symbol || '', prev.entryPrice || 0, numericValue) }));
-                    }}
-                    onFocus={(e) => handleNumberInputFocus(e, 'trade-stopLoss', priceInputs.stopLoss, false)}
-                    onBlur={() => setPriceInputs(prev => ({ ...prev, stopLoss: formatPriceInput(newTrade.stopLoss || 0) }))}
-                    placeholder="0"
-                    allowNegative={false}
-                  />
-                  {newTrade.slPoints !== undefined && newTrade.slPoints > 0 && <p className="text-[10px] text-zinc-500 mt-0.5">{newTrade.slPoints} pts</p>}
-                </div>
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1.5">Take Profit</label>
-                  <NumericInput
-                    value={priceInputs.takeProfit}
-                    onChange={(sanitized, numericValue) => {
-                      setPriceInputs(prev => ({ ...prev, takeProfit: sanitized }));
-                      setNewTrade(prev => ({ ...prev, takeProfit: numericValue, tpPoints: calculatePoints(prev.symbol || '', prev.entryPrice || 0, numericValue) }));
-                    }}
-                    onFocus={(e) => handleNumberInputFocus(e, 'trade-takeProfit', priceInputs.takeProfit, false)}
-                    onBlur={() => setPriceInputs(prev => ({ ...prev, takeProfit: formatPriceInput(newTrade.takeProfit || 0) }))}
-                    placeholder="0"
-                    allowNegative={false}
-                  />
-                  {newTrade.tpPoints !== undefined && newTrade.tpPoints > 0 && <p className="text-[10px] text-zinc-500 mt-0.5">{newTrade.tpPoints} pts</p>}
-                </div>
-              </div>
-            )}
-
-            {/* Row 4: Rules Adherence - dedicated full-width row, required field */}
-            <div>
-              <label className="block text-xs text-zinc-400 mb-1.5">Rules Adherence</label>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => { setNewTrade(prev => ({ ...prev, rulesFollowed: 'followed' })); setRulesAdherenceError(false); }}
-                  className={cn('flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm font-medium border transition-colors',
+                  className={cn('w-full flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm font-medium border transition-colors',
                     newTrade.rulesFollowed === 'followed'
                       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                       : rulesAdherenceError
@@ -7337,7 +7387,7 @@ function App() {
                 <button
                   type="button"
                   onClick={() => { setNewTrade(prev => ({ ...prev, rulesFollowed: 'broken' })); setRulesAdherenceError(false); }}
-                  className={cn('flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm font-medium border transition-colors',
+                  className={cn('w-full flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm font-medium border transition-colors',
                     newTrade.rulesFollowed === 'broken'
                       ? 'bg-red-500/10 text-red-400 border-red-500/30'
                       : rulesAdherenceError
@@ -7348,51 +7398,62 @@ function App() {
                 </button>
               </div>
               {rulesAdherenceError && (
-                <p className="text-xs text-red-400 mt-1.5">Please select whether rules were Followed or Broken</p>
+                <p className="text-xs text-red-400">Please select whether rules were Followed or Broken</p>
               )}
             </div>
 
-            {/* Tag groups: Setup Types + Confluences side by side, Mistakes Made full width below */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* ================= SECTION 2: Strategy & Tagging ================= */}
+            <div className="bg-[#16171d] border border-[#232429] p-4 rounded-xl space-y-3">
+              <div className="flex items-center gap-2 pb-1">
+                <span className="text-[10px] font-bold text-zinc-600 tracking-widest">02</span>
+                <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Strategy &amp; Tagging</h4>
+              </div>
+              {/* Tag groups: Setup Types + Confluences side by side, Mistakes Made full width below */}
+              <div className="grid grid-cols-2 gap-4">
+                <TagSelectDropdown
+                  label="Setup Types"
+                  options={setupTypes}
+                  selected={newTrade.setupTypes || []}
+                  onChange={(selected) => setNewTrade(prev => ({ ...prev, setupTypes: selected }))}
+                  onAddNew={(name) => setSetupTypes(prev => [...prev, { id: generateId(), name, color: 'gray' }])}
+                  onDeleteOption={handleDeleteSetupType}
+                  onColorChange={handleChangeSetupTypeColor}
+                  placeholder="Select Setup Types..."
+                  colorScheme="emerald"
+                />
+                <TagSelectDropdown
+                  label="Confluences"
+                  options={confluences}
+                  selected={newTrade.confluences || []}
+                  onChange={(selected) => setNewTrade(prev => ({ ...prev, confluences: selected }))}
+                  onAddNew={(name) => setConfluences(prev => [...prev, { id: generateId(), name, color: 'gray' }])}
+                  onDeleteOption={handleDeleteConfluence}
+                  onColorChange={handleChangeConfluenceColor}
+                  placeholder="Select Confluences..."
+                  colorScheme="emerald"
+                />
+              </div>
+
               <TagSelectDropdown
-                label="Setup Types"
-                options={setupTypes}
-                selected={newTrade.setupTypes || []}
-                onChange={(selected) => setNewTrade(prev => ({ ...prev, setupTypes: selected }))}
-                onAddNew={(name) => setSetupTypes(prev => [...prev, { id: generateId(), name, color: 'gray' }])}
-                onDeleteOption={handleDeleteSetupType}
-                onColorChange={handleChangeSetupTypeColor}
-                placeholder="Select Setup Types..."
-                colorScheme="emerald"
-              />
-              <TagSelectDropdown
-                label="Confluences"
-                options={confluences}
-                selected={newTrade.confluences || []}
-                onChange={(selected) => setNewTrade(prev => ({ ...prev, confluences: selected }))}
-                onAddNew={(name) => setConfluences(prev => [...prev, { id: generateId(), name, color: 'gray' }])}
-                onDeleteOption={handleDeleteConfluence}
-                onColorChange={handleChangeConfluenceColor}
-                placeholder="Select Confluences..."
-                colorScheme="emerald"
+                label="Mistakes Made"
+                options={mistakesList}
+                selected={newTrade.mistakes || []}
+                onChange={(selected) => setNewTrade(prev => ({ ...prev, mistakes: selected }))}
+                onAddNew={(name) => setMistakesList(prev => [...prev, { id: generateId(), name, color: 'red' }])}
+                onDeleteOption={handleDeleteMistakeType}
+                onColorChange={handleChangeMistakeColor}
+                placeholder="Select Mistakes Made..."
+                colorScheme="rose"
               />
             </div>
 
-            <TagSelectDropdown
-              label="Mistakes Made"
-              options={mistakesList}
-              selected={newTrade.mistakes || []}
-              onChange={(selected) => setNewTrade(prev => ({ ...prev, mistakes: selected }))}
-              onAddNew={(name) => setMistakesList(prev => [...prev, { id: generateId(), name, color: 'red' }])}
-              onDeleteOption={handleDeleteMistakeType}
-              onColorChange={handleChangeMistakeColor}
-              placeholder="Select Mistakes Made..."
-              colorScheme="rose"
-            />
-
-            <div>
-              <label className="block text-xs text-zinc-400 mb-1.5">Chart Screenshots</label>
-              <p className="text-xs text-zinc-500 mb-3">Attach images for each timeframe</p>
+            {/* ================= SECTION 3: Chart Screenshots ================= */}
+            <div className="bg-[#16171d] border border-[#232429] p-4 rounded-xl space-y-3">
+              <div className="flex items-center gap-2 pb-1">
+                <span className="text-[10px] font-bold text-zinc-600 tracking-widest">03</span>
+                <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Chart Screenshots</h4>
+              </div>
+              <p className="text-xs text-zinc-500">Attach images for each timeframe</p>
               <div className="grid grid-cols-2 gap-3">
                 {TIMEFRAMES.map(tf => {
                   const tfData = (newTrade.timeframes || []).find(t => t.name === tf) || { name: tf, images: [], notes: '' };
@@ -7415,26 +7476,33 @@ function App() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Mistakes Analysis</label>
-                <textarea
-                  value={newTrade.mistakesAnalysis || ''}
-                  onChange={(e) => setNewTrade(prev => ({ ...prev, mistakesAnalysis: e.target.value }))}
-                  placeholder="What went wrong?"
-                  rows={3}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 placeholder-zinc-600 resize-none"
-                />
+            {/* ================= SECTION 4: Post-Trade Reflection ================= */}
+            <div className="bg-[#16171d] border border-[#232429] p-4 rounded-xl space-y-3">
+              <div className="flex items-center gap-2 pb-1">
+                <span className="text-[10px] font-bold text-zinc-600 tracking-widest">04</span>
+                <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Post-Trade Reflection</h4>
               </div>
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Lessons Learned</label>
-                <textarea
-                  value={newTrade.lessonsLearned || ''}
-                  onChange={(e) => setNewTrade(prev => ({ ...prev, lessonsLearned: e.target.value }))}
-                  placeholder="What did you learn?"
-                  rows={3}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 placeholder-zinc-600 resize-none"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Mistakes Analysis</label>
+                  <textarea
+                    value={newTrade.mistakesAnalysis || ''}
+                    onChange={(e) => setNewTrade(prev => ({ ...prev, mistakesAnalysis: e.target.value }))}
+                    placeholder="What went wrong?"
+                    rows={3}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 placeholder-zinc-600 resize-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Lessons Learned</label>
+                  <textarea
+                    value={newTrade.lessonsLearned || ''}
+                    onChange={(e) => setNewTrade(prev => ({ ...prev, lessonsLearned: e.target.value }))}
+                    placeholder="What did you learn?"
+                    rows={3}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 placeholder-zinc-600 resize-none"
+                  />
+                </div>
               </div>
             </div>
 
