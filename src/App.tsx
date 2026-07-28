@@ -4476,8 +4476,8 @@ function App() {
           <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Recent Trades</h3>
           {/* Outer wrapper — provides positioning context for the ambient glow behind the frame */}
           <div className="relative">
-            {/* Ambient backlight glow — tight, faint aura behind the frame */}
-            <div className="absolute -inset-1 z-0 bg-gradient-to-r from-emerald-500/10 via-indigo-500/10 to-cyan-500/10 rounded-3xl blur-lg opacity-15 pointer-events-none" />
+            {/* Ambient backlight glow — tight, faint white aura behind the frame */}
+            <div className="absolute -inset-2 z-0 bg-white rounded-3xl blur-lg opacity-20 pointer-events-none" />
             {/* Inner content — dedicated "Gallery Card Frame" base, sits cleanly on top of the glow */}
             <div className="relative z-10 bg-[#121318] border border-white/10 rounded-2xl p-4 shadow-xl">
               <div className="max-h-[520px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
