@@ -1784,6 +1784,9 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
   // Brief inline feedback when a "Paste Link" attempt fails (empty/blocked
   // clipboard, or clipboard content that doesn't look like an image link).
   const [pasteFeedback, setPasteFeedback] = useState<string | null>(null);
+  // Notes are collapsed by default to keep the grid compact; if a note was
+  // already written for this timeframe, start expanded so it isn't hidden.
+  const [showNotes, setShowNotes] = useState(!!notes.trim());
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -1879,16 +1882,26 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
   };
 
   return (
-    <div className={cn(
-      'bg-zinc-800/50 rounded-xl p-3 border border-zinc-700/50',
-      isExecution && 'md:col-span-2'
-    )}>
+    <div className="bg-zinc-800/50 rounded-xl p-3 border border-zinc-700/50">
       <div className="flex items-center justify-between mb-2">
         <h4 className={cn('text-sm font-semibold', isExecution ? 'text-white' : 'text-zinc-300')}>
           {timeframe}
         </h4>
         <div className="flex items-center gap-2">
           <span className="text-xs text-zinc-500">{images.length}</span>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setShowNotes(v => !v); }}
+            className={cn(
+              'flex items-center gap-1 p-1.5 rounded-lg transition-colors',
+              showNotes ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:bg-zinc-700 hover:text-white',
+              notes.trim() && !showNotes && 'text-sky-400'
+            )}
+            title={showNotes ? 'Hide note' : 'Add note'}
+          >
+            <StickyNote className="w-3.5 h-3.5" />
+            <ChevronDown className={cn('w-3 h-3 transition-transform', showNotes && 'rotate-180')} />
+          </button>
           <div className="relative">
             <button
               type="button"
@@ -1990,13 +2003,15 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
         </div>
       )}
 
-      <textarea
-        value={notes}
-        onChange={(e) => onNotesChange(e.target.value)}
-        placeholder={`Notes...`}
-        rows={isExecution ? 2 : 1}
-        className="w-full bg-zinc-700/50 border border-zinc-600/50 rounded-lg px-2 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500 resize-none"
-      />
+      {showNotes && (
+        <textarea
+          value={notes}
+          onChange={(e) => onNotesChange(e.target.value)}
+          placeholder="Notes..."
+          autoFocus
+          className="w-full min-h-[80px] bg-zinc-700/50 border border-zinc-600/50 rounded-lg px-2 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500 resize-y"
+        />
+      )}
     </div>
   );
 };
