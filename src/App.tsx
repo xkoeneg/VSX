@@ -4386,8 +4386,8 @@ function App() {
     const outcomeCardClass = isBreakeven
       ? 'bg-zinc-800/50 group-hover:bg-zinc-800/70'
       : isWin
-        ? 'bg-emerald-950/50 group-hover:bg-emerald-950/70'
-        : 'bg-rose-950/50 group-hover:bg-rose-950/70';
+        ? 'bg-[#0b281a] border-t border-emerald-500/20 group-hover:bg-emerald-950/70'
+        : 'bg-[#2e0e14] border-t border-rose-500/20 group-hover:bg-rose-950/70';
     // Dynamic outcome border — subtle tinted ring that strengthens on hover so
     // every card pops against the dark page background, colored by result.
     const outcomeBorderClass = isBreakeven
@@ -4463,9 +4463,9 @@ function App() {
         </div>
         <div className={cn('p-3.5 min-w-0 flex-1 flex flex-col transition-colors duration-200', outcomeCardClass)}>
           <div className="flex items-start justify-between gap-2">
-            <h4 className="font-semibold text-white truncate tracking-tight text-sm min-w-0">{trade.symbol}</h4>
+            <h4 className={cn('font-semibold truncate tracking-tight text-sm min-w-0', isBreakeven ? 'text-white' : isWin ? 'text-emerald-400' : 'text-rose-400')}>{trade.symbol}</h4>
             <div className="flex items-center gap-1.5 flex-shrink-0">
-              <span className={cn('text-sm font-mono font-bold tracking-tight whitespace-nowrap', isWin ? 'text-emerald-400' : 'text-rose-500')}>
+              <span className={cn('text-sm font-mono font-bold tracking-tight whitespace-nowrap', isWin ? 'text-emerald-400' : 'text-rose-400')}>
                 {formatCurrency(trade.profitLoss, privacyMode)}
               </span>
               {trade.trackingNumber && <TrackingBadge value={trade.trackingNumber} size="sm" />}
@@ -4556,8 +4556,8 @@ function App() {
 
       {/* METRICS INDICATOR BAR — compact summary stats, directly above the gallery */}
       <div className={cn(
-        "flex items-center justify-between mb-4 rounded-xl px-4 py-2.5",
-        theme !== 'light' ? 'bg-zinc-900/40 border border-zinc-800/80' : 'bg-white border border-zinc-200'
+        "flex items-center justify-between bg-zinc-900/40 border border-zinc-800/80 rounded-xl px-5 py-3 mb-4",
+        theme === 'light' && 'bg-white border-zinc-200'
       )}>
         <span className="text-xs font-medium tracking-wide">
           <span className="text-zinc-500">TOTAL:</span>{' '}
@@ -4592,7 +4592,7 @@ function App() {
       )}
 
       {/* BOTTOM SECTION — Recent Entry Log Preview */}
-      <div>
+      <div className="!mt-5">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Recent Entries</h3>
           <button
