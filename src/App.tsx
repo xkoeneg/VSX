@@ -4364,7 +4364,7 @@ function App() {
       <div
         key={trade.id}
         onClick={() => setShowTradeDetail(trade.id)}
-        className="group bg-[#1a1b22] border border-white/5 rounded-xl overflow-hidden cursor-pointer shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 min-w-0"
+        className="group bg-black/30 border border-zinc-800/70 rounded-xl overflow-hidden cursor-pointer transition-all duration-200 hover:bg-black/20 hover:-translate-y-0.5 hover:border-zinc-700 min-w-0"
       >
         <div className="aspect-video bg-zinc-800 flex items-center justify-center relative overflow-hidden">
           <span className="absolute top-2 left-2 z-10 flex items-center justify-center w-5 h-5 rounded bg-black/70 backdrop-blur-sm text-[10px] font-mono text-zinc-300">
@@ -4475,7 +4475,7 @@ function App() {
         <div>
           <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Recent Trades</h3>
           {/* Frame — matches the Discipline Tracker card tone/border exactly */}
-          <div className="bg-[#121318] border border-white/5 rounded-2xl p-4 shadow-xl">
+          <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-4 shadow-xl">
             <div className="max-h-[520px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                 {recentTrades.map(renderFeaturedCard)}
@@ -4499,12 +4499,12 @@ function App() {
           </button>
         </div>
 
-        <div className="bg-[#121318] border border-white/5 rounded-xl overflow-hidden">
+        <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl overflow-hidden">
           {recentPreviewTrades.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px]">
                 <thead>
-                  <tr className="border-b border-zinc-800/50 text-left">
+                  <tr className="border-b border-zinc-800/70 text-left">
                     <th className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">#</th>
                     <th className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Date</th>
                     <th className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Symbol</th>
@@ -4521,7 +4521,7 @@ function App() {
                       <tr
                         key={trade.id}
                         onClick={() => tradeSelectMode ? toggleTradeSelected(trade.id) : setShowTradeDetail(trade.id)}
-                        className="border-b border-zinc-800/50 hover:bg-white/[0.02] cursor-pointer transition-colors"
+                        className="border-b border-zinc-800/70 hover:bg-white/[0.02] cursor-pointer transition-colors"
                       >
                         <td className="px-3 py-2 text-sm text-zinc-500 font-mono">{getDisplayTradeNumber(trade)}</td>
                         <td className="px-3 py-2 text-sm text-zinc-400 whitespace-nowrap">{formatDate(trade.date)}</td>
@@ -4605,7 +4605,7 @@ function App() {
         </div>
 
         {/* Filter bar */}
-        <div className="flex items-center gap-2 flex-wrap p-3 bg-[#121318] border border-white/5 rounded-xl">
+        <div className="flex items-center gap-2 flex-wrap p-3 bg-zinc-900/40 border border-zinc-800/80 rounded-xl">
           <div className="relative flex-1 min-w-[180px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none" />
             <input
@@ -4676,11 +4676,11 @@ function App() {
 
         {/* Full-page table */}
         {dbPagedTrades.length > 0 ? (
-          <div className="bg-[#121318] border border-white/5 rounded-xl overflow-hidden">
+          <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1100px]">
                 <thead>
-                  <tr className="border-b border-zinc-800/50 text-left bg-white/[0.02]">
+                  <tr className="border-b border-zinc-800/70 text-left bg-white/[0.02]">
                     <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Outcome</th>
                     <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Date</th>
                     <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Trade #</th>
@@ -4705,7 +4705,7 @@ function App() {
                       <tr
                         key={trade.id}
                         onClick={() => setShowTradeDetail(trade.id)}
-                        className="border-b border-zinc-800/50 hover:bg-white/[0.02] cursor-pointer transition-colors"
+                        className="border-b border-zinc-800/70 hover:bg-white/[0.02] cursor-pointer transition-colors"
                       >
                         <td className="px-3 py-2.5">
                           <span className={cn(
@@ -4780,7 +4780,7 @@ function App() {
             )}
           </div>
         ) : (
-          <div className="text-center py-12 bg-[#121318] border border-white/5 rounded-xl">
+          <div className="text-center py-12 bg-zinc-900/40 border border-zinc-800/80 rounded-xl">
             <div className="w-14 h-14 mx-auto rounded-full bg-zinc-800 flex items-center justify-center mb-3">
               <Database className="w-7 h-7 text-zinc-600" />
             </div>
