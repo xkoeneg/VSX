@@ -4492,7 +4492,7 @@ function App() {
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="min-w-0">
           <h2 className={cn("text-2xl font-bold truncate", tc.text)}>Trade History</h2>
-          <p className="text-sm text-zinc-400 mt-1 font-normal truncate">Analyze your trade execution history</p>
+          <p className={cn("text-sm mt-1 font-normal truncate", tc.textMuted)}>Analyze your trade execution history</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
@@ -4548,10 +4548,13 @@ function App() {
       )}
 
       {/* METRICS INDICATOR BAR — compact summary stats, directly above the gallery */}
-      <div className="flex items-center justify-between mb-4 bg-[#121318] border border-white/5 rounded-xl px-4 py-2.5 backdrop-blur-md">
+      <div className={cn(
+        "flex items-center justify-between mb-4 rounded-xl px-4 py-2.5",
+        theme !== 'light' ? 'bg-zinc-900/40 border border-zinc-800/80' : 'bg-white border border-zinc-200'
+      )}>
         <span className="text-xs font-medium tracking-wide">
           <span className="text-zinc-500">TOTAL:</span>{' '}
-          <span className="text-zinc-300 font-semibold tabular-nums">{filteredTrades.length}</span>
+          <span className={cn("font-semibold tabular-nums", tc.text)}>{filteredTrades.length}</span>
         </span>
         <span className="text-xs font-medium tracking-wide">
           <span className="text-zinc-500">WINS:</span>{' '}
@@ -4595,7 +4598,10 @@ function App() {
           </button>
         </div>
 
-        <div className="bg-[#111216] border border-white/5 rounded-xl overflow-hidden">
+        <div className={cn(
+          "rounded-xl overflow-hidden",
+          theme !== 'light' ? 'bg-zinc-900/40 border border-zinc-800/80' : 'bg-white border border-zinc-200'
+        )}>
           {recentPreviewTrades.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[980px]">
