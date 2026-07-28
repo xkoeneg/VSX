@@ -4521,45 +4521,83 @@ function App() {
           </button>
         </div>
 
-        <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl overflow-hidden">
+        <div className="bg-[#111216] border border-white/5 rounded-xl overflow-hidden">
           {recentPreviewTrades.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px]">
+              <table className="w-full min-w-[980px]">
                 <thead>
-                  <tr className="border-b border-zinc-800/70 text-left">
-                    <th className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">#</th>
-                    <th className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Date</th>
-                    <th className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Symbol</th>
-                    <th className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Session</th>
-                    <th className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider font-medium text-right">R</th>
-                    <th className="px-3 py-2 text-[11px] text-zinc-500 uppercase tracking-wider font-medium text-right">P&L</th>
+                  <tr className="border-b border-white/5 text-left">
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">#</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Date</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Account</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Symbol</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Side</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Session</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Setups</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium text-right">R-Multiple</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium text-right">P&amp;L</th>
+                    <th className="px-3 py-2.5 text-[11px] text-zinc-500 uppercase tracking-wider font-medium text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {recentPreviewTrades.map(trade => {
+                    const account = accounts.find(a => a.id === trade.accountId);
                     const isWin = trade.profitLoss >= 0;
                     const rowRR = trade.riskAmount > 0 ? trade.profitLoss / trade.riskAmount : null;
+                    const side = trade.profitLoss >= 0 ? 'LONG' : 'SHORT';
                     return (
                       <tr
                         key={trade.id}
                         onClick={() => tradeSelectMode ? toggleTradeSelected(trade.id) : setShowTradeDetail(trade.id)}
-                        className="border-b border-zinc-800/70 hover:bg-white/[0.02] cursor-pointer transition-colors"
+                        className="border-b border-white/5 hover:bg-white/[0.02] cursor-pointer transition-colors"
                       >
-                        <td className="px-3 py-2 text-sm text-zinc-500 font-mono">{getDisplayTradeNumber(trade)}</td>
-                        <td className="px-3 py-2 text-sm text-zinc-400 whitespace-nowrap">{formatDate(trade.date)}</td>
-                        <td className="px-3 py-2 text-sm text-white font-semibold truncate max-w-[120px]">{trade.symbol}</td>
-                        <td className="px-3 py-2 text-sm text-zinc-400">
+                        <td className="px-3 py-2.5 whitespace-nowrap">
+                          <span className="inline-flex items-center justify-center min-w-[1.5rem] px-1.5 py-0.5 rounded bg-zinc-800/80 border border-zinc-700/50 text-[11px] font-mono font-semibold text-zinc-300">
+                            {getDisplayTradeNumber(trade)}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5 text-sm text-zinc-400 whitespace-nowrap">{formatDate(trade.date)}</td>
+                        <td className="px-3 py-2.5 text-sm text-zinc-400 whitespace-nowrap truncate max-w-[160px]">
+                          {account ? `${account.name} - ${account.id}` : '-'}
+                        </td>
+                        <td className="px-3 py-2.5 text-sm text-white font-semibold truncate max-w-[100px]">{trade.symbol}</td>
+                        <td className="px-3 py-2.5 whitespace-nowrap">
+                          <span className={cn(
+                            'text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide',
+                            isWin ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-500'
+                          )}>
+                            {side}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5 text-xs text-zinc-500 whitespace-nowrap">
                           {trade.session ? (SESSION_SHORT_LABEL[trade.session] || trade.session.toLowerCase()) : '-'}
                         </td>
-                        <td className="px-3 py-2 text-xs font-medium text-right whitespace-nowrap">
+                        <td className="px-3 py-2.5 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5 flex-wrap max-w-[220px]">
+                            {trade.setupTypes.length > 0 ? trade.setupTypes.slice(0, 2).map(s => (
+                              <span key={s} className="px-1.5 py-0.5 bg-zinc-800/80 border border-zinc-700/50 rounded text-[10px] text-zinc-300 whitespace-nowrap">{s}</span>
+                            )) : <span className="text-xs text-zinc-600">-</span>}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2.5 text-xs font-medium text-right whitespace-nowrap">
                           {rowRR !== null ? (
                             <span className={cn('px-1.5 py-0.5 rounded border', rowRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : rowRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-rose-500 border-rose-500/30 bg-rose-500/10')}>
                               {rowRR >= 1 ? '+' : ''}{rowRR.toFixed(2)}R
                             </span>
                           ) : '-'}
                         </td>
-                        <td className="px-3 py-2 text-sm font-mono text-right font-bold whitespace-nowrap">
+                        <td className="px-3 py-2.5 text-sm font-mono text-right font-bold whitespace-nowrap">
                           <span className={isWin ? 'text-emerald-400' : 'text-rose-500'}>{formatCurrency(trade.profitLoss, privacyMode)}</span>
+                        </td>
+                        <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setShowTradeDetail(trade.id); }}
+                            className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors"
+                            title="View trade details"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
                         </td>
                       </tr>
                     );
