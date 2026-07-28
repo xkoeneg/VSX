@@ -3647,14 +3647,14 @@ function App() {
     const max = Math.max(...equityData);
     const range = max - min || 1;
     const height = 180;
-    const width = equityData.length * 8;
-    const chartWidth = Math.max(width, 400);
+    const chartWidth = 1000;
     const isPositive = stats.totalPnL >= 0;
     const strokeColor = isPositive ? '#10b981' : '#ef4444';
     const gradientId = `equityFill-${isPositive ? 'up' : 'down'}`;
 
+    const step = chartWidth / Math.max(equityData.length - 1, 1);
     const coords = equityData.map((val, i) => {
-      const x = i * 8 + 4;
+      const x = equityData.length === 1 ? chartWidth / 2 : i * step;
       const y = height - ((val - min) / range) * (height - 40) - 20;
       return [x, y] as const;
     });
