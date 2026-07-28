@@ -1956,7 +1956,7 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
       </div>
 
       {images.length > 0 && (
-        <div className={cn('grid gap-1.5 mb-2', isExecution ? 'grid-cols-3' : 'grid-cols-2')}>
+        <div className="flex items-center gap-2 overflow-x-auto py-1 mb-2">
           {images.map((img, index) => (
             <div
               key={img.id}
@@ -1967,7 +1967,7 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
               onDrop={(e) => handleDrop(e, index)}
               onDragEnd={handleDragEnd}
               className={cn(
-                'relative rounded-lg overflow-hidden group cursor-grab active:cursor-grabbing transition-all',
+                'relative shrink-0 h-20 w-36 rounded-lg overflow-hidden group cursor-grab active:cursor-grabbing transition-all bg-black/40 border border-white/10',
                 draggedIndex === index && 'opacity-40',
                 dragOverIndex === index && draggedIndex !== index && 'ring-2 ring-sky-400'
               )}
@@ -1976,7 +1976,7 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
                 src={img.url}
                 alt={timeframe}
                 draggable={false}
-                className={cn('w-full object-cover pointer-events-none', isExecution ? 'h-16' : 'h-12')}
+                className="w-full h-full object-cover pointer-events-none"
               />
               <button
                 type="button"
