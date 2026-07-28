@@ -4418,12 +4418,12 @@ function App() {
         key={trade.id}
         onClick={handleCardClick}
         className={cn(
-          "group h-full flex flex-col border rounded-xl overflow-hidden cursor-pointer bg-[#16181e] transition-all duration-200 ease-out min-w-0",
+          "group h-full flex flex-col border rounded-xl overflow-hidden cursor-pointer bg-[#16181e] transition-all duration-200 ease-out min-w-0 shadow-[0_10px_30px_rgba(0,0,0,0.8)]",
           tradeSelectMode
             ? isSelected
               ? 'border-indigo-400/80 ring-2 ring-indigo-400/40'
               : 'border-zinc-800/70 hover:border-zinc-600'
-            : cn(outcomeBorderClass, 'hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/40')
+            : cn(outcomeBorderClass, 'hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(0,0,0,0.9)]')
         )}
       >
         <div className="aspect-video bg-zinc-800 flex items-center justify-center relative overflow-hidden flex-shrink-0">
@@ -4581,7 +4581,7 @@ function App() {
       {recentTrades.length > 0 && (
         <div>
           {/* Frame — matches the Discipline Tracker card tone/border exactly */}
-          <div className="bg-white/[0.06] border border-zinc-800/80 rounded-2xl px-5 py-4">
+          <div className="bg-white border border-zinc-800/80 rounded-2xl px-5 py-4 shadow-[0_20px_45px_rgba(0,0,0,0.5),inset_0_2px_12px_rgba(0,0,0,0.25)]">
             <div className="max-h-[520px] overflow-y-auto overscroll-contain scroll-smooth pt-6 pb-6 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                 {recentTrades.map(renderFeaturedCard)}
