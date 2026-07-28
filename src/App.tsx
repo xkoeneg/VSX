@@ -3666,19 +3666,19 @@ function App() {
     const midY = height - ((midpoint - min) / range) * (height - 40) - 20;
 
     return (
-      <div className="overflow-x-auto">
-        <svg width={chartWidth} height={height} className="w-full">
+      <div className="w-full">
+        <svg viewBox={`0 0 ${chartWidth} ${height}`} preserveAspectRatio="none" width="100%" height={height} className="w-full">
           <defs>
             <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={strokeColor} stopOpacity="0.28" />
               <stop offset="100%" stopColor={strokeColor} stopOpacity="0" />
             </linearGradient>
           </defs>
-          <line x1="0" y1={midY} x2={chartWidth} y2={midY} stroke="#3f3f46" strokeWidth="1" strokeDasharray="4" />
+          <line x1="0" y1={midY} x2={chartWidth} y2={midY} stroke="#3f3f46" strokeWidth="1" strokeDasharray="4" vectorEffect="non-scaling-stroke" />
           <path d={areaPath} fill={`url(#${gradientId})`} />
-          <path d={linePath} fill="none" stroke={strokeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d={linePath} fill="none" stroke={strokeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
           {coords.map(([x, y], i) => (
-            <circle key={i} cx={x} cy={y} r="2.5" fill={strokeColor} opacity="0.85" />
+            <circle key={i} cx={x} cy={y} r="2.5" fill={strokeColor} opacity="0.85" vectorEffect="non-scaling-stroke" />
           ))}
         </svg>
       </div>
