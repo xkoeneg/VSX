@@ -4360,7 +4360,6 @@ function App() {
     const coverImage = trade.executionImages[0]?.url || trade.timeframes.flatMap(tf => tf.images)[0]?.url;
     const isWin = trade.profitLoss >= 0;
     const isBreakeven = Math.abs(trade.profitLoss) < 10;
-    const cardRR = trade.riskAmount > 0 ? trade.profitLoss / trade.riskAmount : null;
     const outcomeCardClass = isBreakeven
       ? 'bg-zinc-800/50 hover:bg-zinc-800/70'
       : isWin
@@ -4373,7 +4372,7 @@ function App() {
         className="group border border-zinc-800/70 rounded-xl overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:border-zinc-700 min-w-0"
       >
         <div className="aspect-video bg-zinc-800 flex items-center justify-center relative overflow-hidden">
-          <span className="absolute top-2 left-2 z-10 flex items-center justify-center w-5 h-5 rounded bg-black/70 backdrop-blur-sm text-[10px] font-mono text-zinc-300">
+          <span className="absolute top-2 left-2 z-10 flex items-center justify-center w-5 h-5 rounded bg-white text-[10px] font-mono font-bold text-black shadow-[0_1px_4px_rgba(0,0,0,0.6)] ring-1 ring-black/20">
             {getDisplayTradeNumber(trade)}
           </span>
           {coverImage ? (
@@ -4385,31 +4384,29 @@ function App() {
             </div>
           )}
           {/* Badge row at the bottom of the thumbnail */}
-          <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-between gap-1.5 px-2.5 py-1.5 bg-gradient-to-t from-black/80 to-transparent">
-            <span className={cn('text-xs font-mono font-bold tracking-tight truncate', isWin ? 'text-emerald-400' : 'text-rose-500')}>
-              {formatCurrency(trade.profitLoss, privacyMode)}
+          <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-end gap-1.5 px-2.5 py-1.5 bg-gradient-to-t from-black/80 to-transparent">
+            <span className={cn('flex items-center justify-center w-4 h-4 rounded text-[9px] font-bold', trade.rulesFollowed === 'followed' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 text-rose-500')}>
+              {trade.rulesFollowed === 'followed' ? <Check className="w-2.5 h-2.5" /> : <X className="w-2.5 h-2.5" />}
             </span>
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              {cardRR !== null && (
-                <span className={cn('text-[10px] font-bold px-2 py-1 rounded border whitespace-nowrap leading-none', cardRR >= 1 ? 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10' : cardRR >= 0 ? 'text-zinc-200 border-zinc-600 bg-zinc-800/80' : 'text-rose-500 border-rose-500/40 bg-rose-500/10')}>
-                  {cardRR >= 1 ? '+' : ''}{cardRR.toFixed(2)}R
-                </span>
-              )}
-              <span className={cn('flex items-center justify-center w-4 h-4 rounded text-[9px] font-bold', trade.rulesFollowed === 'followed' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 text-rose-500')}>
-                {trade.rulesFollowed === 'followed' ? <Check className="w-2.5 h-2.5" /> : <X className="w-2.5 h-2.5" />}
-              </span>
-            </div>
           </div>
         </div>
-        <div className={cn('p-3 min-w-0 transition-colors duration-200', outcomeCardClass)}>
-          <h4 className="font-semibold text-white truncate tracking-tight text-sm">{trade.symbol}</h4>
-          <p className="text-xs text-zinc-500 truncate mt-0.5">{account?.name} · {formatDate(trade.date)}</p>
-          <div className="flex items-center gap-1.5 flex-wrap mt-2">
-            {trade.session && <SessionBadge value={trade.session} size="sm" />}
-            {trade.setupTypes.slice(0, 1).map(s => (
-              <span key={s} className="px-1.5 py-0.5 bg-zinc-800/80 border border-zinc-700/50 rounded text-[10px] text-zinc-300 truncate max-w-[70px]">{s}</span>
-            ))}
+        <div className={cn('p-3 min-w-0 flex items-end justify-between gap-2 transition-colors duration-200', outcomeCardClass)}>
+          <div className="min-w-0 flex-1">
+            <h4 className="font-semibold text-white truncate tracking-tight text-sm">{trade.symbol}</h4>
+            <p className="text-xs text-zinc-500 truncate mt-0.5 flex items-center gap-1.5">
+              <span className="truncate">{account?.name} · {formatDate(trade.date)}</span>
+              {trade.trackingNumber && <TrackingBadge value={trade.trackingNumber} size="sm" />}
+            </p>
+            <div className="flex items-center gap-1.5 flex-wrap mt-2">
+              {trade.session && <SessionBadge value={trade.session} size="sm" />}
+              {trade.setupTypes.slice(0, 1).map(s => (
+                <span key={s} className="px-1.5 py-0.5 bg-zinc-800/80 border border-zinc-700/50 rounded text-[10px] text-zinc-300 truncate max-w-[70px]">{s}</span>
+              ))}
+            </div>
           </div>
+          <span className={cn('text-sm font-mono font-bold tracking-tight whitespace-nowrap flex-shrink-0', isWin ? 'text-emerald-400' : 'text-rose-500')}>
+            {formatCurrency(trade.profitLoss, privacyMode)}
+          </span>
         </div>
       </div>
     );
