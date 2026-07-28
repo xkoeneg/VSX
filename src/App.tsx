@@ -200,13 +200,13 @@ interface TagColorStyle {
 }
 
 const TAG_COLOR_PALETTE: TagColorStyle[] = [
-  { id: 'gray', label: 'Gray', swatch: 'bg-zinc-400', chip: 'bg-zinc-700/40 text-zinc-300 border border-zinc-600/60' },
+  { id: 'gray', label: 'Gray', swatch: 'bg-zinc-400', chip: 'bg-[#1f202c] text-zinc-300 border border-[#303245]' },
   { id: 'blue', label: 'Blue', swatch: 'bg-blue-500', chip: 'bg-blue-950/40 text-blue-300 border border-blue-500/50' },
   { id: 'purple', label: 'Purple', swatch: 'bg-purple-500', chip: 'bg-purple-950/40 text-purple-300 border border-purple-500/50' },
   { id: 'green', label: 'Green', swatch: 'bg-emerald-500', chip: 'bg-emerald-950/40 text-emerald-300 border border-emerald-500/50' },
   { id: 'yellow', label: 'Yellow', swatch: 'bg-yellow-500', chip: 'bg-yellow-950/40 text-yellow-300 border border-yellow-500/50' },
   { id: 'orange', label: 'Orange', swatch: 'bg-orange-500', chip: 'bg-orange-950/40 text-orange-300 border border-orange-500/50' },
-  { id: 'red', label: 'Red', swatch: 'bg-red-500', chip: 'bg-red-950/40 text-red-300 border border-red-500/50' },
+  { id: 'red', label: 'Red', swatch: 'bg-rose-500', chip: 'bg-rose-950/40 text-rose-300 border border-rose-500/50' },
   { id: 'pink', label: 'Pink', swatch: 'bg-pink-500', chip: 'bg-pink-950/40 text-pink-300 border border-pink-500/50' },
 ];
 
@@ -280,7 +280,7 @@ const RULE_PILLAR_META: Record<RulePillar, { label: string; icon: string; accent
 const RULE_SEVERITIES: RuleSeverity[] = ['critical', 'warning', 'guide'];
 
 const RULE_SEVERITY_META: Record<RuleSeverity, { label: string; dot: string; badge: string }> = {
-  critical: { label: 'Critical', dot: 'bg-red-500', badge: 'bg-red-500/15 text-red-400 border border-red-500/20' },
+  critical: { label: 'Critical', dot: 'bg-rose-500', badge: 'bg-rose-500/15 text-rose-400 border border-rose-500/20' },
   warning: { label: 'Warning', dot: 'bg-amber-400', badge: 'bg-amber-400/15 text-amber-400 border border-amber-400/20' },
   guide: { label: 'Guide', dot: 'bg-sky-400', badge: 'bg-sky-400/15 text-sky-400 border border-sky-400/20' },
 };
@@ -302,7 +302,7 @@ const tagMatchesRuleTitle = (tag: string, ruleTitle: string): boolean => {
 // outside this list still gets a color via a deterministic hash so new
 // tags never fall back to plain gray-on-gray.
 const SCENARIO_TAG_STYLES: Record<string, string> = {
-  overtrade: 'bg-red-500/10 text-red-400 border-red-500/30',
+  overtrade: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
   chase: 'bg-orange-500/10 text-orange-400 border-orange-500/30',
   loss: 'bg-zinc-500/15 text-zinc-300 border-zinc-500/30',
   fomo: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
@@ -906,7 +906,7 @@ const PopupCalculator: React.FC<CalculatorProps> = ({ value, onChange, onClose, 
         <button
           type="button"
           onClick={() => handleInput('C')}
-          className="h-8 bg-red-500/20 hover:bg-red-500/30 active:bg-red-500/40 text-red-500 rounded-lg font-medium transition-colors"
+          className="h-8 bg-rose-500/20 hover:bg-rose-500/30 active:bg-rose-500/40 text-rose-500 rounded-lg font-medium transition-colors"
         >
           C
         </button>
@@ -986,7 +986,7 @@ const TimeInput: React.FC<TimeInputProps> = ({ value, onChange, label }) => {
             role="button"
             tabIndex={0}
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onChange(''); }}
-            className="px-3 py-3 text-zinc-500 hover:text-red-400 transition-colors"
+            className="px-3 py-3 text-zinc-500 hover:text-rose-400 transition-colors"
           >
             <X className="w-4 h-4" />
           </span>
@@ -1232,14 +1232,14 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
   };
 
   const activeClasses = colorScheme === 'red'
-    ? cn('bg-red-500 text-white border-red-500', isGrid && 'ring-1 ring-red-400/50 shadow-[0_0_10px_-2px_rgba(239,68,68,0.6)]')
+    ? cn('bg-rose-500 text-white border-rose-500', isGrid && 'ring-1 ring-rose-400/50 shadow-[0_0_10px_-2px_rgba(239,68,68,0.6)]')
     : colorScheme === 'emerald'
       ? 'bg-emerald-950/40 text-emerald-300 border border-emerald-500/80'
       : colorScheme === 'rose'
         ? 'bg-rose-950/40 text-rose-300 border border-rose-500/80'
         : cn('bg-white text-zinc-900 border-white', isGrid && 'ring-1 ring-emerald-400/50 shadow-[0_0_10px_-2px_rgba(16,185,129,0.5)]');
   const inactiveClasses = colorScheme === 'red'
-    ? 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:border-red-500/50 hover:text-red-300 hover:bg-zinc-800'
+    ? 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:border-rose-500/50 hover:text-rose-300 hover:bg-zinc-800'
     : colorScheme === 'emerald' || colorScheme === 'rose'
       ? 'bg-[#1a1b23] text-zinc-400 border-[#232429] hover:border-gray-600 hover:text-zinc-200'
       : 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:border-zinc-500 hover:text-zinc-200 hover:bg-zinc-800';
@@ -1341,10 +1341,10 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
           onClose={() => setDeleteConfirm(null)}
           className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[80] flex items-center justify-center p-4"
         >
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-red-500/15 flex items-center justify-center flex-shrink-0">
-                <Trash2 className="w-5 h-5 text-red-400" />
+              <div className="w-10 h-10 rounded-full bg-rose-500/15 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-5 h-5 text-rose-400" />
               </div>
               <h3 className="text-lg font-bold text-white">Delete Tag?</h3>
             </div>
@@ -1362,7 +1362,7 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
               <button
                 type="button"
                 onClick={confirmDelete}
-                className="px-4 py-2 bg-red-500/90 hover:bg-red-500 text-white rounded-lg text-sm font-medium transition-colors"
+                className="px-4 py-2 bg-rose-500/90 hover:bg-rose-500 text-white rounded-lg text-sm font-medium transition-colors"
               >
                 Delete
               </button>
@@ -1662,10 +1662,10 @@ const TagSelectDropdown: React.FC<TagSelectDropdownProps> = ({
           onClose={() => setDeleteConfirm(null)}
           className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[80] flex items-center justify-center p-4"
         >
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-red-500/15 flex items-center justify-center flex-shrink-0">
-                <Trash2 className="w-5 h-5 text-red-400" />
+              <div className="w-10 h-10 rounded-full bg-rose-500/15 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-5 h-5 text-rose-400" />
               </div>
               <h3 className="text-lg font-bold text-white">Delete Tag?</h3>
             </div>
@@ -1683,7 +1683,7 @@ const TagSelectDropdown: React.FC<TagSelectDropdownProps> = ({
               <button
                 type="button"
                 onClick={confirmDelete}
-                className="px-4 py-2 bg-red-500/90 hover:bg-red-500 text-white rounded-lg text-sm font-medium transition-colors"
+                className="px-4 py-2 bg-rose-500/90 hover:bg-rose-500 text-white rounded-lg text-sm font-medium transition-colors"
               >
                 Delete
               </button>
@@ -1706,11 +1706,10 @@ interface EditableTagInputProps {
 const EditableTagInput: React.FC<EditableTagInputProps> = ({ values, onAdd, onRemove, placeholder = 'Add custom...', colorScheme = 'default' }) => {
   const [draft, setDraft] = useState('');
 
-  const chipClasses = colorScheme === 'violet'
-    ? 'bg-violet-500/15 text-violet-300 border-violet-500/30'
-    : colorScheme === 'red'
-    ? 'bg-red-500/15 text-red-300 border-red-500/30'
-    : 'bg-zinc-800 text-zinc-300 border-zinc-700';
+  // All ad-hoc tag chips (Emotions, quick Mistakes, etc.) now share one
+  // consistent dark-slate pill style — no more clashing per-scheme accent
+  // colors (violet/red) so tags look uniform across the whole app.
+  const chipClasses = 'bg-[#1f202c] text-zinc-300 border-[#303245]';
 
   const submit = () => {
     const trimmed = draft.trim();
@@ -2309,7 +2308,7 @@ function App() {
   // (e.g. mobile browser chrome resizing viewport height) since our app
   // container is sized with h-dvh rather than covering the true document.
   useEffect(() => {
-    document.body.style.backgroundColor = theme === 'light' ? '#fafafa' : theme === 'minecraft' ? '#2b2b2b' : '#09090b';
+    document.body.style.backgroundColor = theme === 'light' ? '#fafafa' : theme === 'minecraft' ? '#2b2b2b' : '#0b0c0e';
   }, [theme]);
   const [isExportConfirmOpen, setIsExportConfirmOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -3586,7 +3585,7 @@ function App() {
         <p className={cn("text-[11px] uppercase tracking-wider truncate font-medium", tc.textMuted)}>{title}</p>
         <p className={cn('text-lg font-semibold truncate tabular-nums',
           typeof value === 'string' && value.includes('+') ? 'text-emerald-500' :
-          typeof value === 'string' && value.includes('-') ? 'text-red-500' :
+          typeof value === 'string' && value.includes('-') ? 'text-rose-500' :
           tc.text
         )}>
           {value}
@@ -3729,7 +3728,7 @@ function App() {
                 <span className="text-[10px] px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded">Locked</span>
               )}
               {metrics.isBreached && (
-                <span className="text-[10px] px-2 py-0.5 bg-red-500/20 text-red-400 rounded flex items-center gap-1">
+                <span className="text-[10px] px-2 py-0.5 bg-rose-500/20 text-rose-400 rounded flex items-center gap-1">
                   <AlertCircle className="w-3 h-3" />
                   Breached
                 </span>
@@ -3738,11 +3737,11 @@ function App() {
 
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-xs text-zinc-500 flex items-center gap-1.5">
-                <TrendingDown className="w-3 h-3 text-red-400" />
+                <TrendingDown className="w-3 h-3 text-rose-400" />
                 {tradingType === 'FUTURES' ? 'Trailing Drawdown' :
                  tradingType === 'LIVE' ? 'Drawdown from Capital' : 'Drawdown Usage'}
               </span>
-              <span className={cn('text-xs font-medium', metrics.isBreached ? 'text-red-400' : metrics.drawdownProgress > 70 ? 'text-amber-400' : 'text-zinc-400')}>
+              <span className={cn('text-xs font-medium', metrics.isBreached ? 'text-rose-400' : metrics.drawdownProgress > 70 ? 'text-amber-400' : 'text-zinc-400')}>
                 {privacyMode ? '****' : `${metrics.drawdownProgress.toFixed(1)}%`}
               </span>
             </div>
@@ -3750,8 +3749,8 @@ function App() {
               <div className="absolute right-[30%] top-0 bottom-0 w-px bg-amber-500/30" />
               <div
                 className={cn('h-full rounded-full transition-all duration-500',
-                  metrics.isBreached ? 'bg-red-500' :
-                  metrics.drawdownProgress > 70 ? 'bg-amber-500' : 'bg-red-400'
+                  metrics.isBreached ? 'bg-rose-500' :
+                  metrics.drawdownProgress > 70 ? 'bg-amber-500' : 'bg-rose-400'
                 )}
                 style={{ width: `${metrics.drawdownProgress}%` }}
               />
@@ -4040,10 +4039,10 @@ function App() {
             <div className="min-w-0">
               <p className={cn("text-xs uppercase tracking-wider font-medium mb-2", tc.textMuted)}>Total Profit &amp; Loss</p>
               <div className="flex items-baseline gap-3 flex-wrap">
-                <span className={cn('text-3xl sm:text-4xl font-bold tracking-tight tabular-nums', stats.totalPnL >= 0 ? 'text-emerald-500' : 'text-red-500')}>
+                <span className={cn('text-3xl sm:text-4xl font-bold tracking-tight tabular-nums', stats.totalPnL >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
                   {formatCurrency(stats.totalPnL, privacyMode)}
                 </span>
-                <span className={cn('flex items-center gap-1 text-sm font-medium px-2.5 py-1 rounded-lg flex-shrink-0', stats.growth >= 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-500')}>
+                <span className={cn('flex items-center gap-1 text-sm font-medium px-2.5 py-1 rounded-lg flex-shrink-0', stats.growth >= 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-500')}>
                   {stats.growth >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
                   {stats.growth >= 0 ? '+' : ''}{stats.growth.toFixed(2)}%
                 </span>
@@ -4118,7 +4117,7 @@ function App() {
                   <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
                   <span className="text-xs font-semibold tabular-nums">{followed}</span>
                 </div>
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 text-red-400">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-400">
                   <XCircle className="w-3.5 h-3.5 flex-shrink-0" />
                   <span className="text-xs font-semibold tabular-nums">{broken}</span>
                 </div>
@@ -4138,7 +4137,7 @@ function App() {
       {/* Secondary stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {renderStatCard('Avg Win', formatCurrency(stats.avgWin, privacyMode), <TrendingUp className="w-4 h-4" />, 'text-emerald-400')}
-        {renderStatCard('Avg Loss', formatCurrency(-stats.avgLoss, privacyMode), <TrendingDown className="w-4 h-4" />, 'text-red-400')}
+        {renderStatCard('Avg Loss', formatCurrency(-stats.avgLoss, privacyMode), <TrendingDown className="w-4 h-4" />, 'text-rose-400')}
         {renderStatCard('Total Trades', stats.totalTrades, <Activity className="w-4 h-4" />)}
         {renderStatCard('Win Rate', `${stats.winRate.toFixed(1)}%`, <Percent className="w-4 h-4" />)}
       </div>
@@ -4159,9 +4158,9 @@ function App() {
                 theme !== 'light'
                   ? 'bg-zinc-900/40 border border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-900/70'
                   : 'bg-white border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50',
-                metrics.isBreached && 'border-red-500/30'
+                metrics.isBreached && 'border-rose-500/30'
               )}>
-                <div className={cn('absolute left-0 top-0 bottom-0 w-1', metrics.isBreached ? 'bg-red-500' : isPositive ? 'bg-emerald-500/60' : 'bg-red-500/60')} />
+                <div className={cn('absolute left-0 top-0 bottom-0 w-1', metrics.isBreached ? 'bg-rose-500' : isPositive ? 'bg-emerald-500/60' : 'bg-rose-500/60')} />
                 <div className="pl-2">
                   <div className="flex items-start justify-between mb-3 gap-2">
                     <div className="min-w-0 flex-1">
@@ -4181,7 +4180,7 @@ function App() {
                       </button>
                       <button
                         onClick={() => handleDeleteAccount(account.id)}
-                        className="p-1 text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="p-1 text-zinc-600 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -4194,7 +4193,7 @@ function App() {
                   <div className="mb-3 mt-3">
                     <div className="flex items-baseline justify-between mb-1.5">
                       <span className={cn("text-xs", tc.textMuted)}>P&amp;L</span>
-                      <span className={cn('text-sm font-semibold tabular-nums', isPositive ? 'text-emerald-500' : 'text-red-500')}>
+                      <span className={cn('text-sm font-semibold tabular-nums', isPositive ? 'text-emerald-500' : 'text-rose-500')}>
                         {formatCurrency(accountPnL, privacyMode)}
                       </span>
                     </div>
@@ -4241,9 +4240,9 @@ function App() {
             const isWin = trade.profitLoss >= 0;
             return (
               <div key={trade.id} onClick={() => { setShowTradeDetail(trade.id); setShowExpandGallery(false); }} className="relative flex items-center justify-between p-3 pl-4 bg-zinc-800/30 rounded-xl hover:bg-zinc-800/60 cursor-pointer transition-colors min-w-0 overflow-hidden">
-                <div className={cn('absolute left-0 top-0 bottom-0 w-0.5', isWin ? 'bg-emerald-500/60' : 'bg-red-500/60')} />
+                <div className={cn('absolute left-0 top-0 bottom-0 w-0.5', isWin ? 'bg-emerald-500/60' : 'bg-rose-500/60')} />
                 <div className="flex items-center gap-4 min-w-0 flex-1">
-                  <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0', isWin ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400')}>
+                  <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0', isWin ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400')}>
                     {isWin ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -4252,7 +4251,7 @@ function App() {
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0 ml-4">
-                  <p className={cn('font-mono font-medium tabular-nums', isWin ? 'text-emerald-400' : 'text-red-400')}>
+                  <p className={cn('font-mono font-medium tabular-nums', isWin ? 'text-emerald-400' : 'text-rose-400')}>
                     {formatCurrency(trade.profitLoss, privacyMode)}
                   </p>
                   <p className="text-xs text-zinc-500">{formatDate(trade.date)}</p>
@@ -4303,7 +4302,7 @@ function App() {
     <div className="relative space-y-6 min-w-0">
       <div className={cn("pointer-events-none fixed inset-0 -z-10 overflow-hidden", theme === 'light' && 'opacity-30', theme === 'minecraft' && 'opacity-0')}>
         <div className="absolute -top-24 -left-32 w-[32rem] h-[32rem] rounded-full bg-emerald-500/[0.07] blur-[110px]" />
-        <div className="absolute top-1/3 -right-32 w-[28rem] h-[28rem] rounded-full bg-red-500/[0.06] blur-[110px]" />
+        <div className="absolute top-1/3 -right-32 w-[28rem] h-[28rem] rounded-full bg-rose-500/[0.06] blur-[110px]" />
         <div className="absolute bottom-0 left-1/4 w-[24rem] h-[24rem] rounded-full bg-violet-500/[0.05] blur-[110px]" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_0%,rgba(16,185,129,0.08),transparent_38%),radial-gradient(circle_at_85%_10%,rgba(239,68,68,0.06),transparent_35%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:36px_36px] [mask-image:radial-gradient(ellipse_90%_80%_at_50%_0%,black_50%,transparent_100%)]" />
@@ -4463,7 +4462,7 @@ function App() {
             type="button"
             onClick={handleDeleteSelectedTrades}
             disabled={selectedTradeIds.length === 0}
-            className="flex items-center gap-2 px-4 py-1.5 bg-red-500/90 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
+            className="flex items-center gap-2 px-4 py-1.5 bg-rose-500/90 hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
           >
             <Trash2 className="w-4 h-4" />
             Delete Selected
@@ -4475,7 +4474,7 @@ function App() {
         <>
         {/* Desktop/tablet: full data table. Kept as-is at md+ where 950px of columns fits comfortably. */}
         <div className="hidden md:block relative bg-gradient-to-b from-zinc-900/70 to-zinc-900/30 border border-zinc-800 rounded-xl overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-500/0 via-zinc-500/60 to-red-500/0" />
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-500/0 via-zinc-500/60 to-rose-500/0" />
           <div className="trade-table-scroll w-full overflow-x-auto block clear-both">
             <table className="w-full min-w-[950px]" style={{ minWidth: '950px' }}>
               <thead>
@@ -4505,7 +4504,7 @@ function App() {
                       key={trade.id}
                       className={cn(
                         'relative group cursor-pointer transition-colors',
-                        isSelected ? 'bg-white/[0.06]' : (isWin ? 'hover:bg-emerald-500/[0.05]' : 'hover:bg-red-500/[0.05]')
+                        isSelected ? 'bg-white/[0.06]' : (isWin ? 'hover:bg-emerald-500/[0.05]' : 'hover:bg-rose-500/[0.05]')
                       )}
                       onClick={() => tradeSelectMode ? toggleTradeSelected(trade.id) : setShowTradeDetail(trade.id)}
                     >
@@ -4520,7 +4519,7 @@ function App() {
                         </td>
                       )}
                       <td className="px-4 py-3 relative">
-                        <span className={cn('absolute left-0 top-0 bottom-0 w-[3px] opacity-0 group-hover:opacity-100 transition-opacity', isWin ? 'bg-emerald-400' : 'bg-red-400')} />
+                        <span className={cn('absolute left-0 top-0 bottom-0 w-[3px] opacity-0 group-hover:opacity-100 transition-opacity', isWin ? 'bg-emerald-400' : 'bg-rose-400')} />
                         <span className="text-sm text-zinc-500 font-mono">{getDisplayTradeNumber(trade)}</span>
                       </td>
                       <td className="px-4 py-3 text-sm text-zinc-400 whitespace-nowrap">{formatDate(trade.date)}</td>
@@ -4534,20 +4533,20 @@ function App() {
                         <TrackingBadge value={trade.trackingNumber} size="sm" />
                       </td>
                       <td className="px-4 py-3">
-                        <span className={cn('text-xs px-2 py-0.5 rounded flex items-center gap-1 w-fit', trade.rulesFollowed === 'followed' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400')}>
+                        <span className={cn('text-xs px-2 py-0.5 rounded flex items-center gap-1 w-fit', trade.rulesFollowed === 'followed' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400')}>
                           {trade.rulesFollowed === 'followed' ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
                           <span className="truncate">{trade.rulesFollowed}</span>
                         </span>
                       </td>
                       <td className="px-4 py-3 text-xs font-medium text-right whitespace-nowrap">
                         {rowRR !== null ? (
-                          <span className={cn('px-1.5 py-0.5 rounded border', rowRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : rowRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-red-400 border-red-500/30 bg-red-500/10')}>
+                          <span className={cn('px-1.5 py-0.5 rounded border', rowRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : rowRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-rose-400 border-rose-500/30 bg-rose-500/10')}>
                             {rowRR >= 1 ? '+' : ''}{rowRR.toFixed(2)}R
                           </span>
                         ) : '-'}
                       </td>
                       <td className="px-4 py-3 text-sm font-mono text-right font-bold whitespace-nowrap">
-                        <span className={isWin ? 'text-emerald-400' : 'text-red-400'}>{formatCurrency(trade.profitLoss, privacyMode)}</span>
+                        <span className={isWin ? 'text-emerald-400' : 'text-rose-400'}>{formatCurrency(trade.profitLoss, privacyMode)}</span>
                       </td>
                       <td className="px-4 py-3">
                         <button onClick={(e) => { e.stopPropagation(); openEditTrade(trade); }} className="p-1 text-zinc-600 hover:text-white transition-colors">
@@ -4581,7 +4580,7 @@ function App() {
                   isSelected ? 'border-white/60' : 'border-zinc-800'
                 )}
               >
-                <div className={cn('absolute left-0 top-0 bottom-0 w-1', isWin ? 'bg-emerald-500/60' : 'bg-red-500/60')} />
+                <div className={cn('absolute left-0 top-0 bottom-0 w-1', isWin ? 'bg-emerald-500/60' : 'bg-rose-500/60')} />
 
                 {tradeSelectMode && (
                   <div
@@ -4606,11 +4605,11 @@ function App() {
                     <p className="text-xs text-zinc-500 truncate mt-0.5">{account?.name} · {formatDate(trade.date)}</p>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className={cn('font-mono font-bold', isWin ? 'text-emerald-400' : 'text-red-400')}>
+                    <p className={cn('font-mono font-bold', isWin ? 'text-emerald-400' : 'text-rose-400')}>
                       {formatCurrency(trade.profitLoss, privacyMode)}
                     </p>
                     {rowRR !== null && (
-                      <span className={cn('inline-block mt-1 text-xs font-medium px-1.5 py-0.5 rounded border whitespace-nowrap', rowRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : rowRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-red-400 border-red-500/30 bg-red-500/10')}>
+                      <span className={cn('inline-block mt-1 text-xs font-medium px-1.5 py-0.5 rounded border whitespace-nowrap', rowRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : rowRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-rose-400 border-rose-500/30 bg-rose-500/10')}>
                         {rowRR >= 1 ? '+' : ''}{rowRR.toFixed(2)}R
                       </span>
                     )}
@@ -4618,7 +4617,7 @@ function App() {
                 </div>
 
                 <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-zinc-800/70">
-                  <span className={cn('text-xs px-2 py-0.5 rounded flex items-center gap-1', trade.rulesFollowed === 'followed' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400')}>
+                  <span className={cn('text-xs px-2 py-0.5 rounded flex items-center gap-1', trade.rulesFollowed === 'followed' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400')}>
                     {trade.rulesFollowed === 'followed' ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
                     <span className="truncate">{trade.rulesFollowed}</span>
                   </span>
@@ -4656,11 +4655,11 @@ function App() {
                 onClick={() => tradeSelectMode ? toggleTradeSelected(trade.id) : setShowTradeDetail(trade.id)}
                 className={cn(
                   'group relative flex gap-4 p-4 pl-5 bg-gradient-to-r from-zinc-900/70 to-zinc-900/30 border rounded-xl cursor-pointer transition-all duration-200 min-w-0 overflow-hidden hover:-translate-y-0.5',
-                  isSelected ? 'border-white/60' : (isWin ? 'border-zinc-800 hover:border-emerald-500/40 hover:shadow-[0_8px_24px_-8px_rgba(16,185,129,0.25)]' : 'border-zinc-800 hover:border-red-500/40 hover:shadow-[0_8px_24px_-8px_rgba(239,68,68,0.25)]')
+                  isSelected ? 'border-white/60' : (isWin ? 'border-zinc-800 hover:border-emerald-500/40 hover:shadow-[0_8px_24px_-8px_rgba(16,185,129,0.25)]' : 'border-zinc-800 hover:border-rose-500/40 hover:shadow-[0_8px_24px_-8px_rgba(239,68,68,0.25)]')
                 )}
               >
-                <div className={cn('absolute left-0 top-0 bottom-0 w-1', isWin ? 'bg-gradient-to-b from-emerald-500/70 to-emerald-500/20' : 'bg-gradient-to-b from-red-500/70 to-red-500/20')} />
-                <div className={cn('absolute top-0 left-5 right-0 h-[2px]', isWin ? 'bg-gradient-to-r from-emerald-500/0 via-emerald-400/60 to-emerald-500/0' : 'bg-gradient-to-r from-red-500/0 via-red-400/60 to-red-500/0')} />
+                <div className={cn('absolute left-0 top-0 bottom-0 w-1', isWin ? 'bg-gradient-to-b from-emerald-500/70 to-emerald-500/20' : 'bg-gradient-to-b from-rose-500/70 to-rose-500/20')} />
+                <div className={cn('absolute top-0 left-5 right-0 h-[2px]', isWin ? 'bg-gradient-to-r from-emerald-500/0 via-emerald-400/60 to-emerald-500/0' : 'bg-gradient-to-r from-rose-500/0 via-rose-400/60 to-rose-500/0')} />
 
                 {tradeSelectMode && (
                   <div
@@ -4680,7 +4679,7 @@ function App() {
                   <span className="absolute top-1 left-1 z-10 flex items-center justify-center w-4 h-4 rounded bg-black/70 backdrop-blur-sm text-[9px] font-mono text-zinc-300">
                     {getDisplayTradeNumber(trade)}
                   </span>
-                  <span className={cn('absolute top-1 right-1 z-10 w-1.5 h-1.5 rounded-full', isWin ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]' : 'bg-red-400 shadow-[0_0_6px_rgba(248,113,113,0.8)]')} />
+                  <span className={cn('absolute top-1 right-1 z-10 w-1.5 h-1.5 rounded-full', isWin ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]' : 'bg-rose-400 shadow-[0_0_6px_rgba(248,113,113,0.8)]')} />
                   {coverImage ? (
                     <img src={coverImage} alt="" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                   ) : (
@@ -4695,11 +4694,11 @@ function App() {
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {rowRR !== null && (
-                        <span className={cn('text-xs font-medium px-2 py-0.5 rounded border whitespace-nowrap', rowRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : rowRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-red-400 border-red-500/30 bg-red-500/10')}>
+                        <span className={cn('text-xs font-medium px-2 py-0.5 rounded border whitespace-nowrap', rowRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : rowRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-rose-400 border-rose-500/30 bg-rose-500/10')}>
                           {rowRR >= 1 ? '+' : ''}{rowRR.toFixed(2)}R
                         </span>
                       )}
-                      <p className={cn('font-mono font-bold', isWin ? 'text-emerald-400' : 'text-red-400')}>
+                      <p className={cn('font-mono font-bold', isWin ? 'text-emerald-400' : 'text-rose-400')}>
                         {formatCurrency(trade.profitLoss, privacyMode)}
                       </p>
                     </div>
@@ -4711,7 +4710,7 @@ function App() {
                     )) : (
                       <span className="text-xs text-zinc-600 italic">No setup tagged</span>
                     )}
-                    <span className={cn('text-xs px-2 py-0.5 rounded flex items-center gap-1', trade.rulesFollowed === 'followed' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400')}>
+                    <span className={cn('text-xs px-2 py-0.5 rounded flex items-center gap-1', trade.rulesFollowed === 'followed' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400')}>
                       {trade.rulesFollowed === 'followed' ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
                     </span>
                     {trade.session && <SessionBadge value={trade.session} size="sm" />}
@@ -4739,10 +4738,10 @@ function App() {
                 onClick={() => tradeSelectMode ? toggleTradeSelected(trade.id) : setShowTradeDetail(trade.id)}
                 className={cn(
                   'group relative bg-gradient-to-b from-zinc-900/70 to-zinc-900/30 border rounded-xl overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-0.5 min-w-0',
-                  isSelected ? 'border-white/60' : (isWin ? 'border-zinc-800 hover:border-emerald-500/40 hover:shadow-[0_8px_24px_-8px_rgba(16,185,129,0.25)]' : 'border-zinc-800 hover:border-red-500/40 hover:shadow-[0_8px_24px_-8px_rgba(239,68,68,0.25)]')
+                  isSelected ? 'border-white/60' : (isWin ? 'border-zinc-800 hover:border-emerald-500/40 hover:shadow-[0_8px_24px_-8px_rgba(16,185,129,0.25)]' : 'border-zinc-800 hover:border-rose-500/40 hover:shadow-[0_8px_24px_-8px_rgba(239,68,68,0.25)]')
                 )}
               >
-                <div className={cn('absolute top-0 left-0 right-0 h-[2px] z-10', isWin ? 'bg-gradient-to-r from-emerald-500/0 via-emerald-400 to-emerald-500/0' : 'bg-gradient-to-r from-red-500/0 via-red-400 to-red-500/0')} />
+                <div className={cn('absolute top-0 left-0 right-0 h-[2px] z-10', isWin ? 'bg-gradient-to-r from-emerald-500/0 via-emerald-400 to-emerald-500/0' : 'bg-gradient-to-r from-rose-500/0 via-rose-400 to-rose-500/0')} />
 
                 {tradeSelectMode && (
                   <div
@@ -4762,7 +4761,7 @@ function App() {
                   <span className="absolute top-2 left-2 z-10 flex items-center justify-center w-5 h-5 rounded bg-black/70 backdrop-blur-sm text-[10px] font-mono text-zinc-300">
                     {getDisplayTradeNumber(trade)}
                   </span>
-                  <span className={cn('absolute top-2 right-2 z-10 w-2 h-2 rounded-full', isWin ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.8)]')} />
+                  <span className={cn('absolute top-2 right-2 z-10 w-2 h-2 rounded-full', isWin ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-rose-400 shadow-[0_0_8px_rgba(248,113,113,0.8)]')} />
                   {coverImage ? (
                     <img src={coverImage} alt="" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                   ) : (
@@ -4784,7 +4783,7 @@ function App() {
 
                   <div className="flex items-center gap-1.5 flex-wrap mb-2.5">
                     {trade.session && <SessionBadge value={trade.session} size="sm" />}
-                    <span className={cn('text-xs px-2 py-0.5 rounded flex items-center gap-1', trade.rulesFollowed === 'followed' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400')}>
+                    <span className={cn('text-xs px-2 py-0.5 rounded flex items-center gap-1', trade.rulesFollowed === 'followed' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400')}>
                       {trade.rulesFollowed === 'followed' ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
                     </span>
                   </div>
@@ -4795,11 +4794,11 @@ function App() {
                   </div>
 
                   <div className="flex items-center justify-between gap-1.5 mb-2.5 min-w-0 flex-wrap">
-                    <span className={cn('text-sm sm:text-base font-mono font-bold tracking-tight truncate min-w-0', isWin ? 'text-emerald-400' : 'text-red-400')}>
+                    <span className={cn('text-sm sm:text-base font-mono font-bold tracking-tight truncate min-w-0', isWin ? 'text-emerald-400' : 'text-rose-400')}>
                       {formatCurrency(trade.profitLoss, privacyMode)}
                     </span>
                     {cardRR !== null && (
-                      <span className={cn('text-xs font-medium px-2 py-0.5 rounded border flex-shrink-0 whitespace-nowrap', cardRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : cardRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-red-400 border-red-500/30 bg-red-500/10')}>
+                      <span className={cn('text-xs font-medium px-2 py-0.5 rounded border flex-shrink-0 whitespace-nowrap', cardRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : cardRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-rose-400 border-rose-500/30 bg-rose-500/10')}>
                         {cardRR >= 1 ? '+' : ''}{cardRR.toFixed(2)}R
                       </span>
                     )}
@@ -4869,7 +4868,7 @@ function App() {
 
     const statusStyles: Record<string, string> = {
       complete: 'bg-emerald-500 border-emerald-400 text-white',
-      failed: 'bg-red-500/90 border-red-400 text-white',
+      failed: 'bg-rose-500/90 border-rose-400 text-white',
       pending: 'bg-amber-500/20 border-amber-500/50 text-amber-300',
       upcoming: theme !== 'light' ? 'bg-zinc-800/50 border-zinc-800 text-zinc-600' : 'bg-zinc-100 border-zinc-200 text-zinc-400',
     };
@@ -4888,7 +4887,7 @@ function App() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {renderStatCard('Today\'s Progress', `${checkedItems}/${totalItems}`, <CheckCircle2 className="w-4 h-4" />, todayComplete ? 'text-emerald-400' : 'text-amber-400')}
           {renderStatCard('Days Completed', completedCount, <Flame className="w-4 h-4" />, 'text-emerald-400')}
-          {renderStatCard('Days Failed', failedCount, <XCircle className="w-4 h-4" />, 'text-red-400')}
+          {renderStatCard('Days Failed', failedCount, <XCircle className="w-4 h-4" />, 'text-rose-400')}
         </div>
 
         {/* DAILY CHECKLIST SECTION */}
@@ -4960,7 +4959,7 @@ function App() {
             </h3>
             <div className="flex items-center gap-3 text-xs text-zinc-400 flex-wrap">
               <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" /> Complete</span>
-              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-red-500/90" /> Failed</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-rose-500/90" /> Failed</span>
               <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-amber-500/20 border border-amber-500/50" /> Today</span>
               <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-zinc-800 border border-zinc-700" /> Upcoming</span>
             </div>
@@ -5051,7 +5050,7 @@ function App() {
             </span>
           ))}
           {mistakes.map(m => (
-            <span key={`m-${m}`} className="px-2 py-0.5 rounded-full bg-red-500/15 border border-red-500/25 text-red-300 text-xs font-medium leading-normal">
+            <span key={`m-${m}`} className="px-2 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/25 text-rose-300 text-xs font-medium leading-normal">
               {m}
             </span>
           ))}
@@ -5068,9 +5067,9 @@ function App() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {renderStatCard('Rules Followed', followedTrades.length, <CheckCircle2 className="w-4 h-4" />, 'text-emerald-400')}
-          {renderStatCard('Rules Broken', brokenTrades.length, <XCircle className="w-4 h-4" />, 'text-red-400')}
+          {renderStatCard('Rules Broken', brokenTrades.length, <XCircle className="w-4 h-4" />, 'text-rose-400')}
           {renderStatCard('Follow Rate', `${((followedTrades.length / (followedTrades.length + brokenTrades.length)) * 100 || 0).toFixed(1)}%`, <Target className="w-4 h-4" />)}
-          {renderStatCard('Avg Loss (Broken)', brokenTrades.length > 0 ? formatCurrency(brokenTrades.reduce((s, t) => s + t.profitLoss, 0) / brokenTrades.length, privacyMode) : '$0.00', <AlertCircle className="w-4 h-4" />, 'text-red-400')}
+          {renderStatCard('Avg Loss (Broken)', brokenTrades.length > 0 ? formatCurrency(brokenTrades.reduce((s, t) => s + t.profitLoss, 0) / brokenTrades.length, privacyMode) : '$0.00', <AlertCircle className="w-4 h-4" />, 'text-rose-400')}
         </div>
 
         {/* Rule Adherence Log — full width so trades have room to show every emotion/mistake tag, not just the first couple */}
@@ -5100,7 +5099,7 @@ function App() {
                             <p className="text-xs text-zinc-400 truncate">{account?.name} | {formatDate(trade.date)}</p>
                           </div>
                         </div>
-                        <p className={cn('font-mono font-medium text-sm flex-shrink-0', trade.profitLoss >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+                        <p className={cn('font-mono font-medium text-sm flex-shrink-0', trade.profitLoss >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
                           {formatCurrency(trade.profitLoss, privacyMode)}
                         </p>
                       </div>
@@ -5123,7 +5122,7 @@ function App() {
 
             <div className="flex flex-col min-w-0 md:pl-6 md:border-l md:border-zinc-800/70">
               <div className="flex items-center justify-between mb-3 pb-3 border-b border-zinc-800/70 flex-shrink-0">
-                <span className="flex items-center gap-1.5 text-sm font-semibold text-red-400 truncate">
+                <span className="flex items-center gap-1.5 text-sm font-semibold text-rose-400 truncate">
                   <XCircle className="w-4 h-4 flex-shrink-0" /> Broken
                 </span>
                 <span className="text-xs font-mono text-zinc-400 flex-shrink-0 px-2 py-0.5 rounded bg-zinc-800/60">{brokenTrades.length}</span>
@@ -5141,7 +5140,7 @@ function App() {
                             <p className="text-xs text-zinc-400 truncate">{account?.name} | {formatDate(trade.date)}</p>
                           </div>
                         </div>
-                        <p className={cn('font-mono font-medium text-sm flex-shrink-0', trade.profitLoss >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+                        <p className={cn('font-mono font-medium text-sm flex-shrink-0', trade.profitLoss >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
                           {formatCurrency(trade.profitLoss, privacyMode)}
                         </p>
                       </div>
@@ -5197,14 +5196,14 @@ function App() {
                       <div key={emotion} className="min-w-0">
                         <div className="flex items-center justify-between gap-2 mb-1.5">
                           <span className="text-sm text-zinc-300 truncate">{emotion}</span>
-                          <span className={cn('text-sm font-mono font-medium flex-shrink-0', isProfit ? 'text-emerald-400' : 'text-red-400')}>
+                          <span className={cn('text-sm font-mono font-medium flex-shrink-0', isProfit ? 'text-emerald-400' : 'text-rose-400')}>
                             {formatCurrency(pnl, privacyMode)}
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="h-1.5 flex-1 bg-zinc-800 rounded-full overflow-hidden">
                             <div
-                              className={cn('h-full rounded-full', isProfit ? 'bg-gradient-to-r from-emerald-600 to-emerald-400' : 'bg-gradient-to-r from-red-600 to-orange-400')}
+                              className={cn('h-full rounded-full', isProfit ? 'bg-gradient-to-r from-emerald-600 to-emerald-400' : 'bg-gradient-to-r from-rose-600 to-orange-400')}
                               style={{ width: `${(count / maxEmotionCount) * 100}%` }}
                             />
                           </div>
@@ -5218,7 +5217,7 @@ function App() {
             </div>
 
             <div className="md:pl-6 md:border-l md:border-zinc-800/70">
-              <h4 className="text-sm font-semibold text-red-400 mb-3 flex items-center gap-1.5">
+              <h4 className="text-sm font-semibold text-rose-400 mb-3 flex items-center gap-1.5">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 <span className="truncate">Top Mistakes Committed</span>
               </h4>
@@ -5230,14 +5229,14 @@ function App() {
                     <div key={mistake} className="min-w-0">
                       <div className="flex items-center justify-between gap-2 mb-1.5">
                         <span className="text-sm text-zinc-300 truncate">{mistake}</span>
-                        <span className="text-sm font-mono font-medium text-red-400 flex-shrink-0">
+                        <span className="text-sm font-mono font-medium text-rose-400 flex-shrink-0">
                           {formatCurrency(pnl, privacyMode)}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="h-1.5 flex-1 bg-zinc-800 rounded-full overflow-hidden">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-red-600 to-orange-400"
+                            className="h-full rounded-full bg-gradient-to-r from-rose-600 to-orange-400"
                             style={{ width: `${(count / maxMistakeCount) * 100}%` }}
                           />
                         </div>
@@ -5326,7 +5325,7 @@ function App() {
                           <button onClick={() => openEditRuleModal(rule)} className={cn("p-1 rounded", theme !== 'light' ? 'text-zinc-500 hover:text-white' : 'text-zinc-400 hover:text-zinc-900')}>
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={() => handleDeleteRule(rule.id)} className="p-1 rounded text-zinc-500 hover:text-red-400">
+                          <button onClick={() => handleDeleteRule(rule.id)} className="p-1 rounded text-zinc-500 hover:text-rose-400">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
@@ -5342,7 +5341,7 @@ function App() {
                           <span className={cn("text-[10px] px-1.5 py-0.5 rounded truncate max-w-[8rem]", theme !== 'light' ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-200 text-zinc-600')}>{rule.category}</span>
                         )}
                         {violations > 0 && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/20 font-semibold flex items-center gap-0.5">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/20 font-semibold flex items-center gap-0.5">
                             ⚠️ Violated {violations}x
                           </span>
                         )}
@@ -5401,7 +5400,7 @@ function App() {
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDeleteNotice(notice.id); }}
-                      className="p-1 text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="p-1 text-zinc-600 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -5476,7 +5475,7 @@ function App() {
                       <td className="px-4 py-3 align-top">
                         <button
                           onClick={() => handleDeleteScenario(row.id)}
-                          className="p-1 text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="p-1 text-zinc-600 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -5605,7 +5604,7 @@ function App() {
                 <h3 className="font-semibold text-white truncate">{entry.title}</h3>
                 {entry.category && <span className="text-xs px-2 py-0.5 bg-zinc-800 text-zinc-400 rounded mt-1 inline-block truncate">{entry.category}</span>}
               </div>
-              <button onClick={() => handleDeleteWiki(entry.id)} className="p-1 text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+              <button onClick={() => handleDeleteWiki(entry.id)} className="p-1 text-zinc-600 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
@@ -5677,12 +5676,12 @@ function App() {
         {/* Hero summary bar — big net P&L front and center like a prop-firm dashboard, stats trailing */}
         <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-4 sm:p-5 flex flex-wrap items-center gap-x-4 sm:gap-x-8 gap-y-4">
           <div className="flex items-center gap-3 pr-4 sm:pr-8 border-r border-zinc-800/80">
-            <div className={cn('w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0', totalPnL >= 0 ? 'bg-emerald-500/15 border border-emerald-500/25' : 'bg-red-500/15 border border-red-500/25')}>
-              <DollarSign className={cn('w-5 h-5', totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400')} />
+            <div className={cn('w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0', totalPnL >= 0 ? 'bg-emerald-500/15 border border-emerald-500/25' : 'bg-rose-500/15 border border-rose-500/25')}>
+              <DollarSign className={cn('w-5 h-5', totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400')} />
             </div>
             <div>
               <p className="text-xs text-zinc-500 uppercase tracking-wider">Net P&L This Month</p>
-              <p className={cn('text-2xl font-bold font-mono', totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+              <p className={cn('text-2xl font-bold font-mono', totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
                 {formatCurrency(totalPnL, privacyMode)}
               </p>
             </div>
@@ -5698,7 +5697,7 @@ function App() {
             </div>
             <div>
               <p className="text-xs text-zinc-500 uppercase tracking-wider mb-0.5">Losing Days</p>
-              <p className="text-lg font-semibold text-red-400">{losingDays}</p>
+              <p className="text-lg font-semibold text-rose-400">{losingDays}</p>
             </div>
             <div>
               <p className="text-xs text-zinc-500 uppercase tracking-wider mb-0.5">Win Rate</p>
@@ -5737,7 +5736,7 @@ function App() {
                           day.day === null ? 'bg-transparent' :
                           day.trades.length === 0 ? 'bg-zinc-800/30 border border-zinc-800/60' :
                           day.pnl > 0 ? 'bg-emerald-500/15 border border-emerald-500/30 hover:bg-emerald-500/25 cursor-pointer' :
-                          day.pnl < 0 ? 'bg-red-500/15 border border-red-500/30 hover:bg-red-500/25 cursor-pointer' :
+                          day.pnl < 0 ? 'bg-rose-500/15 border border-rose-500/30 hover:bg-rose-500/25 cursor-pointer' :
                           'bg-zinc-800/40 border border-zinc-700/60'
                         )}
                       >
@@ -5746,7 +5745,7 @@ function App() {
                             <span className="text-xs text-zinc-500 font-medium">{day.day}</span>
                             {day.trades.length > 0 ? (
                               <div className="min-w-0">
-                                <p className={cn('text-sm font-bold font-mono truncate', day.pnl > 0 ? 'text-emerald-400' : day.pnl < 0 ? 'text-red-400' : 'text-zinc-300')}>
+                                <p className={cn('text-sm font-bold font-mono truncate', day.pnl > 0 ? 'text-emerald-400' : day.pnl < 0 ? 'text-rose-400' : 'text-zinc-300')}>
                                   {formatCurrency(day.pnl, privacyMode)}
                                 </p>
                                 <p className="text-[10px] text-zinc-500 mt-0.5">{day.trades.length} trade{day.trades.length !== 1 ? 's' : ''}</p>
@@ -5764,13 +5763,13 @@ function App() {
                       'rounded-xl p-2.5 min-h-[92px] flex flex-col items-center justify-center min-w-0 border',
                       !hasWeekData ? 'bg-zinc-900/40 border-zinc-800/50' :
                       weekPnl > 0 ? 'bg-emerald-500/10 border-emerald-500/25' :
-                      weekPnl < 0 ? 'bg-red-500/10 border-red-500/25' :
+                      weekPnl < 0 ? 'bg-rose-500/10 border-rose-500/25' :
                       'bg-zinc-800/40 border-zinc-700/60'
                     )}>
                       {hasWeekData ? (
                         <>
                           <p className="text-[9px] text-zinc-500 uppercase tracking-wider">Week {wi + 1}</p>
-                          <p className={cn('text-sm font-bold font-mono truncate', weekPnl > 0 ? 'text-emerald-400' : weekPnl < 0 ? 'text-red-400' : 'text-zinc-300')}>
+                          <p className={cn('text-sm font-bold font-mono truncate', weekPnl > 0 ? 'text-emerald-400' : weekPnl < 0 ? 'text-rose-400' : 'text-zinc-300')}>
                             {formatCurrency(weekPnl, privacyMode)}
                           </p>
                           <p className="text-[10px] text-zinc-600">{weekTradingDays} day{weekTradingDays !== 1 ? 's' : ''}</p>
@@ -5812,7 +5811,7 @@ function App() {
                             day.day === null ? 'bg-transparent' :
                             day.trades.length === 0 ? 'bg-zinc-800/30 border border-zinc-800/60' :
                             day.pnl > 0 ? 'bg-emerald-500/15 border border-emerald-500/30' :
-                            day.pnl < 0 ? 'bg-red-500/15 border border-red-500/30' :
+                            day.pnl < 0 ? 'bg-rose-500/15 border border-rose-500/30' :
                             'bg-zinc-800/40 border border-zinc-700/60'
                           )}
                         >
@@ -5820,7 +5819,7 @@ function App() {
                             <>
                               <span className="text-[9px] text-zinc-500 font-medium">{day.day}</span>
                               {day.trades.length > 0 ? (
-                                <p className={cn('text-[9px] font-bold font-mono truncate leading-tight', day.pnl > 0 ? 'text-emerald-400' : day.pnl < 0 ? 'text-red-400' : 'text-zinc-300')}>
+                                <p className={cn('text-[9px] font-bold font-mono truncate leading-tight', day.pnl > 0 ? 'text-emerald-400' : day.pnl < 0 ? 'text-rose-400' : 'text-zinc-300')}>
                                   {formatCurrencyCompact(day.pnl, privacyMode)}
                                 </p>
                               ) : (
@@ -5835,7 +5834,7 @@ function App() {
                     {hasWeekData && (
                       <div className="flex items-center justify-between px-1 text-[10px]">
                         <span className="text-zinc-500">Week {wi + 1} · {weekTradingDays} day{weekTradingDays !== 1 ? 's' : ''}</span>
-                        <span className={cn('font-mono font-semibold', weekPnl > 0 ? 'text-emerald-400' : weekPnl < 0 ? 'text-red-400' : 'text-zinc-400')}>
+                        <span className={cn('font-mono font-semibold', weekPnl > 0 ? 'text-emerald-400' : weekPnl < 0 ? 'text-rose-400' : 'text-zinc-400')}>
                           {formatCurrency(weekPnl, privacyMode)}
                         </span>
                       </div>
@@ -5851,7 +5850,7 @@ function App() {
               <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500/40 border border-emerald-500/50" /> Profit
             </span>
             <span className="flex items-center gap-1.5 text-xs text-zinc-500">
-              <span className="w-2.5 h-2.5 rounded-sm bg-red-500/40 border border-red-500/50" /> Loss
+              <span className="w-2.5 h-2.5 rounded-sm bg-rose-500/40 border border-rose-500/50" /> Loss
             </span>
             <span className="flex items-center gap-1.5 text-xs text-zinc-500">
               <span className="w-2.5 h-2.5 rounded-sm bg-zinc-800/60 border border-zinc-700/60" /> No trades
@@ -5885,7 +5884,7 @@ function App() {
         onClose={() => setShowDisciplineReview(null)}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
           <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
@@ -5910,11 +5909,11 @@ function App() {
                   <CheckCircle2 className="w-3.5 h-3.5" /> Rule Followed
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-medium">
                   <XCircle className="w-3.5 h-3.5" /> Rule Broken
                 </span>
               )}
-              <span className={cn('font-mono text-sm font-medium', trade.profitLoss >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+              <span className={cn('font-mono text-sm font-medium', trade.profitLoss >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
                 {formatCurrency(trade.profitLoss, privacyMode)}
               </span>
             </div>
@@ -6023,8 +6022,8 @@ function App() {
         onClose={() => { setShowTradeDetail(null); setShowExpandGallery(false); }}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-          <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center justify-between z-10">
+        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="sticky top-0 bg-[#13141b] border-b border-[#222430] px-6 py-4 flex items-center justify-between z-10">
             <div className="min-w-0 flex-1">
               <h3 className="text-xl font-bold text-white truncate">{trade.symbol}</h3>
               <p className="text-sm text-zinc-500 truncate">{account?.name} | {formatDate(trade.date)}</p>
@@ -6040,7 +6039,7 @@ function App() {
               <button onClick={() => { setShowTradeDetail(null); openEditTrade(trade); }} className="p-2 text-zinc-400 hover:text-white transition-colors">
                 <Edit2 className="w-5 h-5" />
               </button>
-              <button onClick={() => handleDeleteTrade(trade.id)} className="p-2 text-zinc-400 hover:text-red-400 transition-colors">
+              <button onClick={() => handleDeleteTrade(trade.id)} className="p-2 text-zinc-400 hover:text-rose-400 transition-colors">
                 <Trash2 className="w-5 h-5" />
               </button>
               <button onClick={() => setShowTradeDetail(null)} className="p-2 text-zinc-400 hover:text-white transition-colors">
@@ -6097,9 +6096,9 @@ function App() {
               </div>
             )}
 
-            <div className={cn('w-full flex items-center justify-center gap-3 py-4 px-4 rounded-xl border', trade.profitLoss >= 0 ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-red-500/10 border-red-500/20')}>
+            <div className={cn('w-full flex items-center justify-center gap-3 py-4 px-4 rounded-xl border', trade.profitLoss >= 0 ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20')}>
               <span className="text-sm text-zinc-400">P&L</span>
-              <span className={cn('text-2xl font-bold', trade.profitLoss >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+              <span className={cn('text-2xl font-bold', trade.profitLoss >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
                 {formatCurrency(trade.profitLoss, privacyMode)}
               </span>
             </div>
@@ -6154,7 +6153,7 @@ function App() {
                 {tradeRR !== null && (
                   <div className="bg-zinc-800/50 rounded-lg p-3 inline-block">
                     <p className="text-xs text-zinc-500 mb-1">Risk:Reward</p>
-                    <p className={cn('text-sm font-medium', tradeRR >= 1 ? 'text-emerald-400' : tradeRR >= 0 ? 'text-white' : 'text-red-400')}>
+                    <p className={cn('text-sm font-medium', tradeRR >= 1 ? 'text-emerald-400' : tradeRR >= 0 ? 'text-white' : 'text-rose-400')}>
                       {tradeRR >= 1 ? '+' : ''}{tradeRR.toFixed(2)}R
                     </p>
                   </div>
@@ -6172,7 +6171,7 @@ function App() {
               <button
                 type="button"
                 onClick={() => setDetailRulesFollowedDraft(prev => prev === 'followed' ? 'broken' : 'followed')}
-                className={cn('px-3 py-1.5 rounded-lg text-sm flex items-center gap-1 transition-colors', detailRulesFollowedDraft === 'followed' ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' : 'bg-red-500/20 text-red-400 hover:bg-red-500/30')}
+                className={cn('px-3 py-1.5 rounded-lg text-sm flex items-center gap-1 transition-colors', detailRulesFollowedDraft === 'followed' ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' : 'bg-rose-500/20 text-rose-400 hover:bg-rose-500/30')}
                 title="Click to toggle rule adherence"
               >
                 {detailRulesFollowedDraft === 'followed' ? <Check className="w-4 h-4 flex-shrink-0" /> : <X className="w-4 h-4 flex-shrink-0" />}
@@ -6185,7 +6184,7 @@ function App() {
                 <h4 className="text-sm text-zinc-500 mb-2">Mistakes Made</h4>
                 <div className="flex flex-wrap gap-2">
                   {trade.mistakes.map(m => (
-                    <span key={m} className="px-3 py-1.5 bg-red-500/20 text-red-400 rounded-lg text-sm truncate max-w-[150px]">{m}</span>
+                    <span key={m} className="px-3 py-1.5 bg-rose-500/20 text-rose-400 rounded-lg text-sm truncate max-w-[150px]">{m}</span>
                   ))}
                 </div>
               </div>
@@ -6207,7 +6206,7 @@ function App() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-zinc-800/30 rounded-lg p-4">
-                  <h5 className="text-sm font-medium text-red-400 mb-2 flex items-center gap-2">
+                  <h5 className="text-sm font-medium text-rose-400 mb-2 flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 flex-shrink-0" />
                     <span className="truncate">Mistakes Analysis</span>
                   </h5>
@@ -6385,8 +6384,8 @@ function App() {
           }}
           className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
         >
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center justify-between z-10">
+          <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-[#13141b] border-b border-[#222430] px-6 py-4 flex items-center justify-between z-10">
               <h3 className="text-lg font-bold text-white truncate">{isEditing ? 'Edit Account' : 'Add Trading Account'}</h3>
               <button onClick={() => { isEditing ? setShowEditAccount(null) : setShowAddAccount(false); resetCalculator(); }} className="p-1 text-zinc-400 hover:text-white">
                 <X className="w-5 h-5" />
@@ -6634,8 +6633,8 @@ function App() {
         onClose={() => { setShowAddTrade(false); resetCalculator(); }}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
-        <div className="bg-[#0e0f14] border border-zinc-800 rounded-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-          <div className="sticky top-0 bg-[#0e0f14] border-b border-zinc-800 px-6 py-4 flex items-center justify-between z-20">
+        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="sticky top-0 bg-[#13141b] border-b border-[#222430] px-6 py-4 flex items-center justify-between z-20">
             <h3 className="text-xl font-bold text-white truncate">Add New Trade</h3>
             <button onClick={() => { setShowAddTrade(false); resetCalculator(); }} className="p-2 text-zinc-400 hover:text-white transition-colors">
               <X className="w-5 h-5" />
@@ -6826,7 +6825,7 @@ function App() {
                   <label className="block text-xs text-zinc-400 mb-1.5">R:R Ratio</label>
                   <div className="bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-3 text-sm">
                     {calculatedRR !== null ? (
-                      <span className={cn('font-medium', calculatedRR >= 1 ? 'text-emerald-400' : calculatedRR >= 0 ? 'text-zinc-400' : 'text-red-400')}>
+                      <span className={cn('font-medium', calculatedRR >= 1 ? 'text-emerald-400' : calculatedRR >= 0 ? 'text-zinc-400' : 'text-rose-400')}>
                         {calculatedRR.toFixed(2)}R
                       </span>
                     ) : (
@@ -6922,7 +6921,7 @@ function App() {
                     newTrade.rulesFollowed === 'followed'
                       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                       : rulesAdherenceError
-                        ? 'bg-zinc-800/60 text-zinc-400 border-red-500/50 hover:bg-zinc-800 hover:border-red-500/70'
+                        ? 'bg-zinc-800/60 text-zinc-400 border-rose-500/50 hover:bg-zinc-800 hover:border-rose-500/70'
                         : 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:bg-zinc-800 hover:border-zinc-600')}
                 >
                   <Check className="w-3.5 h-3.5" /> Followed
@@ -6932,16 +6931,16 @@ function App() {
                   onClick={() => { setNewTrade(prev => ({ ...prev, rulesFollowed: 'broken' })); setRulesAdherenceError(false); }}
                   className={cn('w-full flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm font-medium border transition-colors',
                     newTrade.rulesFollowed === 'broken'
-                      ? 'bg-red-500/10 text-red-400 border-red-500/30'
+                      ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
                       : rulesAdherenceError
-                        ? 'bg-zinc-800/60 text-zinc-400 border-red-500/50 hover:bg-zinc-800 hover:border-red-500/70'
+                        ? 'bg-zinc-800/60 text-zinc-400 border-rose-500/50 hover:bg-zinc-800 hover:border-rose-500/70'
                         : 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:bg-zinc-800 hover:border-zinc-600')}
                 >
                   <X className="w-3.5 h-3.5" /> Broken
                 </button>
               </div>
               {rulesAdherenceError && (
-                <p className="text-xs text-red-400">Please select whether rules were Followed or Broken</p>
+                <p className="text-xs text-rose-400">Please select whether rules were Followed or Broken</p>
               )}
             </div>
 
@@ -7091,8 +7090,8 @@ function App() {
         onClose={() => { setShowEditTrade(false); setEditingTrade(null); resetTradeForm(); resetCalculator(); }}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
-        <div className="bg-[#0e0f14] border border-zinc-800 rounded-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-          <div className="sticky top-0 bg-[#0e0f14] border-b border-zinc-800 px-6 py-4 flex items-center justify-between z-20">
+        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="sticky top-0 bg-[#13141b] border-b border-[#222430] px-6 py-4 flex items-center justify-between z-20">
             <h3 className="text-xl font-bold text-white truncate">Edit Trade</h3>
             <button onClick={() => { setShowEditTrade(false); setEditingTrade(null); resetTradeForm(); resetCalculator(); }} className="p-2 text-zinc-400 hover:text-white transition-colors">
               <X className="w-5 h-5" />
@@ -7283,7 +7282,7 @@ function App() {
                   <label className="block text-xs text-zinc-400 mb-1.5">R:R Ratio</label>
                   <div className="bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-3 text-sm">
                     {calculatedRR !== null ? (
-                      <span className={cn('font-medium', calculatedRR >= 1 ? 'text-emerald-400' : calculatedRR >= 0 ? 'text-zinc-400' : 'text-red-400')}>
+                      <span className={cn('font-medium', calculatedRR >= 1 ? 'text-emerald-400' : calculatedRR >= 0 ? 'text-zinc-400' : 'text-rose-400')}>
                         {calculatedRR.toFixed(2)}R
                       </span>
                     ) : (
@@ -7379,7 +7378,7 @@ function App() {
                     newTrade.rulesFollowed === 'followed'
                       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                       : rulesAdherenceError
-                        ? 'bg-zinc-800/60 text-zinc-400 border-red-500/50 hover:bg-zinc-800 hover:border-red-500/70'
+                        ? 'bg-zinc-800/60 text-zinc-400 border-rose-500/50 hover:bg-zinc-800 hover:border-rose-500/70'
                         : 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:bg-zinc-800 hover:border-zinc-600')}
                 >
                   <Check className="w-3.5 h-3.5" /> Followed
@@ -7389,16 +7388,16 @@ function App() {
                   onClick={() => { setNewTrade(prev => ({ ...prev, rulesFollowed: 'broken' })); setRulesAdherenceError(false); }}
                   className={cn('w-full flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm font-medium border transition-colors',
                     newTrade.rulesFollowed === 'broken'
-                      ? 'bg-red-500/10 text-red-400 border-red-500/30'
+                      ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
                       : rulesAdherenceError
-                        ? 'bg-zinc-800/60 text-zinc-400 border-red-500/50 hover:bg-zinc-800 hover:border-red-500/70'
+                        ? 'bg-zinc-800/60 text-zinc-400 border-rose-500/50 hover:bg-zinc-800 hover:border-rose-500/70'
                         : 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:bg-zinc-800 hover:border-zinc-600')}
                 >
                   <X className="w-3.5 h-3.5" /> Broken
                 </button>
               </div>
               {rulesAdherenceError && (
-                <p className="text-xs text-red-400">Please select whether rules were Followed or Broken</p>
+                <p className="text-xs text-rose-400">Please select whether rules were Followed or Broken</p>
               )}
             </div>
 
@@ -7548,7 +7547,7 @@ function App() {
         onClose={closeRuleModal}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
           <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
             <h3 className="text-lg font-bold text-white truncate">{editingRuleId ? 'Edit Trading Rule' : 'Add Trading Rule'}</h3>
             <button onClick={closeRuleModal} className="p-1 text-zinc-400 hover:text-white">
@@ -7629,7 +7628,7 @@ function App() {
         onClose={() => setShowAddNotice(false)}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
           <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
             <h3 className="text-lg font-bold text-white truncate">Add Market Notice</h3>
             <button onClick={() => setShowAddNotice(false)} className="p-1 text-zinc-400 hover:text-white">
@@ -7677,7 +7676,7 @@ function App() {
         onClose={() => setShowAddScenario(false)}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
           <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
             <h3 className="text-lg font-bold text-white truncate">Add Scenario</h3>
             <button onClick={() => setShowAddScenario(false)} className="p-1 text-zinc-400 hover:text-white">
@@ -7711,7 +7710,7 @@ function App() {
         onClose={() => setShowAddWiki(false)}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
           <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
             <h3 className="text-lg font-bold text-white truncate">Add Knowledge Entry</h3>
             <button onClick={() => setShowAddWiki(false)} className="p-1 text-zinc-400 hover:text-white">
@@ -7745,10 +7744,10 @@ function App() {
         onClose={() => setShowDeleteSelectedConfirm(false)}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
       >
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-full bg-red-500/15 flex items-center justify-center flex-shrink-0">
-              <Trash2 className="w-5 h-5 text-red-400" />
+            <div className="w-10 h-10 rounded-full bg-rose-500/15 flex items-center justify-center flex-shrink-0">
+              <Trash2 className="w-5 h-5 text-rose-400" />
             </div>
             <h3 className="text-lg font-bold text-white">Delete trades?</h3>
           </div>
@@ -7766,7 +7765,7 @@ function App() {
             <button
               type="button"
               onClick={confirmDeleteSelectedTrades}
-              className="px-4 py-2 bg-red-500/90 hover:bg-red-500 text-white rounded-lg text-sm font-medium transition-colors"
+              className="px-4 py-2 bg-rose-500/90 hover:bg-rose-500 text-white rounded-lg text-sm font-medium transition-colors"
             >
               Delete
             </button>
@@ -7786,10 +7785,10 @@ function App() {
         onClose={() => setAccountPendingDelete(null)}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
       >
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-full bg-red-500/15 flex items-center justify-center flex-shrink-0">
-              <Trash2 className="w-5 h-5 text-red-400" />
+            <div className="w-10 h-10 rounded-full bg-rose-500/15 flex items-center justify-center flex-shrink-0">
+              <Trash2 className="w-5 h-5 text-rose-400" />
             </div>
             <h3 className="text-lg font-bold text-white">Delete "{account?.name || 'this account'}"?</h3>
           </div>
@@ -7807,7 +7806,7 @@ function App() {
             <button
               type="button"
               onClick={confirmDeleteAccount}
-              className="px-4 py-2 bg-red-500/90 hover:bg-red-500 text-white rounded-lg text-sm font-medium transition-colors"
+              className="px-4 py-2 bg-rose-500/90 hover:bg-rose-500 text-white rounded-lg text-sm font-medium transition-colors"
             >
               Delete
             </button>
@@ -7833,7 +7832,7 @@ function App() {
   );
 
   return (
-    <div className={cn("h-screen w-full flex overflow-hidden bg-[#0d0e12] text-white", theme === 'minecraft' && 'theme-minecraft')}>
+    <div className={cn("h-screen w-full flex overflow-hidden bg-[#0b0c0e] text-white", theme === 'minecraft' && 'theme-minecraft')}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
 
@@ -7854,7 +7853,7 @@ function App() {
           /* Matches the dark root background so mobile elastic/rubber-band
              overscroll never reveals the browser's default white canvas
              underneath tall pages (e.g. the 100-day grid). */
-          background-color: #09090b;
+          background-color: #0b0c0e;
         }
         /* Trade History (List / Preview) tables force horizontal scroll on
            narrow screens — restore a slim, themed scrollbar here so users
