@@ -6952,29 +6952,6 @@ function App() {
               colorScheme="rose"
             />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Mistakes Analysis</label>
-                <textarea
-                  value={newTrade.mistakesAnalysis || ''}
-                  onChange={(e) => setNewTrade(prev => ({ ...prev, mistakesAnalysis: e.target.value }))}
-                  placeholder="What went wrong?"
-                  rows={3}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 placeholder-zinc-600 resize-none"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Lessons Learned</label>
-                <textarea
-                  value={newTrade.lessonsLearned || ''}
-                  onChange={(e) => setNewTrade(prev => ({ ...prev, lessonsLearned: e.target.value }))}
-                  placeholder="What did you learn?"
-                  rows={3}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 placeholder-zinc-600 resize-none"
-                />
-              </div>
-            </div>
-
             <div>
               <label className="block text-xs text-zinc-400 mb-1.5">Chart Screenshots</label>
               <p className="text-xs text-zinc-500 mb-3">Attach images for each timeframe</p>
@@ -6997,6 +6974,29 @@ function App() {
                     />
                   );
                 })}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-zinc-400 mb-1.5">Mistakes Analysis</label>
+                <textarea
+                  value={newTrade.mistakesAnalysis || ''}
+                  onChange={(e) => setNewTrade(prev => ({ ...prev, mistakesAnalysis: e.target.value }))}
+                  placeholder="What went wrong?"
+                  rows={3}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 placeholder-zinc-600 resize-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-400 mb-1.5">Lessons Learned</label>
+                <textarea
+                  value={newTrade.lessonsLearned || ''}
+                  onChange={(e) => setNewTrade(prev => ({ ...prev, lessonsLearned: e.target.value }))}
+                  placeholder="What did you learn?"
+                  rows={3}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 placeholder-zinc-600 resize-none"
+                />
               </div>
             </div>
 
@@ -7375,29 +7375,6 @@ function App() {
               colorScheme="rose"
             />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Mistakes Analysis</label>
-                <textarea
-                  value={newTrade.mistakesAnalysis || ''}
-                  onChange={(e) => setNewTrade(prev => ({ ...prev, mistakesAnalysis: e.target.value }))}
-                  placeholder="What went wrong?"
-                  rows={3}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 placeholder-zinc-600 resize-none"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Lessons Learned</label>
-                <textarea
-                  value={newTrade.lessonsLearned || ''}
-                  onChange={(e) => setNewTrade(prev => ({ ...prev, lessonsLearned: e.target.value }))}
-                  placeholder="What did you learn?"
-                  rows={3}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 placeholder-zinc-600 resize-none"
-                />
-              </div>
-            </div>
-
             <div>
               <label className="block text-xs text-zinc-400 mb-1.5">Chart Screenshots</label>
               <p className="text-xs text-zinc-500 mb-3">Attach images for each timeframe</p>
@@ -7420,6 +7397,29 @@ function App() {
                     />
                   );
                 })}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-zinc-400 mb-1.5">Mistakes Analysis</label>
+                <textarea
+                  value={newTrade.mistakesAnalysis || ''}
+                  onChange={(e) => setNewTrade(prev => ({ ...prev, mistakesAnalysis: e.target.value }))}
+                  placeholder="What went wrong?"
+                  rows={3}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 placeholder-zinc-600 resize-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-400 mb-1.5">Lessons Learned</label>
+                <textarea
+                  value={newTrade.lessonsLearned || ''}
+                  onChange={(e) => setNewTrade(prev => ({ ...prev, lessonsLearned: e.target.value }))}
+                  placeholder="What did you learn?"
+                  rows={3}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 placeholder-zinc-600 resize-none"
+                />
               </div>
             </div>
 
