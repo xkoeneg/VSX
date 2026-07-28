@@ -4361,10 +4361,10 @@ function App() {
     const isWin = trade.profitLoss >= 0;
     const isBreakeven = Math.abs(trade.profitLoss) < 10;
     const outcomeCardClass = isBreakeven
-      ? 'bg-zinc-800/50 hover:bg-zinc-800/70'
+      ? 'bg-zinc-800/50 group-hover:bg-zinc-800/70'
       : isWin
-        ? 'bg-emerald-950/50 hover:bg-emerald-950/70'
-        : 'bg-rose-950/50 hover:bg-rose-950/70';
+        ? 'bg-emerald-950/50 group-hover:bg-emerald-950/70'
+        : 'bg-rose-950/50 group-hover:bg-rose-950/70';
     return (
       <div
         key={trade.id}
@@ -4400,12 +4400,19 @@ function App() {
               {trade.trackingNumber && <TrackingBadge value={trade.trackingNumber} size="sm" />}
             </div>
           </div>
-          <p className="text-xs text-zinc-500 truncate mt-0.5">{account?.name} · {formatDate(trade.date)}</p>
-          <div className="flex flex-col items-start gap-1.5 mt-2">
-            {trade.session && <SessionBadge value={trade.session} size="sm" />}
-            {trade.setupTypes.slice(0, 1).map(s => (
-              <span key={s} className="px-1.5 py-0.5 bg-zinc-800/80 border border-zinc-700/50 rounded text-[10px] text-zinc-300 whitespace-nowrap">{s}</span>
-            ))}
+          <p className="text-xs text-zinc-500 truncate mt-0.5">{account?.name}</p>
+          {trade.session && (
+            <div className="flex items-center mt-2">
+              <SessionBadge value={trade.session} size="sm" />
+            </div>
+          )}
+          <div className="flex items-center justify-between gap-2 mt-auto pt-2 min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+              {trade.setupTypes.slice(0, 1).map(s => (
+                <span key={s} className="px-1.5 py-0.5 bg-zinc-800/80 border border-zinc-700/50 rounded text-[10px] text-zinc-300 whitespace-nowrap">{s}</span>
+              ))}
+            </div>
+            <span className="text-[11px] text-zinc-400 font-medium whitespace-nowrap flex-shrink-0">{formatDate(trade.date)}</span>
           </div>
         </div>
       </div>
