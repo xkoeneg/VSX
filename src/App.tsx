@@ -4352,7 +4352,7 @@ function App() {
   //    filter bar (search / account / session / outcome / rules), a dense
   //    table of all trades, and pagination.
 
-  const recentTrades = filteredTrades.slice(0, 10);
+  const recentTrades = filteredTrades;
   const recentPreviewTrades = filteredTrades.slice(0, 10);
 
   const renderFeaturedCard = (trade: Trade) => {
@@ -4470,12 +4470,14 @@ function App() {
         </div>
       )}
 
-      {/* TOP SECTION — Featured Gallery Grid (max 6 cards) */}
+      {/* TOP SECTION — Featured Gallery Grid (scrollable frame, all trades) */}
       {recentTrades.length > 0 && (
         <div>
           <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Recent Trades</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-            {recentTrades.map(renderFeaturedCard)}
+          <div className="max-h-[540px] overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent pr-1">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              {recentTrades.map(renderFeaturedCard)}
+            </div>
           </div>
         </div>
       )}
