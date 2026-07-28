@@ -4582,7 +4582,7 @@ function App() {
         <div>
           {/* Frame — matches the Discipline Tracker card tone/border exactly */}
           <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl px-5 py-4">
-            <div className="max-h-[520px] overflow-y-auto overscroll-contain scroll-smooth pt-6 pr-2 pb-6 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
+            <div className="max-h-[520px] overflow-y-auto overscroll-contain scroll-smooth pt-6 pb-6 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                 {recentTrades.map(renderFeaturedCard)}
               </div>
