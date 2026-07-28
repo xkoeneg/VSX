@@ -4359,12 +4359,18 @@ function App() {
     const account = accounts.find(a => a.id === trade.accountId);
     const coverImage = trade.executionImages[0]?.url || trade.timeframes.flatMap(tf => tf.images)[0]?.url;
     const isWin = trade.profitLoss >= 0;
+    const isBreakeven = Math.abs(trade.profitLoss) < 10;
     const cardRR = trade.riskAmount > 0 ? trade.profitLoss / trade.riskAmount : null;
+    const outcomeCardClass = isBreakeven
+      ? 'bg-zinc-800/40 border-zinc-700/60 hover:bg-zinc-800/60'
+      : isWin
+        ? 'bg-emerald-950/40 border-emerald-900/50 hover:bg-emerald-950/60'
+        : 'bg-rose-950/40 border-rose-900/50 hover:bg-rose-950/60';
     return (
       <div
         key={trade.id}
         onClick={() => setShowTradeDetail(trade.id)}
-        className="group bg-black/30 border border-zinc-800/70 rounded-xl overflow-hidden cursor-pointer transition-all duration-200 hover:bg-black/20 hover:-translate-y-0.5 hover:border-zinc-700 min-w-0"
+        className={cn('group border rounded-xl overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-0.5 min-w-0', outcomeCardClass)}
       >
         <div className="aspect-video bg-zinc-800 flex items-center justify-center relative overflow-hidden">
           <span className="absolute top-2 left-2 z-10 flex items-center justify-center w-5 h-5 rounded bg-black/70 backdrop-blur-sm text-[10px] font-mono text-zinc-300">
