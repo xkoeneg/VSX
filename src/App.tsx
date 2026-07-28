@@ -4369,7 +4369,7 @@ function App() {
       <div
         key={trade.id}
         onClick={() => setShowTradeDetail(trade.id)}
-        className="group h-full flex flex-col border border-zinc-800/70 rounded-xl overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:border-zinc-700 min-w-0"
+        className="group h-full flex flex-col border border-zinc-800/70 rounded-xl overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:border-zinc-500/80 hover:shadow-[0_0_0_1px_rgba(161,161,170,0.15),0_8px_24px_-8px_rgba(0,0,0,0.5)] min-w-0"
       >
         <div className="aspect-video bg-zinc-800 flex items-center justify-center relative overflow-hidden flex-shrink-0">
           <span className="absolute top-2 left-2 z-10 flex items-center justify-center w-5 h-5 rounded bg-white text-[10px] font-mono font-bold text-black shadow-[0_1px_4px_rgba(0,0,0,0.6)] ring-1 ring-black/20">
