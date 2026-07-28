@@ -4492,7 +4492,7 @@ function App() {
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="min-w-0">
           <h2 className={cn("text-2xl font-bold truncate", tc.text)}>Trade History</h2>
-          <p className={cn("text-sm truncate", tc.textMuted)}>{filteredTrades.length} trades</p>
+          <p className="text-sm text-zinc-400 mt-1 font-normal truncate">Analyze your trade execution history</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
@@ -4546,6 +4546,26 @@ function App() {
           </button>
         </div>
       )}
+
+      {/* METRICS INDICATOR BAR — compact summary stats, directly above the gallery */}
+      <div className="flex items-center justify-between mb-4 bg-[#121318] border border-white/5 rounded-xl px-4 py-2.5 backdrop-blur-md">
+        <span className="text-xs font-medium tracking-wide">
+          <span className="text-zinc-500">TOTAL:</span>{' '}
+          <span className="text-zinc-300 font-semibold tabular-nums">{filteredTrades.length}</span>
+        </span>
+        <span className="text-xs font-medium tracking-wide">
+          <span className="text-zinc-500">WINS:</span>{' '}
+          <span className="text-emerald-400 font-semibold tabular-nums">{filteredTrades.filter(t => t.profitLoss > 0).length}</span>
+        </span>
+        <span className="text-xs font-medium tracking-wide">
+          <span className="text-zinc-500">LOSSES:</span>{' '}
+          <span className="text-rose-400 font-semibold tabular-nums">{filteredTrades.filter(t => t.profitLoss < 0).length}</span>
+        </span>
+        <span className="text-xs font-medium tracking-wide">
+          <span className="text-zinc-500">BE:</span>{' '}
+          <span className="text-amber-400 font-semibold tabular-nums">{filteredTrades.filter(t => t.profitLoss === 0).length}</span>
+        </span>
+      </div>
 
       {/* TOP SECTION — Featured Gallery Grid (scrollable frame, all trades) */}
       {recentTrades.length > 0 && (
