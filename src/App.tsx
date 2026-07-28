@@ -171,17 +171,49 @@ interface WikiEntry {
 interface SetupType {
   id: string;
   name: string;
+  color: TagColor;
 }
 
 interface Confluence {
   id: string;
   name: string;
+  color: TagColor;
 }
 
 interface Mistake {
   id: string;
   name: string;
+  color: TagColor;
 }
+
+// Notion-style tag color system — shared by Setup Types, Confluences, and
+// Mistakes Made tags. Each preset pairs a subtle tinted chip style (used for
+// selected badges/options) with a solid dot swatch (used in the color picker
+// and dropdown checkbox).
+type TagColor = 'gray' | 'blue' | 'purple' | 'green' | 'yellow' | 'orange' | 'red' | 'pink';
+
+interface TagColorStyle {
+  id: TagColor;
+  label: string;
+  swatch: string; // solid dot used in the color picker + active checkbox
+  chip: string; // subtle tinted badge used for selected chips/options
+}
+
+const TAG_COLOR_PALETTE: TagColorStyle[] = [
+  { id: 'gray', label: 'Gray', swatch: 'bg-zinc-400', chip: 'bg-zinc-700/40 text-zinc-300 border border-zinc-600/60' },
+  { id: 'blue', label: 'Blue', swatch: 'bg-blue-500', chip: 'bg-blue-950/40 text-blue-300 border border-blue-500/50' },
+  { id: 'purple', label: 'Purple', swatch: 'bg-purple-500', chip: 'bg-purple-950/40 text-purple-300 border border-purple-500/50' },
+  { id: 'green', label: 'Green', swatch: 'bg-emerald-500', chip: 'bg-emerald-950/40 text-emerald-300 border border-emerald-500/50' },
+  { id: 'yellow', label: 'Yellow', swatch: 'bg-yellow-500', chip: 'bg-yellow-950/40 text-yellow-300 border border-yellow-500/50' },
+  { id: 'orange', label: 'Orange', swatch: 'bg-orange-500', chip: 'bg-orange-950/40 text-orange-300 border border-orange-500/50' },
+  { id: 'red', label: 'Red', swatch: 'bg-red-500', chip: 'bg-red-950/40 text-red-300 border border-red-500/50' },
+  { id: 'pink', label: 'Pink', swatch: 'bg-pink-500', chip: 'bg-pink-950/40 text-pink-300 border border-pink-500/50' },
+];
+
+const DEFAULT_TAG_COLOR: TagColor = 'gray';
+
+const getTagColorStyle = (color?: string): TagColorStyle =>
+  TAG_COLOR_PALETTE.find(c => c.id === color) || TAG_COLOR_PALETTE[0];
 
 type SessionOption = 'NYC' | 'London' | 'Asia' | 'Pre-market Open';
 type ViewType = 'dashboard' | 'trades' | 'discipline' | 'lifeDiscipline' | 'playbook' | 'notices' | 'wiki' | 'calendar';
@@ -459,9 +491,10 @@ const normalizeWiki = (w: any): WikiEntry => ({
   category: normalizeStringField(w?.category),
 });
 
-const normalizeNamedItem = (item: any): { id: string; name: string } => ({
+const normalizeNamedItem = (item: any, defaultColor: TagColor = DEFAULT_TAG_COLOR): { id: string; name: string; color: TagColor } => ({
   id: typeof item?.id === 'string' ? item.id : generateId(),
   name: normalizeStringField(item?.name),
+  color: TAG_COLOR_PALETTE.some(c => c.id === item?.color) ? item.color : defaultColor,
 });
 
 interface StoredData {
@@ -492,9 +525,9 @@ const migrateStoredData = (raw: any): StoredData => {
     notices: Array.isArray(data.notices) ? data.notices.map(normalizeNotice) : [],
     noticeScenarios: Array.isArray(data.noticeScenarios) ? data.noticeScenarios.map(normalizeScenario) : [],
     wikiEntries: Array.isArray(data.wikiEntries) ? data.wikiEntries.map(normalizeWiki) : [],
-    setupTypes: Array.isArray(data.setupTypes) ? data.setupTypes.map(normalizeNamedItem) : [],
-    confluences: Array.isArray(data.confluences) ? data.confluences.map(normalizeNamedItem) : [],
-    mistakesList: Array.isArray(data.mistakesList) ? data.mistakesList.map(normalizeNamedItem) : [],
+    setupTypes: Array.isArray(data.setupTypes) ? data.setupTypes.map((item: any) => normalizeNamedItem(item, 'gray')) : [],
+    confluences: Array.isArray(data.confluences) ? data.confluences.map((item: any) => normalizeNamedItem(item, 'gray')) : [],
+    mistakesList: Array.isArray(data.mistakesList) ? data.mistakesList.map((item: any) => normalizeNamedItem(item, 'red')) : [],
     customSymbols: Array.isArray(data.customSymbols) ? data.customSymbols.filter((s: any) => typeof s === 'string') : [],
   };
 };
@@ -1341,16 +1374,80 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
   );
 };
 
+// Notion-style color palette popup — shown when the person clicks a tag's
+// color dot inside a TagSelectDropdown option row. Renders as a fixed-position
+// popover anchored to the dot so it always escapes the dropdown's scroll
+// clipping, and closes on outside click or Escape.
+interface TagColorPickerProps {
+  anchorRect: DOMRect;
+  currentColor: TagColor;
+  onSelect: (color: TagColor) => void;
+  onClose: () => void;
+}
+
+const TagColorPicker: React.FC<TagColorPickerProps> = ({ anchorRect, currentColor, onSelect, onClose }) => {
+  const popoverRef = useRef<HTMLDivElement>(null);
+  useClickOutside(popoverRef, onClose, true);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
+  // Keep the popover on-screen: prefer opening below the dot, but flip
+  // above if it would run off the bottom of the viewport.
+  const popoverWidth = 176;
+  const viewportW = typeof window !== 'undefined' ? window.innerWidth : 1024;
+  const viewportH = typeof window !== 'undefined' ? window.innerHeight : 768;
+  const estimatedHeight = 258;
+  const left = Math.min(anchorRect.left, viewportW - popoverWidth - 8);
+  const top = anchorRect.bottom + 6 + estimatedHeight > viewportH
+    ? Math.max(8, anchorRect.top - estimatedHeight - 6)
+    : anchorRect.bottom + 6;
+
+  return (
+    <div
+      ref={popoverRef}
+      onClick={(e) => e.stopPropagation()}
+      style={{ position: 'fixed', top, left, width: popoverWidth }}
+      className="z-[100] bg-zinc-800 border border-zinc-700 rounded-lg shadow-2xl p-1.5"
+    >
+      <p className="px-2 pt-1 pb-1.5 text-[10px] font-medium uppercase tracking-wide text-zinc-500">Tag Color</p>
+      <div className="flex flex-col gap-0.5">
+        {TAG_COLOR_PALETTE.map(c => (
+          <button
+            key={c.id}
+            type="button"
+            onClick={() => { onSelect(c.id); onClose(); }}
+            className={cn(
+              'w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-left transition-colors',
+              c.id === currentColor ? 'bg-zinc-700 text-white' : 'text-zinc-300 hover:bg-zinc-700/70'
+            )}
+          >
+            <span className={cn('w-3 h-3 rounded-full shrink-0', c.swatch)} />
+            <span className="flex-1">{c.label}</span>
+            {c.id === currentColor && <Check className="w-3.5 h-3.5 shrink-0" />}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 // Compact multi-select dropdown for tag fields — closed state looks like the
-// Symbol/Session inputs and shows selected tags as removable badges inline;
-// open state is a checklist with an "Add Custom Tag" row and delete-with-confirm.
+// Symbol/Session inputs and shows selected tags as removable badges inline,
+// each tinted with that tag's own saved color; open state is a checklist
+// with a per-option Notion-style color dot, an "Add Custom Tag" row, and
+// delete-with-confirm.
 interface TagSelectDropdownProps {
   label: string;
-  options: { id: string; name: string }[];
+  options: { id: string; name: string; color?: TagColor }[];
   selected: string[];
   onChange: (selected: string[]) => void;
   onAddNew?: (name: string) => void;
   onDeleteOption?: (id: string, name: string) => void;
+  onColorChange?: (id: string, color: TagColor) => void;
   placeholder?: string;
   colorScheme?: 'emerald' | 'rose';
 }
@@ -1362,6 +1459,7 @@ const TagSelectDropdown: React.FC<TagSelectDropdownProps> = ({
   onChange,
   onAddNew,
   onDeleteOption,
+  onColorChange,
   placeholder = 'Select...',
   colorScheme = 'emerald',
 }) => {
@@ -1369,6 +1467,7 @@ const TagSelectDropdown: React.FC<TagSelectDropdownProps> = ({
   const [isAdding, setIsAdding] = useState(false);
   const [newItem, setNewItem] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [colorPickerFor, setColorPickerFor] = useState<{ id: string; rect: DOMRect } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const addInputRef = useRef<HTMLInputElement>(null);
 
@@ -1377,6 +1476,14 @@ const TagSelectDropdown: React.FC<TagSelectDropdownProps> = ({
   useEffect(() => {
     if (isAdding) addInputRef.current?.focus();
   }, [isAdding]);
+
+  // Legacy/fallback color when an option has no saved color yet.
+  const schemeFallback: TagColor = colorScheme === 'rose' ? 'red' : 'green';
+
+  // Look up a tag's saved color by name (selected tags are stored as plain
+  // strings on the trade, so the color always comes from the live options list).
+  const colorForName = (name: string): TagColor =>
+    (options.find(o => o.name === name)?.color as TagColor) || schemeFallback;
 
   const toggleItem = (name: string) => {
     if (selected.includes(name)) {
@@ -1408,13 +1515,6 @@ const TagSelectDropdown: React.FC<TagSelectDropdownProps> = ({
     setDeleteConfirm(null);
   };
 
-  const badgeClasses = colorScheme === 'rose'
-    ? 'bg-rose-950/40 text-rose-300 border border-rose-500/50'
-    : 'bg-emerald-950/40 text-emerald-300 border border-emerald-500/50';
-  const checkboxActiveClasses = colorScheme === 'rose'
-    ? 'bg-rose-500 border-rose-500'
-    : 'bg-emerald-500 border-emerald-500';
-
   return (
     <div ref={containerRef} className="relative">
       <label className="block text-xs text-zinc-400 mb-1.5">{label}</label>
@@ -1430,7 +1530,7 @@ const TagSelectDropdown: React.FC<TagSelectDropdownProps> = ({
             {selected.map(name => (
               <span
                 key={name}
-                className={cn('inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-md text-xs font-medium', badgeClasses)}
+                className={cn('inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-md text-xs font-medium', getTagColorStyle(colorForName(name)).chip)}
               >
                 <span className="truncate max-w-[140px]">{name}</span>
                 <span
@@ -1456,6 +1556,7 @@ const TagSelectDropdown: React.FC<TagSelectDropdownProps> = ({
           )}
           {options.map(opt => {
             const isSelected = selected.includes(opt.name);
+            const optColorStyle = getTagColorStyle(opt.color || schemeFallback);
             return (
               <div
                 key={opt.id}
@@ -1465,29 +1566,55 @@ const TagSelectDropdown: React.FC<TagSelectDropdownProps> = ({
                 <div className="flex items-center gap-2 text-sm min-w-0">
                   <div className={cn(
                     'w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors',
-                    isSelected ? checkboxActiveClasses : 'border-zinc-600'
+                    isSelected ? cn(optColorStyle.swatch, 'border-transparent') : 'border-zinc-600'
                   )}>
                     {isSelected && <Check className="w-3 h-3 text-white" />}
                   </div>
                   <span className={cn('truncate', isSelected ? 'text-white' : 'text-zinc-300')}>{opt.name}</span>
                 </div>
-                {onDeleteOption && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setDeleteConfirm({ id: opt.id, name: opt.name });
-                    }}
-                    title={`Delete "${opt.name}"`}
-                    className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 rounded hover:bg-zinc-600 text-zinc-500 hover:text-white transition-all shrink-0"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
+                <div className="flex items-center gap-0.5 shrink-0">
+                  {onColorChange && (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setColorPickerFor(cur => (cur?.id === opt.id ? null : { id: opt.id, rect }));
+                      }}
+                      title="Change tag color"
+                      className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 rounded hover:bg-zinc-600 transition-all shrink-0 flex items-center justify-center"
+                    >
+                      <span className={cn('w-3 h-3 rounded-full block', optColorStyle.swatch)} />
+                    </button>
+                  )}
+                  {onDeleteOption && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDeleteConfirm({ id: opt.id, name: opt.name });
+                      }}
+                      title={`Delete "${opt.name}"`}
+                      className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 rounded hover:bg-zinc-600 text-zinc-500 hover:text-white transition-all shrink-0"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}
+          {colorPickerFor && onColorChange && (
+            <TagColorPicker
+              anchorRect={colorPickerFor.rect}
+              currentColor={(options.find(o => o.id === colorPickerFor.id)?.color as TagColor) || DEFAULT_TAG_COLOR}
+              onSelect={(color) => onColorChange(colorPickerFor.id, color)}
+              onClose={() => setColorPickerFor(null)}
+            />
+          )}
 
           {onAddNew && (
             <div className="border-t border-zinc-700">
@@ -3180,6 +3307,21 @@ function App() {
     setMistakesList(prev => prev.filter(m => m.id !== id));
     setNewTrade(prev => ({ ...prev, mistakes: (prev.mistakes || []).filter(m => m !== name) }));
     setEditingTrade(prev => prev ? { ...prev, mistakes: prev.mistakes.filter(m => m !== name) } : prev);
+  };
+
+  // Tag color handlers — update a tag's saved color attribute; every place
+  // that renders the tag (badges, chips, option rows) looks the color up
+  // from setupTypes/confluences/mistakesList, so this updates it everywhere.
+  const handleChangeSetupTypeColor = (id: string, color: TagColor) => {
+    setSetupTypes(prev => prev.map(s => (s.id === id ? { ...s, color } : s)));
+  };
+
+  const handleChangeConfluenceColor = (id: string, color: TagColor) => {
+    setConfluences(prev => prev.map(c => (c.id === id ? { ...c, color } : c)));
+  };
+
+  const handleChangeMistakeColor = (id: string, color: TagColor) => {
+    setMistakesList(prev => prev.map(m => (m.id === id ? { ...m, color } : m)));
   };
 
   // File handlers
@@ -5794,7 +5936,7 @@ function App() {
                 options={mistakesList}
                 selected={disciplineReviewDraft.mistakes}
                 onChange={(selected) => setDisciplineReviewDraft(prev => ({ ...prev, mistakes: selected }))}
-                onAddNew={(name) => setMistakesList(prev => [...prev, { id: generateId(), name }])}
+                onAddNew={(name) => setMistakesList(prev => [...prev, { id: generateId(), name, color: 'red' }])}
                 onDeleteOption={handleDeleteMistakeType}
                 placeholder="No mistakes logged"
                 colorScheme="red"
@@ -6773,8 +6915,9 @@ function App() {
                 options={setupTypes}
                 selected={newTrade.setupTypes || []}
                 onChange={(selected) => setNewTrade(prev => ({ ...prev, setupTypes: selected }))}
-                onAddNew={(name) => setSetupTypes(prev => [...prev, { id: generateId(), name }])}
+                onAddNew={(name) => setSetupTypes(prev => [...prev, { id: generateId(), name, color: 'gray' }])}
                 onDeleteOption={handleDeleteSetupType}
+                onColorChange={handleChangeSetupTypeColor}
                 placeholder="Select Setup Types..."
                 colorScheme="emerald"
               />
@@ -6783,8 +6926,9 @@ function App() {
                 options={confluences}
                 selected={newTrade.confluences || []}
                 onChange={(selected) => setNewTrade(prev => ({ ...prev, confluences: selected }))}
-                onAddNew={(name) => setConfluences(prev => [...prev, { id: generateId(), name }])}
+                onAddNew={(name) => setConfluences(prev => [...prev, { id: generateId(), name, color: 'gray' }])}
                 onDeleteOption={handleDeleteConfluence}
+                onColorChange={handleChangeConfluenceColor}
                 placeholder="Select Confluences..."
                 colorScheme="emerald"
               />
@@ -6795,8 +6939,9 @@ function App() {
               options={mistakesList}
               selected={newTrade.mistakes || []}
               onChange={(selected) => setNewTrade(prev => ({ ...prev, mistakes: selected }))}
-              onAddNew={(name) => setMistakesList(prev => [...prev, { id: generateId(), name }])}
+              onAddNew={(name) => setMistakesList(prev => [...prev, { id: generateId(), name, color: 'red' }])}
               onDeleteOption={handleDeleteMistakeType}
+              onColorChange={handleChangeMistakeColor}
               placeholder="Select Mistakes Made..."
               colorScheme="rose"
             />
@@ -7179,7 +7324,7 @@ function App() {
                 options={setupTypes}
                 selected={newTrade.setupTypes || []}
                 onChange={(selected) => setNewTrade(prev => ({ ...prev, setupTypes: selected }))}
-                onAddNew={(name) => setSetupTypes(prev => [...prev, { id: generateId(), name }])}
+                onAddNew={(name) => setSetupTypes(prev => [...prev, { id: generateId(), name, color: 'gray' }])}
                 onDeleteOption={handleDeleteSetupType}
                 placeholder="Select setup types..."
               />
@@ -7190,7 +7335,7 @@ function App() {
               options={confluences}
               selected={newTrade.confluences || []}
               onChange={(selected) => setNewTrade(prev => ({ ...prev, confluences: selected }))}
-              onAddNew={(name) => setConfluences(prev => [...prev, { id: generateId(), name }])}
+              onAddNew={(name) => setConfluences(prev => [...prev, { id: generateId(), name, color: 'gray' }])}
               onDeleteOption={handleDeleteConfluence}
               placeholder="Select confluences..."
             />
@@ -7200,7 +7345,7 @@ function App() {
               options={mistakesList}
               selected={newTrade.mistakes || []}
               onChange={(selected) => setNewTrade(prev => ({ ...prev, mistakes: selected }))}
-              onAddNew={(name) => setMistakesList(prev => [...prev, { id: generateId(), name }])}
+              onAddNew={(name) => setMistakesList(prev => [...prev, { id: generateId(), name, color: 'red' }])}
               onDeleteOption={handleDeleteMistakeType}
               placeholder="Select mistakes..."
               colorScheme="red"
