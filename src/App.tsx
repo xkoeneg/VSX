@@ -2063,6 +2063,7 @@ function App() {
 
   const [showTradeTimeFields, setShowTradeTimeFields] = useState(false);
   const [showTradePriceLevels, setShowTradePriceLevels] = useState(false);
+  const [rulesAdherenceError, setRulesAdherenceError] = useState(false);
 
   // Dropdown state
   const [showAccountTypeDropdown, setShowAccountTypeDropdown] = useState(false);
@@ -2132,7 +2133,7 @@ function App() {
     setupTypes: [],
     confluences: [],
     mistakes: [],
-    rulesFollowed: 'followed',
+    rulesFollowed: undefined,
     timeframes: initializeEmptyTimeframes(),
     executionImages: [],
     riskAmount: 0,
@@ -2569,6 +2570,11 @@ function App() {
 
   const handleAddTrade = () => {
     if (!newTrade.accountId || !newTrade.symbol) return;
+    if (newTrade.rulesFollowed !== 'followed' && newTrade.rulesFollowed !== 'broken') {
+      setRulesAdherenceError(true);
+      return;
+    }
+    setRulesAdherenceError(false);
     const chosenDate = newTrade.date || new Date().toISOString().split('T')[0];
     const nextTradeNumber = trades.length > 0
       ? Math.max(...trades.map(t => t.absoluteTradeNumber || 0)) + 1
@@ -2767,7 +2773,7 @@ function App() {
       setupTypes: [],
       confluences: [],
       mistakes: [],
-      rulesFollowed: 'followed',
+      rulesFollowed: undefined,
       timeframes: initializeEmptyTimeframes(),
       executionImages: [],
       riskAmount: 0,
@@ -2781,6 +2787,7 @@ function App() {
     setPriceInputs({ entryPrice: '', stopLoss: '', takeProfit: '', profitLoss: '', riskAmount: '' });
     setShowTradeTimeFields(false);
     setShowTradePriceLevels(false);
+    setRulesAdherenceError(false);
   };
 
   const handleSaveRule = () => {
@@ -6440,27 +6447,38 @@ function App() {
               </div>
             )}
 
-            {/* Row 4: Rules Adherence - dedicated full-width row */}
+            {/* Row 4: Rules Adherence - dedicated full-width row, required field */}
             <div>
               <label className="block text-xs text-zinc-400 mb-1.5">Rules Adherence</label>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => setNewTrade(prev => ({ ...prev, rulesFollowed: 'followed' }))}
+                  onClick={() => { setNewTrade(prev => ({ ...prev, rulesFollowed: 'followed' })); setRulesAdherenceError(false); }}
                   className={cn('flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm font-medium border transition-colors',
-                    newTrade.rulesFollowed === 'followed' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:bg-zinc-800 hover:border-zinc-600')}
+                    newTrade.rulesFollowed === 'followed'
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                      : rulesAdherenceError
+                        ? 'bg-zinc-800/60 text-zinc-400 border-red-500/50 hover:bg-zinc-800 hover:border-red-500/70'
+                        : 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:bg-zinc-800 hover:border-zinc-600')}
                 >
                   <Check className="w-3.5 h-3.5" /> Followed
                 </button>
                 <button
                   type="button"
-                  onClick={() => setNewTrade(prev => ({ ...prev, rulesFollowed: 'broken' }))}
+                  onClick={() => { setNewTrade(prev => ({ ...prev, rulesFollowed: 'broken' })); setRulesAdherenceError(false); }}
                   className={cn('flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm font-medium border transition-colors',
-                    newTrade.rulesFollowed === 'broken' ? 'bg-red-500/10 text-red-400 border-red-500/30' : 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:bg-zinc-800 hover:border-zinc-600')}
+                    newTrade.rulesFollowed === 'broken'
+                      ? 'bg-red-500/10 text-red-400 border-red-500/30'
+                      : rulesAdherenceError
+                        ? 'bg-zinc-800/60 text-zinc-400 border-red-500/50 hover:bg-zinc-800 hover:border-red-500/70'
+                        : 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:bg-zinc-800 hover:border-zinc-600')}
                 >
                   <X className="w-3.5 h-3.5" /> Broken
                 </button>
               </div>
+              {rulesAdherenceError && (
+                <p className="text-xs text-red-400 mt-1.5">Please select whether rules were Followed or Broken</p>
+              )}
             </div>
 
             {/* Tag groups: Setup Types + Confluences side by side, Mistakes Made full width below */}
