@@ -1148,7 +1148,7 @@ interface MultiSelectDropdownProps {
   onAddNew?: (name: string) => void;
   onDeleteOption?: (id: string, name: string) => void;
   placeholder?: string;
-  colorScheme?: 'default' | 'red';
+  colorScheme?: 'default' | 'red' | 'emerald' | 'rose';
   layout?: 'flex' | 'grid';
 }
 
@@ -1165,6 +1165,7 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
 }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [newItem, setNewItem] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const addInputRef = useRef<HTMLInputElement>(null);
   const isGrid = layout === 'grid';
 
@@ -1190,12 +1191,25 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
     }
   };
 
+  const confirmDelete = () => {
+    if (deleteConfirm && onDeleteOption) {
+      onDeleteOption(deleteConfirm.id, deleteConfirm.name);
+    }
+    setDeleteConfirm(null);
+  };
+
   const activeClasses = colorScheme === 'red'
     ? cn('bg-red-500 text-white border-red-500', isGrid && 'ring-1 ring-red-400/50 shadow-[0_0_10px_-2px_rgba(239,68,68,0.6)]')
-    : cn('bg-white text-zinc-900 border-white', isGrid && 'ring-1 ring-emerald-400/50 shadow-[0_0_10px_-2px_rgba(16,185,129,0.5)]');
+    : colorScheme === 'emerald'
+      ? 'bg-emerald-950/40 text-emerald-300 border border-emerald-500/80'
+      : colorScheme === 'rose'
+        ? 'bg-rose-950/40 text-rose-300 border border-rose-500/80'
+        : cn('bg-white text-zinc-900 border-white', isGrid && 'ring-1 ring-emerald-400/50 shadow-[0_0_10px_-2px_rgba(16,185,129,0.5)]');
   const inactiveClasses = colorScheme === 'red'
     ? 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:border-red-500/50 hover:text-red-300 hover:bg-zinc-800'
-    : 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:border-zinc-500 hover:text-zinc-200 hover:bg-zinc-800';
+    : colorScheme === 'emerald' || colorScheme === 'rose'
+      ? 'bg-[#1a1b23] text-zinc-400 border-[#232429] hover:border-gray-600 hover:text-zinc-200'
+      : 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:border-zinc-500 hover:text-zinc-200 hover:bg-zinc-800';
 
   return (
     <div>
@@ -1219,7 +1233,7 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
                 )}
               >
                 {isSelected && <Check className="w-3 h-3 shrink-0" />}
-                <span className="truncate max-w-[140px]">{opt.name}</span>
+                <span>{opt.name}</span>
               </button>
               {onDeleteOption && (
                 <button
@@ -1227,7 +1241,7 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    onDeleteOption(opt.id, opt.name);
+                    setDeleteConfirm({ id: opt.id, name: opt.name });
                   }}
                   title={`Delete "${opt.name}"`}
                   className={cn(
@@ -1288,6 +1302,41 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
           )
         )}
       </div>
+
+      {deleteConfirm && (
+        <ModalBackdrop
+          onClose={() => setDeleteConfirm(null)}
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[80] flex items-center justify-center p-4"
+        >
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-red-500/15 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-5 h-5 text-red-400" />
+              </div>
+              <h3 className="text-lg font-bold text-white">Delete Tag?</h3>
+            </div>
+            <p className="text-sm text-zinc-400 mb-6">
+              Are you sure you want to remove "{deleteConfirm.name}" from your default list? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirm(null)}
+                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-red-500/90 hover:bg-red-500 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </ModalBackdrop>
+      )}
     </div>
   );
 };
@@ -6504,7 +6553,7 @@ function App() {
                   onAddNew={(name) => setSetupTypes(prev => [...prev, { id: generateId(), name }])}
                   onDeleteOption={handleDeleteSetupType}
                   placeholder="Select setup types..."
-                  layout="grid"
+                  colorScheme="emerald"
                 />
               </div>
               <div className="bg-[#16171d] border border-[#232429] p-4 rounded-xl">
@@ -6516,7 +6565,7 @@ function App() {
                   onAddNew={(name) => setConfluences(prev => [...prev, { id: generateId(), name }])}
                   onDeleteOption={handleDeleteConfluence}
                   placeholder="Select confluences..."
-                  layout="grid"
+                  colorScheme="emerald"
                 />
               </div>
             </div>
@@ -6530,8 +6579,7 @@ function App() {
                 onAddNew={(name) => setMistakesList(prev => [...prev, { id: generateId(), name }])}
                 onDeleteOption={handleDeleteMistakeType}
                 placeholder="Select mistakes..."
-                colorScheme="red"
-                layout="grid"
+                colorScheme="rose"
               />
             </div>
 
