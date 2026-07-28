@@ -4477,7 +4477,7 @@ function App() {
           {/* Outer wrapper — provides positioning context for the ambient glow behind the frame */}
           <div className="relative">
             {/* Ambient backlight glow — soft colored aura behind the frame */}
-            <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500/20 via-indigo-500/20 to-cyan-500/20 rounded-3xl blur-2xl opacity-40 pointer-events-none -z-10" />
+            <div className="absolute -inset-4 z-0 bg-gradient-to-r from-emerald-500/40 via-indigo-500/40 to-cyan-500/40 rounded-3xl blur-3xl opacity-70 pointer-events-none" />
             {/* Inner content — dedicated "Gallery Card Frame" dark base, sits cleanly on top of the glow */}
             <div className="relative z-10 bg-[#0f1014] border border-white/10 rounded-2xl p-4 shadow-xl">
               <div className="max-h-[520px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
