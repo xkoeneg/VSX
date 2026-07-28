@@ -4390,26 +4390,22 @@ function App() {
             </span>
           </div>
         </div>
-        <div className={cn('relative p-3 min-w-0 flex-1 flex flex-col justify-between gap-2 transition-colors duration-200', outcomeCardClass)}>
-          {trade.trackingNumber && (
-            <span className="absolute top-2 right-2 z-10">
-              <TrackingBadge value={trade.trackingNumber} size="sm" />
-            </span>
-          )}
-          <div className="min-w-0">
-            <h4 className="font-semibold text-white truncate tracking-tight text-sm">{trade.symbol}</h4>
-            <p className="text-xs text-zinc-500 truncate mt-0.5">{account?.name} · {formatDate(trade.date)}</p>
-            <div className="flex flex-col items-start gap-1.5 mt-2">
-              {trade.session && <SessionBadge value={trade.session} size="sm" />}
-              {trade.setupTypes.slice(0, 1).map(s => (
-                <span key={s} className="px-1.5 py-0.5 bg-zinc-800/80 border border-zinc-700/50 rounded text-[10px] text-zinc-300 whitespace-nowrap">{s}</span>
-              ))}
+        <div className={cn('p-3 min-w-0 flex-1 flex flex-col transition-colors duration-200', outcomeCardClass)}>
+          <div className="flex items-start justify-between gap-2">
+            <h4 className="font-semibold text-white truncate tracking-tight text-sm min-w-0">{trade.symbol}</h4>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <span className={cn('text-sm font-mono font-bold tracking-tight whitespace-nowrap', isWin ? 'text-emerald-400' : 'text-rose-500')}>
+                {formatCurrency(trade.profitLoss, privacyMode)}
+              </span>
+              {trade.trackingNumber && <TrackingBadge value={trade.trackingNumber} size="sm" />}
             </div>
           </div>
-          <div className="flex justify-end">
-            <span className={cn('text-sm font-mono font-bold tracking-tight whitespace-nowrap flex-shrink-0', isWin ? 'text-emerald-400' : 'text-rose-500')}>
-              {formatCurrency(trade.profitLoss, privacyMode)}
-            </span>
+          <p className="text-xs text-zinc-500 truncate mt-0.5">{account?.name} · {formatDate(trade.date)}</p>
+          <div className="flex flex-col items-start gap-1.5 mt-2">
+            {trade.session && <SessionBadge value={trade.session} size="sm" />}
+            {trade.setupTypes.slice(0, 1).map(s => (
+              <span key={s} className="px-1.5 py-0.5 bg-zinc-800/80 border border-zinc-700/50 rounded text-[10px] text-zinc-300 whitespace-nowrap">{s}</span>
+            ))}
           </div>
         </div>
       </div>
