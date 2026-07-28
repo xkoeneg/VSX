@@ -1883,9 +1883,9 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
 
   return (
     <div className="bg-zinc-800/50 rounded-xl p-3 border border-zinc-700/50">
-      <div className="flex items-center justify-between gap-1 overflow-hidden mb-2">
-        <h4 title={timeframe} className={cn('text-sm font-semibold truncate', isExecution ? 'text-white' : 'text-zinc-300')}>
-          {isExecution ? 'Exec / Result' : timeframe}
+      <div className="flex items-center justify-between gap-1 mb-2">
+        <h4 title={timeframe} className={cn('text-sm font-semibold truncate min-w-0', isExecution ? 'text-white' : 'text-zinc-300')}>
+          {timeframe}
         </h4>
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-xs text-zinc-500 shrink-0">{images.length}</span>
@@ -6970,7 +6970,7 @@ function App() {
             <div>
               <label className="block text-xs text-zinc-400 mb-1.5">Chart Screenshots</label>
               <p className="text-xs text-zinc-500 mb-3">Attach images for each timeframe</p>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 {TIMEFRAMES.map(tf => {
                   const tfData = (newTrade.timeframes || []).find(t => t.name === tf) || { name: tf, images: [], notes: '' };
                   return (
@@ -7393,7 +7393,7 @@ function App() {
             <div>
               <label className="block text-xs text-zinc-400 mb-1.5">Chart Screenshots</label>
               <p className="text-xs text-zinc-500 mb-3">Attach images for each timeframe</p>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 {TIMEFRAMES.map(tf => {
                   const tfData = (newTrade.timeframes || []).find(t => t.name === tf) || { name: tf, images: [], notes: '' };
                   return (
