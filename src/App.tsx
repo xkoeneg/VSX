@@ -1149,6 +1149,7 @@ interface MultiSelectDropdownProps {
   onDeleteOption?: (id: string, name: string) => void;
   placeholder?: string;
   colorScheme?: 'default' | 'red';
+  layout?: 'flex' | 'grid';
 }
 
 const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
@@ -1160,10 +1161,12 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
   onDeleteOption,
   placeholder = 'None yet',
   colorScheme = 'default',
+  layout = 'flex',
 }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [newItem, setNewItem] = useState('');
   const addInputRef = useRef<HTMLInputElement>(null);
+  const isGrid = layout === 'grid';
 
   useEffect(() => {
     if (isAdding) addInputRef.current?.focus();
@@ -1188,8 +1191,8 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
   };
 
   const activeClasses = colorScheme === 'red'
-    ? 'bg-red-500 text-white border-red-500'
-    : 'bg-white text-zinc-900 border-white';
+    ? cn('bg-red-500 text-white border-red-500', isGrid && 'ring-1 ring-red-400/50 shadow-[0_0_10px_-2px_rgba(239,68,68,0.6)]')
+    : cn('bg-white text-zinc-900 border-white', isGrid && 'ring-1 ring-emerald-400/50 shadow-[0_0_10px_-2px_rgba(16,185,129,0.5)]');
   const inactiveClasses = colorScheme === 'red'
     ? 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:border-red-500/50 hover:text-red-300 hover:bg-zinc-800'
     : 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:border-zinc-500 hover:text-zinc-200 hover:bg-zinc-800';
@@ -1197,24 +1200,25 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
   return (
     <div>
       <label className="block text-xs text-zinc-400 mb-2">{label}</label>
-      <div className="flex flex-wrap gap-2">
+      <div className={isGrid ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2' : 'flex flex-wrap gap-2'}>
         {options.length === 0 && !onAddNew && (
           <span className="text-xs text-zinc-600 py-1.5">{placeholder}</span>
         )}
         {options.map(opt => {
           const isSelected = selected.includes(opt.name);
           return (
-            <div key={opt.id} className="group relative">
+            <div key={opt.id} className={cn('group relative', isGrid && 'w-full')}>
               <button
                 type="button"
                 onClick={() => toggleItem(opt.name)}
                 className={cn(
-                  'px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150 flex items-center gap-1',
+                  'text-xs font-medium border transition-all duration-150 flex items-center gap-1',
+                  isGrid ? 'w-full h-9 px-3 rounded-lg justify-center' : 'px-3 py-1.5 rounded-full',
                   onDeleteOption && 'pr-6',
                   isSelected ? activeClasses : inactiveClasses
                 )}
               >
-                {isSelected && <Check className="w-3 h-3" />}
+                {isSelected && <Check className="w-3 h-3 shrink-0" />}
                 <span className="truncate max-w-[140px]">{opt.name}</span>
               </button>
               {onDeleteOption && (
@@ -1241,7 +1245,7 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
 
         {onAddNew && (
           isAdding ? (
-            <div className="flex items-center gap-1">
+            <div className={cn('flex items-center gap-1', isGrid && 'col-span-full sm:col-span-1')}>
               <input
                 ref={addInputRef}
                 type="text"
@@ -1253,13 +1257,16 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
                 }}
                 onBlur={() => { if (!newItem.trim()) setIsAdding(false); }}
                 placeholder="New..."
-                className="w-24 bg-zinc-800 border border-zinc-600 rounded-full px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
+                className={cn(
+                  'bg-zinc-800 border border-zinc-600 px-3 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500',
+                  isGrid ? 'flex-1 h-9 rounded-lg' : 'w-24 py-1.5 rounded-full'
+                )}
               />
               <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={handleAddNew}
-                className="p-1.5 bg-zinc-700 hover:bg-zinc-600 rounded-full text-zinc-300 hover:text-white transition-colors"
+                className={cn('bg-zinc-700 hover:bg-zinc-600 text-zinc-300 hover:text-white transition-colors', isGrid ? 'h-9 w-9 rounded-lg flex items-center justify-center shrink-0' : 'p-1.5 rounded-full')}
               >
                 <Check className="w-3.5 h-3.5" />
               </button>
@@ -1268,7 +1275,12 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
             <button
               type="button"
               onClick={() => setIsAdding(true)}
-              className="px-3 py-1.5 rounded-full text-xs font-medium border border-dashed border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300 transition-all duration-150 flex items-center gap-1"
+              className={cn(
+                'text-xs font-medium border border-dashed transition-all duration-150 flex items-center gap-1',
+                isGrid
+                  ? 'w-full h-9 px-3 rounded-lg justify-center border-gray-600 text-gray-400 hover:border-gray-400 hover:text-gray-300'
+                  : 'px-3 py-1.5 rounded-full border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300'
+              )}
             >
               <Plus className="w-3 h-3" />
               Add
@@ -6483,7 +6495,7 @@ function App() {
 
             {/* Tag groups: Setup Types + Confluences side by side, Mistakes Made full width below */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="bg-[#1a1b23] border border-[#232429] p-3 rounded-lg">
+              <div className="bg-[#16171d] border border-[#232429] p-4 rounded-xl">
                 <MultiSelectDropdown
                   label="Setup Types"
                   options={setupTypes}
@@ -6492,9 +6504,10 @@ function App() {
                   onAddNew={(name) => setSetupTypes(prev => [...prev, { id: generateId(), name }])}
                   onDeleteOption={handleDeleteSetupType}
                   placeholder="Select setup types..."
+                  layout="grid"
                 />
               </div>
-              <div className="bg-[#1a1b23] border border-[#232429] p-3 rounded-lg">
+              <div className="bg-[#16171d] border border-[#232429] p-4 rounded-xl">
                 <MultiSelectDropdown
                   label="Confluences"
                   options={confluences}
@@ -6503,11 +6516,12 @@ function App() {
                   onAddNew={(name) => setConfluences(prev => [...prev, { id: generateId(), name }])}
                   onDeleteOption={handleDeleteConfluence}
                   placeholder="Select confluences..."
+                  layout="grid"
                 />
               </div>
             </div>
 
-            <div className="bg-[#1a1b23] border border-[#232429] p-3 rounded-lg">
+            <div className="bg-[#16171d] border border-[#232429] p-4 rounded-xl">
               <MultiSelectDropdown
                 label="Mistakes Made"
                 options={mistakesList}
@@ -6517,6 +6531,7 @@ function App() {
                 onDeleteOption={handleDeleteMistakeType}
                 placeholder="Select mistakes..."
                 colorScheme="red"
+                layout="grid"
               />
             </div>
 
