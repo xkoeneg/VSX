@@ -1197,7 +1197,7 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
   return (
     <div>
       <label className="block text-xs text-zinc-400 mb-2">{label}</label>
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-2">
         {options.length === 0 && !onAddNew && (
           <span className="text-xs text-zinc-600 py-1.5">{placeholder}</span>
         )}
@@ -6440,60 +6440,67 @@ function App() {
               </div>
             )}
 
-            {/* Row 4: Rules Adherence + Setup Types */}
-            <div className="grid grid-cols-2 gap-4 items-start">
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Rules Adherence</label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setNewTrade(prev => ({ ...prev, rulesFollowed: 'followed' }))}
-                    className={cn('flex-1 flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm transition-colors',
-                      newTrade.rulesFollowed === 'followed' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700')}
-                  >
-                    <Check className="w-3.5 h-3.5" /> Followed
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNewTrade(prev => ({ ...prev, rulesFollowed: 'broken' }))}
-                    className={cn('flex-1 flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm transition-colors',
-                      newTrade.rulesFollowed === 'broken' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700')}
-                  >
-                    <X className="w-3.5 h-3.5" /> Broken
-                  </button>
-                </div>
+            {/* Row 4: Rules Adherence - dedicated full-width row */}
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1.5">Rules Adherence</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setNewTrade(prev => ({ ...prev, rulesFollowed: 'followed' }))}
+                  className={cn('flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm font-medium border transition-colors',
+                    newTrade.rulesFollowed === 'followed' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:bg-zinc-800 hover:border-zinc-600')}
+                >
+                  <Check className="w-3.5 h-3.5" /> Followed
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewTrade(prev => ({ ...prev, rulesFollowed: 'broken' }))}
+                  className={cn('flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm font-medium border transition-colors',
+                    newTrade.rulesFollowed === 'broken' ? 'bg-red-500/10 text-red-400 border-red-500/30' : 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:bg-zinc-800 hover:border-zinc-600')}
+                >
+                  <X className="w-3.5 h-3.5" /> Broken
+                </button>
               </div>
-              <MultiSelectDropdown
-                label="Setup Types"
-                options={setupTypes}
-                selected={newTrade.setupTypes || []}
-                onChange={(selected) => setNewTrade(prev => ({ ...prev, setupTypes: selected }))}
-                onAddNew={(name) => setSetupTypes(prev => [...prev, { id: generateId(), name }])}
-                onDeleteOption={handleDeleteSetupType}
-                placeholder="Select setup types..."
-              />
             </div>
 
-            <MultiSelectDropdown
-              label="Confluences"
-              options={confluences}
-              selected={newTrade.confluences || []}
-              onChange={(selected) => setNewTrade(prev => ({ ...prev, confluences: selected }))}
-              onAddNew={(name) => setConfluences(prev => [...prev, { id: generateId(), name }])}
-              onDeleteOption={handleDeleteConfluence}
-              placeholder="Select confluences..."
-            />
+            {/* Tag groups: Setup Types + Confluences side by side, Mistakes Made full width below */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="bg-[#1a1b23] border border-[#232429] p-3 rounded-lg">
+                <MultiSelectDropdown
+                  label="Setup Types"
+                  options={setupTypes}
+                  selected={newTrade.setupTypes || []}
+                  onChange={(selected) => setNewTrade(prev => ({ ...prev, setupTypes: selected }))}
+                  onAddNew={(name) => setSetupTypes(prev => [...prev, { id: generateId(), name }])}
+                  onDeleteOption={handleDeleteSetupType}
+                  placeholder="Select setup types..."
+                />
+              </div>
+              <div className="bg-[#1a1b23] border border-[#232429] p-3 rounded-lg">
+                <MultiSelectDropdown
+                  label="Confluences"
+                  options={confluences}
+                  selected={newTrade.confluences || []}
+                  onChange={(selected) => setNewTrade(prev => ({ ...prev, confluences: selected }))}
+                  onAddNew={(name) => setConfluences(prev => [...prev, { id: generateId(), name }])}
+                  onDeleteOption={handleDeleteConfluence}
+                  placeholder="Select confluences..."
+                />
+              </div>
+            </div>
 
-            <MultiSelectDropdown
-              label="Mistakes Made"
-              options={mistakesList}
-              selected={newTrade.mistakes || []}
-              onChange={(selected) => setNewTrade(prev => ({ ...prev, mistakes: selected }))}
-              onAddNew={(name) => setMistakesList(prev => [...prev, { id: generateId(), name }])}
-              onDeleteOption={handleDeleteMistakeType}
-              placeholder="Select mistakes..."
-              colorScheme="red"
-            />
+            <div className="bg-[#1a1b23] border border-[#232429] p-3 rounded-lg">
+              <MultiSelectDropdown
+                label="Mistakes Made"
+                options={mistakesList}
+                selected={newTrade.mistakes || []}
+                onChange={(selected) => setNewTrade(prev => ({ ...prev, mistakes: selected }))}
+                onAddNew={(name) => setMistakesList(prev => [...prev, { id: generateId(), name }])}
+                onDeleteOption={handleDeleteMistakeType}
+                placeholder="Select mistakes..."
+                colorScheme="red"
+              />
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
