@@ -4388,6 +4388,13 @@ function App() {
       : isWin
         ? 'bg-emerald-950/50 group-hover:bg-emerald-950/70'
         : 'bg-rose-950/50 group-hover:bg-rose-950/70';
+    // Dynamic outcome border — subtle tinted ring that strengthens on hover so
+    // every card pops against the dark page background, colored by result.
+    const outcomeBorderClass = isBreakeven
+      ? 'border-zinc-700 hover:border-zinc-500'
+      : isWin
+        ? 'border-emerald-500/25 hover:border-emerald-500/50'
+        : 'border-rose-500/25 hover:border-rose-500/50';
 
     // CRITICAL: while in select mode, a click anywhere on the card (including the
     // checkbox overlay) must ONLY toggle selection — it must never open the Trade
@@ -4411,12 +4418,12 @@ function App() {
         key={trade.id}
         onClick={handleCardClick}
         className={cn(
-          "group h-full flex flex-col border rounded-xl overflow-hidden cursor-pointer transition-all duration-200 min-w-0",
+          "group h-full flex flex-col border rounded-xl overflow-hidden cursor-pointer bg-[#16181e] transition-all duration-200 ease-out min-w-0",
           tradeSelectMode
             ? isSelected
               ? 'border-indigo-400/80 ring-2 ring-indigo-400/40'
               : 'border-zinc-800/70 hover:border-zinc-600'
-            : 'border-zinc-800/70 hover:-translate-y-0.5 hover:border-zinc-500/80 hover:shadow-[0_0_0_1px_rgba(161,161,170,0.15),0_8px_24px_-8px_rgba(0,0,0,0.5)]'
+            : cn(outcomeBorderClass, 'hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/40')
         )}
       >
         <div className="aspect-video bg-zinc-800 flex items-center justify-center relative overflow-hidden flex-shrink-0">
