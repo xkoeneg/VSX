@@ -1341,8 +1341,232 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
   );
 };
 
-// Small free-text tag input — lets a user type a custom value (e.g. an emotion not in the
-// preset list) and add it as a removable chip. Complements MultiSelectDropdown for fields
+// Compact multi-select dropdown for tag fields — closed state looks like the
+// Symbol/Session inputs and shows selected tags as removable badges inline;
+// open state is a checklist with an "Add Custom Tag" row and delete-with-confirm.
+interface TagSelectDropdownProps {
+  label: string;
+  options: { id: string; name: string }[];
+  selected: string[];
+  onChange: (selected: string[]) => void;
+  onAddNew?: (name: string) => void;
+  onDeleteOption?: (id: string, name: string) => void;
+  placeholder?: string;
+  colorScheme?: 'emerald' | 'rose';
+}
+
+const TagSelectDropdown: React.FC<TagSelectDropdownProps> = ({
+  label,
+  options,
+  selected,
+  onChange,
+  onAddNew,
+  onDeleteOption,
+  placeholder = 'Select...',
+  colorScheme = 'emerald',
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newItem, setNewItem] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const addInputRef = useRef<HTMLInputElement>(null);
+
+  useClickOutside(containerRef, useCallback(() => { setIsOpen(false); setIsAdding(false); }, []), isOpen);
+
+  useEffect(() => {
+    if (isAdding) addInputRef.current?.focus();
+  }, [isAdding]);
+
+  const toggleItem = (name: string) => {
+    if (selected.includes(name)) {
+      onChange(selected.filter(s => s !== name));
+    } else {
+      onChange([...selected, name]);
+    }
+  };
+
+  const removeItem = (name: string, e: React.SyntheticEvent) => {
+    e.stopPropagation();
+    onChange(selected.filter(s => s !== name));
+  };
+
+  const handleAddNew = () => {
+    if (newItem.trim() && onAddNew) {
+      const trimmed = newItem.trim();
+      onAddNew(trimmed);
+      onChange([...selected, trimmed]);
+      setNewItem('');
+      setIsAdding(false);
+    }
+  };
+
+  const confirmDelete = () => {
+    if (deleteConfirm && onDeleteOption) {
+      onDeleteOption(deleteConfirm.id, deleteConfirm.name);
+    }
+    setDeleteConfirm(null);
+  };
+
+  const badgeClasses = colorScheme === 'rose'
+    ? 'bg-rose-950/40 text-rose-300 border border-rose-500/50'
+    : 'bg-emerald-950/40 text-emerald-300 border border-emerald-500/50';
+  const checkboxActiveClasses = colorScheme === 'rose'
+    ? 'bg-rose-500 border-rose-500'
+    : 'bg-emerald-500 border-emerald-500';
+
+  return (
+    <div ref={containerRef} className="relative">
+      <label className="block text-xs text-zinc-400 mb-1.5">{label}</label>
+      <button
+        type="button"
+        onClick={() => setIsOpen(v => !v)}
+        className="w-full min-h-[46px] bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 flex items-center justify-between gap-2"
+      >
+        {selected.length === 0 ? (
+          <span className="text-zinc-500">{placeholder}</span>
+        ) : (
+          <div className="flex flex-wrap gap-1.5 flex-1">
+            {selected.map(name => (
+              <span
+                key={name}
+                className={cn('inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-md text-xs font-medium', badgeClasses)}
+              >
+                <span className="truncate max-w-[140px]">{name}</span>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => removeItem(name, e)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') removeItem(name, e); }}
+                  className="hover:bg-black/20 rounded p-0.5 shrink-0"
+                >
+                  <X className="w-3 h-3" />
+                </span>
+              </span>
+            ))}
+          </div>
+        )}
+        <ChevronDown className={cn('w-4 h-4 text-zinc-400 shrink-0 transition-transform', isOpen && 'rotate-180')} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-30 max-h-60 overflow-y-auto">
+          {options.length === 0 && (
+            <p className="px-3 py-2.5 text-xs text-zinc-500">No options yet</p>
+          )}
+          {options.map(opt => {
+            const isSelected = selected.includes(opt.name);
+            return (
+              <div
+                key={opt.id}
+                onClick={() => toggleItem(opt.name)}
+                className="group flex items-center justify-between gap-2 px-3 py-2 hover:bg-zinc-700 cursor-pointer transition-colors"
+              >
+                <div className="flex items-center gap-2 text-sm min-w-0">
+                  <div className={cn(
+                    'w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors',
+                    isSelected ? checkboxActiveClasses : 'border-zinc-600'
+                  )}>
+                    {isSelected && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                  <span className={cn('truncate', isSelected ? 'text-white' : 'text-zinc-300')}>{opt.name}</span>
+                </div>
+                {onDeleteOption && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDeleteConfirm({ id: opt.id, name: opt.name });
+                    }}
+                    title={`Delete "${opt.name}"`}
+                    className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 rounded hover:bg-zinc-600 text-zinc-500 hover:text-white transition-all shrink-0"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+
+          {onAddNew && (
+            <div className="border-t border-zinc-700">
+              {isAdding ? (
+                <div className="flex items-center gap-1.5 px-3 py-2">
+                  <input
+                    ref={addInputRef}
+                    type="text"
+                    value={newItem}
+                    onChange={(e) => setNewItem(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') { e.preventDefault(); handleAddNew(); }
+                      if (e.key === 'Escape') { setIsAdding(false); setNewItem(''); }
+                    }}
+                    onBlur={() => { if (!newItem.trim()) setIsAdding(false); }}
+                    placeholder="New tag name..."
+                    className="flex-1 min-w-0 bg-zinc-900 border border-zinc-600 rounded-md px-2 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
+                  />
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={handleAddNew}
+                    className="p-1.5 bg-zinc-700 hover:bg-zinc-600 rounded-md text-zinc-300 hover:text-white transition-colors shrink-0"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsAdding(true)}
+                  className="w-full flex items-center gap-1.5 px-3 py-2.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700 transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add Custom Tag
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {deleteConfirm && (
+        <ModalBackdrop
+          onClose={() => setDeleteConfirm(null)}
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[80] flex items-center justify-center p-4"
+        >
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-red-500/15 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-5 h-5 text-red-400" />
+              </div>
+              <h3 className="text-lg font-bold text-white">Delete Tag?</h3>
+            </div>
+            <p className="text-sm text-zinc-400 mb-6">
+              Are you sure you want to remove "{deleteConfirm.name}" from your default list? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirm(null)}
+                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-red-500/90 hover:bg-red-500 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </ModalBackdrop>
+      )}
+    </div>
+  );
+};
 // that need ad-hoc, non-persisted tags rather than a shared global option list.
 interface EditableTagInputProps {
   values: string[];
@@ -6543,45 +6767,39 @@ function App() {
             </div>
 
             {/* Tag groups: Setup Types + Confluences side by side, Mistakes Made full width below */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="bg-[#16171d] border border-[#232429] p-4 rounded-xl">
-                <MultiSelectDropdown
-                  label="Setup Types"
-                  options={setupTypes}
-                  selected={newTrade.setupTypes || []}
-                  onChange={(selected) => setNewTrade(prev => ({ ...prev, setupTypes: selected }))}
-                  onAddNew={(name) => setSetupTypes(prev => [...prev, { id: generateId(), name }])}
-                  onDeleteOption={handleDeleteSetupType}
-                  placeholder="Select setup types..."
-                  colorScheme="emerald"
-                />
-              </div>
-              <div className="bg-[#16171d] border border-[#232429] p-4 rounded-xl">
-                <MultiSelectDropdown
-                  label="Confluences"
-                  options={confluences}
-                  selected={newTrade.confluences || []}
-                  onChange={(selected) => setNewTrade(prev => ({ ...prev, confluences: selected }))}
-                  onAddNew={(name) => setConfluences(prev => [...prev, { id: generateId(), name }])}
-                  onDeleteOption={handleDeleteConfluence}
-                  placeholder="Select confluences..."
-                  colorScheme="emerald"
-                />
-              </div>
-            </div>
-
-            <div className="bg-[#16171d] border border-[#232429] p-4 rounded-xl">
-              <MultiSelectDropdown
-                label="Mistakes Made"
-                options={mistakesList}
-                selected={newTrade.mistakes || []}
-                onChange={(selected) => setNewTrade(prev => ({ ...prev, mistakes: selected }))}
-                onAddNew={(name) => setMistakesList(prev => [...prev, { id: generateId(), name }])}
-                onDeleteOption={handleDeleteMistakeType}
-                placeholder="Select mistakes..."
-                colorScheme="rose"
+            <div className="grid grid-cols-2 gap-4">
+              <TagSelectDropdown
+                label="Setup Types"
+                options={setupTypes}
+                selected={newTrade.setupTypes || []}
+                onChange={(selected) => setNewTrade(prev => ({ ...prev, setupTypes: selected }))}
+                onAddNew={(name) => setSetupTypes(prev => [...prev, { id: generateId(), name }])}
+                onDeleteOption={handleDeleteSetupType}
+                placeholder="Select Setup Types..."
+                colorScheme="emerald"
+              />
+              <TagSelectDropdown
+                label="Confluences"
+                options={confluences}
+                selected={newTrade.confluences || []}
+                onChange={(selected) => setNewTrade(prev => ({ ...prev, confluences: selected }))}
+                onAddNew={(name) => setConfluences(prev => [...prev, { id: generateId(), name }])}
+                onDeleteOption={handleDeleteConfluence}
+                placeholder="Select Confluences..."
+                colorScheme="emerald"
               />
             </div>
+
+            <TagSelectDropdown
+              label="Mistakes Made"
+              options={mistakesList}
+              selected={newTrade.mistakes || []}
+              onChange={(selected) => setNewTrade(prev => ({ ...prev, mistakes: selected }))}
+              onAddNew={(name) => setMistakesList(prev => [...prev, { id: generateId(), name }])}
+              onDeleteOption={handleDeleteMistakeType}
+              placeholder="Select Mistakes Made..."
+              colorScheme="rose"
+            />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
