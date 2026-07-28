@@ -2528,6 +2528,7 @@ function App() {
   const [selectedTradeIds, setSelectedTradeIds] = useState<string[]>([]);
   const [showDeleteSelectedConfirm, setShowDeleteSelectedConfirm] = useState(false);
   const [accountPendingDelete, setAccountPendingDelete] = useState<string | null>(null);
+  const [tradePendingDelete, setTradePendingDelete] = useState<string | null>(null);
 
   const noticeImageInputRef = useRef<HTMLInputElement>(null);
   const accountDropdownRef = useRef<HTMLDivElement>(null);
@@ -3166,7 +3167,15 @@ function App() {
   };
 
   const handleDeleteTrade = (id: string) => {
-    setTrades(trades.filter(t => t.id !== id));
+    setTradePendingDelete(id);
+  };
+
+  const confirmDeleteTrade = () => {
+    if (!tradePendingDelete) return;
+    const id = tradePendingDelete;
+    setTrades(prev => prev.filter(t => t.id !== id));
+    setSelectedTradeIds(prev => prev.filter(t => t !== id));
+    setTradePendingDelete(null);
     setShowTradeDetail(null);
     setShowExpandGallery(false);
   };
@@ -4373,21 +4382,60 @@ function App() {
     const coverImage = trade.executionImages[0]?.url || trade.timeframes.flatMap(tf => tf.images)[0]?.url;
     const isWin = trade.profitLoss >= 0;
     const isBreakeven = Math.abs(trade.profitLoss) < 10;
+    const isSelected = selectedTradeIds.includes(trade.id);
     const outcomeCardClass = isBreakeven
       ? 'bg-zinc-800/50 group-hover:bg-zinc-800/70'
       : isWin
         ? 'bg-emerald-950/50 group-hover:bg-emerald-950/70'
         : 'bg-rose-950/50 group-hover:bg-rose-950/70';
+
+    // CRITICAL: while in select mode, a click anywhere on the card (including the
+    // checkbox overlay) must ONLY toggle selection — it must never open the Trade
+    // Details modal. Trade Details can only open when select mode is OFF.
+    const handleCardClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (tradeSelectMode) {
+        toggleTradeSelected(trade.id);
+        return;
+      }
+      setShowTradeDetail(trade.id);
+    };
+
+    const handleCheckboxClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      toggleTradeSelected(trade.id);
+    };
+
     return (
       <div
         key={trade.id}
-        onClick={() => setShowTradeDetail(trade.id)}
-        className="group h-full flex flex-col border border-zinc-800/70 rounded-xl overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:border-zinc-500/80 hover:shadow-[0_0_0_1px_rgba(161,161,170,0.15),0_8px_24px_-8px_rgba(0,0,0,0.5)] min-w-0"
+        onClick={handleCardClick}
+        className={cn(
+          "group h-full flex flex-col border rounded-xl overflow-hidden cursor-pointer transition-all duration-200 min-w-0",
+          tradeSelectMode
+            ? isSelected
+              ? 'border-indigo-400/80 ring-2 ring-indigo-400/40'
+              : 'border-zinc-800/70 hover:border-zinc-600'
+            : 'border-zinc-800/70 hover:-translate-y-0.5 hover:border-zinc-500/80 hover:shadow-[0_0_0_1px_rgba(161,161,170,0.15),0_8px_24px_-8px_rgba(0,0,0,0.5)]'
+        )}
       >
         <div className="aspect-video bg-zinc-800 flex items-center justify-center relative overflow-hidden flex-shrink-0">
           <span className="absolute top-2 left-2 z-10 flex items-center justify-center w-5 h-5 rounded bg-white text-[10px] font-mono font-bold text-black shadow-[0_1px_4px_rgba(0,0,0,0.6)] ring-1 ring-black/20">
             {getDisplayTradeNumber(trade)}
           </span>
+          {tradeSelectMode && (
+            <button
+              type="button"
+              onClick={handleCheckboxClick}
+              className={cn(
+                'absolute top-2 right-2 z-20 flex items-center justify-center w-5 h-5 rounded-md border transition-colors',
+                isSelected ? 'bg-indigo-500 border-indigo-400 text-white' : 'bg-black/50 border-white/40 text-transparent hover:border-white/70'
+              )}
+              aria-label={isSelected ? 'Unselect trade' : 'Select trade'}
+            >
+              <Check className="w-3 h-3" />
+            </button>
+          )}
           {coverImage ? (
             <img src={coverImage} alt="" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
           ) : (
@@ -4402,6 +4450,9 @@ function App() {
               {trade.rulesFollowed === 'followed' ? <Check className="w-2.5 h-2.5" /> : <X className="w-2.5 h-2.5" />}
             </span>
           </div>
+          {tradeSelectMode && isSelected && (
+            <div className="absolute inset-0 bg-indigo-500/10 z-[5] pointer-events-none" />
+          )}
         </div>
         <div className={cn('p-3 min-w-0 flex-1 flex flex-col transition-colors duration-200', outcomeCardClass)}>
           <div className="flex items-start justify-between gap-2">
@@ -4488,7 +4539,7 @@ function App() {
             className="flex items-center gap-2 px-4 py-1.5 bg-rose-500/90 hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
           >
             <Trash2 className="w-4 h-4" />
-            Delete Selected
+            Delete Selected ({selectedTradeIds.length})
           </button>
         </div>
       )}
@@ -4545,16 +4596,47 @@ function App() {
                     const isWin = trade.profitLoss >= 0;
                     const rowRR = trade.riskAmount > 0 ? trade.profitLoss / trade.riskAmount : null;
                     const side = trade.profitLoss >= 0 ? 'LONG' : 'SHORT';
+                    const isRowSelected = selectedTradeIds.includes(trade.id);
+
+                    // CRITICAL: while in select mode, clicking the row (or its checkbox)
+                    // must ONLY toggle selection and must never open Trade Details.
+                    const handleRowClick = (e: React.MouseEvent) => {
+                      e.stopPropagation();
+                      if (tradeSelectMode) {
+                        toggleTradeSelected(trade.id);
+                        return;
+                      }
+                      setShowTradeDetail(trade.id);
+                    };
+
                     return (
                       <tr
                         key={trade.id}
-                        onClick={() => tradeSelectMode ? toggleTradeSelected(trade.id) : setShowTradeDetail(trade.id)}
-                        className="border-b border-white/5 hover:bg-white/[0.02] cursor-pointer transition-colors"
+                        onClick={handleRowClick}
+                        className={cn(
+                          "border-b border-white/5 hover:bg-white/[0.02] cursor-pointer transition-colors",
+                          tradeSelectMode && isRowSelected && "bg-indigo-500/10"
+                        )}
                       >
                         <td className="px-3 py-2.5 whitespace-nowrap">
-                          <span className="inline-flex items-center justify-center min-w-[1.5rem] px-1.5 py-0.5 rounded bg-zinc-800/80 border border-zinc-700/50 text-[11px] font-mono font-semibold text-zinc-300">
-                            {getDisplayTradeNumber(trade)}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            {tradeSelectMode && (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); toggleTradeSelected(trade.id); }}
+                                className={cn(
+                                  'flex items-center justify-center w-4 h-4 rounded border transition-colors flex-shrink-0',
+                                  isRowSelected ? 'bg-indigo-500 border-indigo-400 text-white' : 'border-zinc-600 text-transparent hover:border-zinc-400'
+                                )}
+                                aria-label={isRowSelected ? 'Unselect trade' : 'Select trade'}
+                              >
+                                <Check className="w-2.5 h-2.5" />
+                              </button>
+                            )}
+                            <span className="inline-flex items-center justify-center min-w-[1.5rem] px-1.5 py-0.5 rounded bg-zinc-800/80 border border-zinc-700/50 text-[11px] font-mono font-semibold text-zinc-300">
+                              {getDisplayTradeNumber(trade)}
+                            </span>
+                          </div>
                         </td>
                         <td className="px-3 py-2.5 text-sm text-zinc-400 whitespace-nowrap">{formatDate(trade.date)}</td>
                         <td className="px-3 py-2.5 text-sm text-zinc-400 whitespace-nowrap truncate max-w-[160px]">
@@ -4590,14 +4672,16 @@ function App() {
                           <span className={isWin ? 'text-emerald-400' : 'text-rose-500'}>{formatCurrency(trade.profitLoss, privacyMode)}</span>
                         </td>
                         <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); setShowTradeDetail(trade.id); }}
-                            className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors"
-                            title="View trade details"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
+                          {!tradeSelectMode && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setShowTradeDetail(trade.id); }}
+                              className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors"
+                              title="View trade details"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );
@@ -7764,43 +7848,68 @@ function App() {
     )
   );
 
-  // Confirm bulk delete of selected trades
-  const renderDeleteSelectedConfirm = () => (
-    showDeleteSelectedConfirm && (
+  // Reusable trade delete confirmation modal — covers BOTH triggers:
+  //  1) Individual delete (single trade, via tradePendingDelete)
+  //  2) Bulk delete (Select Mode "Delete Selected (X)", via showDeleteSelectedConfirm)
+  // Neither trigger deletes anything until the user explicitly confirms here.
+  const renderDeleteTradeConfirm = () => {
+    const isBulk = showDeleteSelectedConfirm;
+    const isSingle = !isBulk && !!tradePendingDelete;
+    if (!isBulk && !isSingle) return null;
+
+    const count = isBulk ? selectedTradeIds.length : 1;
+    const title = count > 1 ? `Delete ${count} Trades` : 'Delete Trade';
+    const body = 'Are you sure you want to delete this trade history entry? This action cannot be undone.';
+    const bulkBody = 'Are you sure you want to delete these trade history entries? This action cannot be undone.';
+
+    const handleCancel = () => {
+      setShowDeleteSelectedConfirm(false);
+      setTradePendingDelete(null);
+    };
+
+    const handleConfirm = () => {
+      if (isBulk) {
+        confirmDeleteSelectedTrades();
+      } else {
+        confirmDeleteTrade();
+      }
+    };
+
+    return (
       <ModalBackdrop
-        onClose={() => setShowDeleteSelectedConfirm(false)}
+        onClose={handleCancel}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
       >
-        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-[#121318] border border-white/10 rounded-2xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 rounded-full bg-rose-500/15 flex items-center justify-center flex-shrink-0">
               <Trash2 className="w-5 h-5 text-rose-400" />
             </div>
-            <h3 className="text-lg font-bold text-white">Delete trades?</h3>
+            <h3 className="text-lg font-bold text-white">{title}</h3>
           </div>
           <p className="text-sm text-zinc-400 mb-6">
-            You're about to permanently delete {selectedTradeIds.length} selected trade{selectedTradeIds.length > 1 ? 's' : ''}. This cannot be undone.
+            {count > 1 ? bulkBody : body}
           </p>
           <div className="flex justify-end gap-3">
             <button
               type="button"
-              onClick={() => setShowDeleteSelectedConfirm(false)}
-              className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors"
+              onClick={handleCancel}
+              className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-sm font-medium transition-colors"
             >
               Cancel
             </button>
             <button
               type="button"
-              onClick={confirmDeleteSelectedTrades}
-              className="px-4 py-2 bg-rose-500/90 hover:bg-rose-500 text-white rounded-lg text-sm font-medium transition-colors"
+              onClick={handleConfirm}
+              className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-medium transition-colors"
             >
               Delete
             </button>
           </div>
         </div>
       </ModalBackdrop>
-    )
-  );
+    );
+  };
 
   // Confirm deleting a single account (and all its trades)
   const renderDeleteAccountConfirm = () => {
@@ -8188,7 +8297,7 @@ function App() {
       {renderAddNoticeModal()}
       {renderAddScenarioModal()}
       {renderAddWikiModal()}
-      {renderDeleteSelectedConfirm()}
+      {renderDeleteTradeConfirm()}
       {renderDeleteAccountConfirm()}
       {renderLightbox()}
 
