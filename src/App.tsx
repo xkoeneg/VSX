@@ -4362,15 +4362,15 @@ function App() {
     const isBreakeven = Math.abs(trade.profitLoss) < 10;
     const cardRR = trade.riskAmount > 0 ? trade.profitLoss / trade.riskAmount : null;
     const outcomeCardClass = isBreakeven
-      ? 'bg-zinc-800/40 border-zinc-700/60 hover:bg-zinc-800/60'
+      ? 'bg-zinc-800/50 hover:bg-zinc-800/70'
       : isWin
-        ? 'bg-emerald-950/40 border-emerald-900/50 hover:bg-emerald-950/60'
-        : 'bg-rose-950/40 border-rose-900/50 hover:bg-rose-950/60';
+        ? 'bg-emerald-950/50 hover:bg-emerald-950/70'
+        : 'bg-rose-950/50 hover:bg-rose-950/70';
     return (
       <div
         key={trade.id}
         onClick={() => setShowTradeDetail(trade.id)}
-        className={cn('group border rounded-xl overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-0.5 min-w-0', outcomeCardClass)}
+        className="group border border-zinc-800/70 rounded-xl overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:border-zinc-700 min-w-0"
       >
         <div className="aspect-video bg-zinc-800 flex items-center justify-center relative overflow-hidden">
           <span className="absolute top-2 left-2 z-10 flex items-center justify-center w-5 h-5 rounded bg-black/70 backdrop-blur-sm text-[10px] font-mono text-zinc-300">
@@ -4401,7 +4401,7 @@ function App() {
             </div>
           </div>
         </div>
-        <div className="p-3 min-w-0">
+        <div className={cn('p-3 min-w-0 transition-colors duration-200', outcomeCardClass)}>
           <h4 className="font-semibold text-white truncate tracking-tight text-sm">{trade.symbol}</h4>
           <p className="text-xs text-zinc-500 truncate mt-0.5">{account?.name} · {formatDate(trade.date)}</p>
           <div className="flex items-center gap-1.5 flex-wrap mt-2">
