@@ -2332,6 +2332,19 @@ function App() {
   const [tradeSortField, setTradeSortField] = useState<TradeSortField>('date');
   const [tradeSortOrder, setTradeSortOrder] = useState<SortOrder>('desc');
   const viewportWidth = useViewportWidth();
+  const equityChartContainerRef = useRef<HTMLDivElement>(null);
+  const [equityChartWidth, setEquityChartWidth] = useState(800);
+  useEffect(() => {
+    const el = equityChartContainerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0) setEquityChartWidth(entry.contentRect.width);
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>(['all']);
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
 
@@ -3647,7 +3660,7 @@ function App() {
     const max = Math.max(...equityData);
     const range = max - min || 1;
     const height = 180;
-    const chartWidth = 1000;
+    const chartWidth = Math.max(equityChartWidth, 200);
     const isPositive = stats.totalPnL >= 0;
     const strokeColor = isPositive ? '#10b981' : '#ef4444';
     const gradientId = `equityFill-${isPositive ? 'up' : 'down'}`;
@@ -3667,7 +3680,7 @@ function App() {
 
     return (
       <div className="w-full">
-        <svg viewBox={`0 0 ${chartWidth} ${height}`} preserveAspectRatio="none" width="100%" height={height} className="w-full">
+        <svg viewBox={`0 0 ${chartWidth} ${height}`} width="100%" height={height} className="w-full block">
           <defs>
             <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={strokeColor} stopOpacity="0.28" />
@@ -4108,7 +4121,7 @@ function App() {
               </div>
             </div>
           </div>
-          <div className="relative">
+          <div ref={equityChartContainerRef} className="relative">
             {renderEquityChart()}
           </div>
         </div>
