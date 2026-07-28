@@ -4364,7 +4364,7 @@ function App() {
       <div
         key={trade.id}
         onClick={() => setShowTradeDetail(trade.id)}
-        className="group bg-[#1a1b22] border border-white/10 rounded-xl overflow-hidden cursor-pointer shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 min-w-0"
+        className="group bg-[#1a1b22] border border-white/10 rounded-xl overflow-hidden cursor-pointer shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 min-w-0"
       >
         <div className="aspect-video bg-zinc-800 flex items-center justify-center relative overflow-hidden">
           <span className="absolute top-2 left-2 z-10 flex items-center justify-center w-5 h-5 rounded bg-black/70 backdrop-blur-sm text-[10px] font-mono text-zinc-300">
@@ -4385,7 +4385,7 @@ function App() {
             </span>
             <div className="flex items-center gap-1.5 flex-shrink-0">
               {cardRR !== null && (
-                <span className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded border whitespace-nowrap', cardRR >= 1 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : cardRR >= 0 ? 'text-zinc-300 border-zinc-700 bg-zinc-800/60' : 'text-rose-400 border-rose-500/30 bg-rose-500/10')}>
+                <span className={cn('text-[10px] font-bold px-2 py-1 rounded border whitespace-nowrap leading-none', cardRR >= 1 ? 'text-emerald-300 border-emerald-500/40 bg-emerald-500/15' : cardRR >= 0 ? 'text-zinc-200 border-zinc-600 bg-zinc-800/80' : 'text-rose-300 border-rose-500/40 bg-rose-500/15')}>
                   {cardRR >= 1 ? '+' : ''}{cardRR.toFixed(2)}R
                 </span>
               )}
@@ -4476,10 +4476,10 @@ function App() {
           <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Recent Trades</h3>
           {/* Outer wrapper — provides positioning context for the ambient glow behind the frame */}
           <div className="relative">
-            {/* Ambient backlight glow — soft colored aura behind the frame */}
-            <div className="absolute -inset-4 z-0 bg-gradient-to-r from-emerald-500/40 via-indigo-500/40 to-cyan-500/40 rounded-3xl blur-3xl opacity-70 pointer-events-none" />
-            {/* Inner content — dedicated "Gallery Card Frame" dark base, sits cleanly on top of the glow */}
-            <div className="relative z-10 bg-[#0f1014] border border-white/10 rounded-2xl p-4 shadow-xl">
+            {/* Ambient backlight glow — tight, faint aura behind the frame */}
+            <div className="absolute -inset-1 z-0 bg-gradient-to-r from-emerald-500/10 via-indigo-500/10 to-cyan-500/10 rounded-3xl blur-lg opacity-15 pointer-events-none" />
+            {/* Inner content — dedicated "Gallery Card Frame" base, sits cleanly on top of the glow */}
+            <div className="relative z-10 bg-[#121318] border border-white/10 rounded-2xl p-4 shadow-xl">
               <div className="max-h-[520px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                   {recentTrades.map(renderFeaturedCard)}
