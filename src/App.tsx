@@ -68,6 +68,7 @@ import {
   Database,
   Settings,
   User,
+  Scale,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -2972,7 +2973,17 @@ function App() {
       : accounts.filter(a => selectedAccounts.includes(a.id)).reduce((s, a) => s + a.startingBalance, 0);
     const growth = totalStarting > 0 ? (totalPnL / totalStarting) * 100 : 0;
 
-    return { totalTrades: filtered.length, totalPnL, winRate, profitFactor, avgWin, avgLoss, growth, wins: wins.length, losses: losses.length };
+    // Current Rules/Discipline Streak: consecutive "Rules Followed" trades
+    // counting back from the most recently logged trade, stopping the
+    // instant a "Rules Broken" trade is hit.
+    const chronoTrades = [...filtered].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    let disciplineStreak = 0;
+    for (let i = chronoTrades.length - 1; i >= 0; i--) {
+      if (chronoTrades[i].rulesFollowed === 'followed') disciplineStreak++;
+      else break;
+    }
+
+    return { totalTrades: filtered.length, totalPnL, winRate, profitFactor, avgWin, avgLoss, growth, wins: wins.length, losses: losses.length, disciplineStreak };
   }, [filteredTrades, accounts, selectedAccounts]);
 
   const equityData = useMemo(() => {
@@ -4379,8 +4390,57 @@ function App() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {renderStatCard('Avg Win', formatCurrency(stats.avgWin, privacyMode), <TrendingUp className="w-4 h-4" />, 'text-emerald-400')}
         {renderStatCard('Avg Loss', formatCurrency(-stats.avgLoss, privacyMode), <TrendingDown className="w-4 h-4" />, 'text-rose-400')}
-        {renderStatCard('Total Trades', stats.totalTrades, <Activity className="w-4 h-4" />)}
-        {renderStatCard('Win Rate', `${stats.winRate.toFixed(1)}%`, <Percent className="w-4 h-4" />)}
+
+        {/* Win / Loss Ratio — replaces the redundant Total Trades count with
+            an actionable breakdown of wins vs. losses, dual-color coded. */}
+        <div className={cn(
+          "group rounded-2xl p-4 flex items-center gap-3 min-w-0 transition-all duration-200",
+          theme !== 'light'
+            ? 'bg-zinc-900/40 border border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-900/70'
+            : 'bg-white border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50'
+        )}>
+          <div className={cn('p-2.5 rounded-xl flex-shrink-0', theme !== 'light' ? 'bg-zinc-800/60' : 'bg-zinc-100')}>
+            <Scale className="w-4 h-4 text-zinc-400" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className={cn("text-[11px] uppercase tracking-wider truncate font-medium", tc.textMuted)}>Win / Loss Ratio</p>
+            <p className="text-lg font-semibold truncate tabular-nums">
+              <span className="text-emerald-500">{stats.wins}W</span>
+              <span className={cn("mx-1", tc.textMuted)}>-</span>
+              <span className="text-rose-500">{stats.losses}L</span>
+            </p>
+          </div>
+        </div>
+
+        {/* Rules Streak — replaces Win Rate (already shown in the Equity
+            Chart summary badges above) with the current run of 100%
+            rule-compliant trades, the more actionable discipline signal. */}
+        <div className={cn(
+          "group rounded-2xl p-4 flex items-center gap-3 min-w-0 transition-all duration-200",
+          theme !== 'light'
+            ? 'bg-zinc-900/40 border border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-900/70'
+            : 'bg-white border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50'
+        )}>
+          <div className={cn(
+            'p-2.5 rounded-xl flex-shrink-0',
+            stats.disciplineStreak > 0
+              ? 'bg-amber-500/10 text-amber-400'
+              : theme !== 'light' ? 'bg-zinc-800/60 text-zinc-400' : 'bg-zinc-100 text-zinc-400'
+          )}>
+            <Flame className="w-4 h-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className={cn("text-[11px] uppercase tracking-wider truncate font-medium", tc.textMuted)}>Rules Streak</p>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <p className={cn('text-lg font-semibold truncate tabular-nums', tc.text)}>
+                {stats.disciplineStreak} {stats.disciplineStreak === 1 ? 'Trade' : 'Trades'}
+              </p>
+              {stats.disciplineStreak > 0 && (
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Accounts */}
