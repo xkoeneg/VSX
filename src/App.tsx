@@ -4565,15 +4565,15 @@ function App() {
         </span>
         <span className="text-xs font-medium tracking-wide">
           <span className="text-zinc-500">WINS:</span>{' '}
-          <span className="text-emerald-400 font-semibold tabular-nums">{filteredTrades.filter(t => t.profitLoss > 0).length}</span>
+          <span className="text-emerald-400 font-semibold tabular-nums">{filteredTrades.filter(t => t.profitLoss >= 10).length}</span>
         </span>
         <span className="text-xs font-medium tracking-wide">
           <span className="text-zinc-500">LOSSES:</span>{' '}
-          <span className="text-rose-400 font-semibold tabular-nums">{filteredTrades.filter(t => t.profitLoss < 0).length}</span>
+          <span className="text-rose-400 font-semibold tabular-nums">{filteredTrades.filter(t => t.profitLoss <= -10).length}</span>
         </span>
         <span className="text-xs font-medium tracking-wide">
           <span className="text-zinc-500">BE:</span>{' '}
-          <span className="text-amber-400 font-semibold tabular-nums">{filteredTrades.filter(t => t.profitLoss === 0).length}</span>
+          <span className="text-amber-400 font-semibold tabular-nums">{filteredTrades.filter(t => Math.abs(t.profitLoss) < 10).length}</span>
         </span>
       </div>
 
