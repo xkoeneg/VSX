@@ -4386,15 +4386,15 @@ function App() {
     const outcomeCardClass = isBreakeven
       ? 'bg-zinc-800/50 group-hover:bg-zinc-800/70'
       : isWin
-        ? 'bg-emerald-400/60 border-t border-emerald-400/60 group-hover:bg-emerald-400/70'
-        : 'bg-rose-400/60 border-t border-rose-400/60 group-hover:bg-rose-400/70';
-    // Dynamic outcome border — same exact color/opacity as the fill (not a
-    // brighter shade) so the border line and the card body read as one color.
+        ? 'bg-emerald-600 border-t border-emerald-500 group-hover:bg-emerald-500'
+        : 'bg-rose-600 border-t border-rose-500 group-hover:bg-rose-500';
+    // Dynamic outcome border — same exact color as the fill so the border
+    // line and the card body read as one solid color, strengthening on hover.
     const outcomeBorderClass = isBreakeven
       ? 'border-zinc-700 hover:border-zinc-500'
       : isWin
-        ? 'border-emerald-400/60 hover:border-emerald-400/70'
-        : 'border-rose-400/60 hover:border-rose-400/70';
+        ? 'border-emerald-600 hover:border-emerald-500'
+        : 'border-rose-600 hover:border-rose-500';
 
     // CRITICAL: while in select mode, a click anywhere on the card (including the
     // checkbox overlay) must ONLY toggle selection — it must never open the Trade
