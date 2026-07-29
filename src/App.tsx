@@ -73,7 +73,7 @@ import {
 } from 'lucide-react';
 
 // Types
-type TradingAccountType = 'CFD' | 'LIVE' | 'FUTURES';
+type TradingAccountType = 'CFD' | 'LIVE' | 'FUTURES' | 'DEMO';
 
 interface Account {
   id: string;
@@ -232,7 +232,7 @@ type SortOrder = 'asc' | 'desc';
 const TIMEFRAMES = ['Execution/Result', 'Daily', '4H', '1H', '30M', '15M', '5M', '1M'] as const;
 
 const ACCOUNT_TYPES = ['Eval', 'Phase 1', 'Phase 2', 'Funded', 'Custom Challenge'] as const;
-const TRADING_ACCOUNT_TYPES: TradingAccountType[] = ['CFD', 'LIVE', 'FUTURES'];
+const TRADING_ACCOUNT_TYPES: TradingAccountType[] = ['CFD', 'LIVE', 'FUTURES', 'DEMO'];
 
 const PRESET_SYMBOLS = [
   { name: 'NASDAQ (NQ)', value: 'NQ' },
@@ -3766,11 +3766,13 @@ function App() {
       'CFD': 'bg-orange-500/20 text-orange-400',
       'LIVE': 'bg-blue-500/20 text-blue-400',
       'FUTURES': 'bg-violet-500/20 text-violet-400',
+      'DEMO': 'bg-zinc-500/20 text-zinc-400',
     };
     const icons: Record<string, React.ReactNode> = {
       'CFD': <Wallet className="w-3 h-3" />,
       'LIVE': <LineChart className="w-3 h-3" />,
       'FUTURES': <TrendingUp className="w-3 h-3" />,
+      'DEMO': <Box className="w-3 h-3" />,
     };
     return (
       <span className={cn('text-xs px-2 py-0.5 rounded flex items-center gap-1', colors[type])}>
@@ -3828,18 +3830,19 @@ function App() {
 
         {showDrawdownBar && (
           <div>
-            <div className="flex items-center justify-between mb-2">
-              {renderTradingAccountTypeBadge(account)}
-              {metrics.isLocked && (
-                <span className="text-[10px] px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded">Locked</span>
-              )}
-              {metrics.isBreached && (
-                <span className="text-[10px] px-2 py-0.5 bg-rose-500/20 text-rose-400 rounded flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />
-                  Breached
-                </span>
-              )}
-            </div>
+            {(metrics.isLocked || metrics.isBreached) && (
+              <div className="flex items-center gap-2 mb-2">
+                {metrics.isLocked && (
+                  <span className="text-[10px] px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded">Locked</span>
+                )}
+                {metrics.isBreached && (
+                  <span className="text-[10px] px-2 py-0.5 bg-rose-500/20 text-rose-400 rounded flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    Breached
+                  </span>
+                )}
+              </div>
+            )}
 
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-xs text-zinc-500 flex items-center gap-1.5">
@@ -4475,6 +4478,9 @@ function App() {
                     <div className="min-w-0 flex-1">
                       <h3 className={cn("font-semibold truncate mb-1", tc.text)}>{account.name}</h3>
                       <p className={cn("text-xs truncate", tc.textMuted)}>{account.propFirm || 'No prop firm'}</p>
+                      <div className="mt-1.5">
+                        {renderTradingAccountTypeBadge(account)}
+                      </div>
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
                       <button
