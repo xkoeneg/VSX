@@ -4465,13 +4465,13 @@ function App() {
           <div className="flex items-start justify-between gap-2">
             <h4 className="font-semibold truncate tracking-tight text-sm min-w-0 text-white">{trade.symbol}</h4>
             <div className="flex items-center gap-1.5 flex-shrink-0">
-              <span className="text-sm font-mono font-bold tracking-tight whitespace-nowrap text-white">
+              <span className={cn('text-sm font-mono font-bold tracking-tight whitespace-nowrap', isBreakeven ? 'text-zinc-300' : isWin ? 'text-green-300' : 'text-red-300')}>
                 {formatCurrency(trade.profitLoss, privacyMode)}
               </span>
               {trade.trackingNumber && <TrackingBadge value={trade.trackingNumber} size="sm" />}
             </div>
           </div>
-          <p className="text-xs text-zinc-500 truncate mt-0.5">{account?.name}</p>
+          <p className="text-xs text-zinc-300 truncate mt-0.5">{account?.name}</p>
           {/* Fixed-height row so cards without a session still take up the same
               vertical space as cards that have one — keeps every card (and every
               grid row) the exact same height. */}
