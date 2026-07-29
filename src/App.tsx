@@ -3745,6 +3745,16 @@ function App() {
   };
 
   const renderAccountTypeBadge = (account: Account) => {
+    // LIVE trading accounts have no challenge "Status" (the field is hidden
+    // in the Add/Edit Account form for them), so show "Live" here instead of
+    // whatever the underlying `type` happens to default to.
+    if (account.tradingAccountType === 'LIVE') {
+      return (
+        <span className="text-xs px-2 py-0.5 rounded truncate max-w-[100px] inline-block bg-blue-500/20 text-blue-400">
+          Live
+        </span>
+      );
+    }
     const displayName = account.type === 'Custom Challenge' ? (account.customTypeName || 'Custom') : account.type;
     const colors: Record<string, string> = {
       'Eval': 'bg-amber-500/20 text-amber-400',
