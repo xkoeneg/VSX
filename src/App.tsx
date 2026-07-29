@@ -6566,7 +6566,7 @@ function App() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className={cn('grid gap-3', currentAccount.tradingAccountType === 'LIVE' ? 'grid-cols-1' : 'grid-cols-2')}>
                 <div>
                   <label className="block text-sm text-zinc-400 mb-2">Type</label>
                   <div className="relative" ref={tradingAccountTypeDropdownRef}>
@@ -6576,7 +6576,6 @@ function App() {
                     >
                       <span className="truncate flex items-center gap-2">
                         {renderTradingAccountTypeBadge({ tradingAccountType: currentAccount.tradingAccountType || 'LIVE' } as Account)}
-                        <span>{currentAccount.tradingAccountType || 'LIVE'}</span>
                       </span>
                       <ChevronDown className="w-4 h-4 flex-shrink-0" />
                     </button>
@@ -6599,7 +6598,6 @@ function App() {
                             )}
                           >
                             {renderTradingAccountTypeBadge({ tradingAccountType: type } as Account)}
-                            <span>{type}</span>
                           </button>
                         ))}
                       </div>
@@ -6607,54 +6605,56 @@ function App() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm text-zinc-400 mb-2">Status</label>
-                  <div className="relative" ref={accountTypeDropdownRef}>
-                    <button
-                      onClick={() => setShowAccountTypeDropdown(!showAccountTypeDropdown)}
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600 flex items-center justify-between"
-                    >
-                      <span className="truncate">
-                        {currentAccount.type === 'Custom Challenge' ? (currentAccount.customTypeName || 'Custom Challenge') : currentAccount.type}
-                      </span>
-                      <ChevronDown className="w-4 h-4 flex-shrink-0" />
-                    </button>
-                    {showAccountTypeDropdown && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-10 max-h-48 overflow-y-auto">
-                        {ACCOUNT_TYPES.map(type => (
-                          <button
-                            key={type}
-                            onClick={() => {
-                              if (isEditing) {
-                                setEditingAccount(prev => ({ ...prev, type }));
-                              } else {
-                                setNewAccount(prev => ({ ...prev, type }));
-                              }
-                              if (type !== 'Custom Challenge') {
-                                setShowAccountTypeDropdown(false);
-                              }
-                            }}
-                            className={cn(
-                              'w-full text-left px-3 py-2 text-sm hover:bg-zinc-700 transition-colors',
-                              currentAccount.type === type ? 'text-white bg-zinc-700' : 'text-zinc-400'
-                            )}
-                          >
-                            {type}
-                          </button>
-                        ))}
-                      </div>
+                {currentAccount.tradingAccountType !== 'LIVE' && (
+                  <div>
+                    <label className="block text-sm text-zinc-400 mb-2">Status</label>
+                    <div className="relative" ref={accountTypeDropdownRef}>
+                      <button
+                        onClick={() => setShowAccountTypeDropdown(!showAccountTypeDropdown)}
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600 flex items-center justify-between"
+                      >
+                        <span className="truncate">
+                          {currentAccount.type === 'Custom Challenge' ? (currentAccount.customTypeName || 'Custom Challenge') : currentAccount.type}
+                        </span>
+                        <ChevronDown className="w-4 h-4 flex-shrink-0" />
+                      </button>
+                      {showAccountTypeDropdown && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-10 max-h-48 overflow-y-auto">
+                          {ACCOUNT_TYPES.map(type => (
+                            <button
+                              key={type}
+                              onClick={() => {
+                                if (isEditing) {
+                                  setEditingAccount(prev => ({ ...prev, type }));
+                                } else {
+                                  setNewAccount(prev => ({ ...prev, type }));
+                                }
+                                if (type !== 'Custom Challenge') {
+                                  setShowAccountTypeDropdown(false);
+                                }
+                              }}
+                              className={cn(
+                                'w-full text-left px-3 py-2 text-sm hover:bg-zinc-700 transition-colors',
+                                currentAccount.type === type ? 'text-white bg-zinc-700' : 'text-zinc-400'
+                              )}
+                            >
+                              {type}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {currentAccount.type === 'Custom Challenge' && (
+                      <input
+                        type="text"
+                        value={currentAccount.customTypeName || ''}
+                        onChange={(e) => isEditing ? setEditingAccount(prev => ({ ...prev, customTypeName: e.target.value })) : setNewAccount(prev => ({ ...prev, customTypeName: e.target.value }))}
+                        placeholder="Custom type name"
+                        className="w-full mt-2 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-zinc-600"
+                      />
                     )}
                   </div>
-                  {currentAccount.type === 'Custom Challenge' && (
-                    <input
-                      type="text"
-                      value={currentAccount.customTypeName || ''}
-                      onChange={(e) => isEditing ? setEditingAccount(prev => ({ ...prev, customTypeName: e.target.value })) : setNewAccount(prev => ({ ...prev, customTypeName: e.target.value }))}
-                      placeholder="Custom type name"
-                      className="w-full mt-2 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-zinc-600"
-                    />
-                  )}
-                </div>
+                )}
               </div>
 
               <div>
