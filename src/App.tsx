@@ -3806,13 +3806,16 @@ function App() {
                 <Target className="w-3 h-3 text-emerald-400" />
                 Progress to Target
               </span>
-              <span className={cn('text-xs font-medium', metrics.profitProgress >= 100 ? 'text-emerald-400' : metrics.profitProgress >= 50 ? 'text-zinc-400' : 'text-zinc-500')}>
+              <span className={cn('text-xs font-medium', metrics.profitProgress >= 90 ? 'text-emerald-400' : 'text-zinc-400')}>
                 {privacyMode ? '****' : `${metrics.profitProgress.toFixed(1)}%`}
               </span>
             </div>
             <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
               <div
-                className={cn('h-full rounded-full transition-all duration-500', metrics.profitProgress >= 100 ? 'bg-emerald-500' : metrics.profitProgress >= 50 ? 'bg-blue-500' : 'bg-zinc-500')}
+                className={cn(
+                  'h-full rounded-full transition-all duration-500 bg-emerald-500',
+                  metrics.profitProgress >= 90 && 'shadow-[0_0_10px_2px_rgba(16,185,129,0.75)]'
+                )}
                 style={{ width: `${Math.max(metrics.profitProgress, 0)}%` }}
               />
             </div>
@@ -3840,20 +3843,20 @@ function App() {
 
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-xs text-zinc-500 flex items-center gap-1.5">
-                <TrendingDown className="w-3 h-3 text-rose-400" />
+                <TrendingDown className="w-3 h-3 text-red-500" />
                 {tradingType === 'FUTURES' ? 'Trailing Drawdown' :
                  tradingType === 'LIVE' ? 'Drawdown from Capital' : 'Drawdown Usage'}
               </span>
-              <span className={cn('text-xs font-medium', metrics.isBreached ? 'text-rose-400' : metrics.drawdownProgress > 70 ? 'text-amber-400' : 'text-zinc-400')}>
+              <span className={cn('text-xs font-medium', metrics.drawdownProgress > 70 ? 'text-red-500' : 'text-zinc-400')}>
                 {privacyMode ? '****' : `${metrics.drawdownProgress.toFixed(1)}%`}
               </span>
             </div>
             <div className="h-2 bg-zinc-800 rounded-full overflow-hidden relative">
               <div className="absolute right-[30%] top-0 bottom-0 w-px bg-amber-500/30" />
               <div
-                className={cn('h-full rounded-full transition-all duration-500',
-                  metrics.isBreached ? 'bg-rose-500' :
-                  metrics.drawdownProgress > 70 ? 'bg-amber-500' : 'bg-rose-400'
+                className={cn(
+                  'h-full rounded-full transition-all duration-500 bg-red-600',
+                  metrics.drawdownProgress > 70 && 'shadow-[0_0_10px_2px_rgba(239,68,68,0.8)]'
                 )}
                 style={{ width: `${metrics.drawdownProgress}%` }}
               />
