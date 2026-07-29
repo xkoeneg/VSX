@@ -2348,6 +2348,7 @@ function App() {
   const [dbOutcomeFilter, setDbOutcomeFilter] = useState<TradeFilter>('all');
   const [dbRulesFilter, setDbRulesFilter] = useState<'all' | 'followed' | 'broken'>('all');
   const [dbPage, setDbPage] = useState(0);
+  const [dbViewMode, setDbViewMode] = useState<'table' | 'gallery'>('table');
   const DB_PAGE_SIZE = 25;
   const [tradeFilter, setTradeFilter] = useState<TradeFilter>('all');
   const [tradeSortField, setTradeSortField] = useState<TradeSortField>('date');
@@ -5084,10 +5085,89 @@ function App() {
             <span className="text-zinc-700">/</span>
             <span className="text-white font-medium truncate">All Trades Database</span>
           </div>
-          <button onClick={() => { resetTradeForm(); resetCalculator(); setShowAddTrade(true); }} className="flex items-center gap-2 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors flex-shrink-0">
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Add Trade</span>
-          </button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* All Accounts — same global account filter used on the Dashboard,
+                exposed here too since it already drives dbFilteredTrades via
+                filteredTrades -> accountFilteredTrades. */}
+            <div className="relative" ref={accountDropdownRef}>
+              <button
+                onClick={() => setShowAccountDropdown(!showAccountDropdown)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700"
+              >
+                <Filter className="w-4 h-4 flex-shrink-0" />
+                <span className="hidden sm:inline truncate max-w-[120px]">{selectedAccounts.includes('all') ? 'All Accounts' : `${selectedAccounts.length} Selected`}</span>
+                <ChevronsUpDown className="w-4 h-4 flex-shrink-0" />
+              </button>
+
+              {showAccountDropdown && (
+                <div className="absolute right-0 sm:left-0 mt-2 min-w-[200px] w-64 rounded-lg shadow-xl z-50 p-2 bg-zinc-900 border border-zinc-800">
+                  <button
+                    onClick={() => setSelectedAccounts(['all'])}
+                    className={cn(
+                      'w-full text-left px-3 py-2 rounded text-sm truncate transition-colors',
+                      selectedAccounts.includes('all') ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:bg-zinc-800'
+                    )}
+                  >
+                    All Accounts
+                  </button>
+                  <div className="my-2 border-t border-zinc-800" />
+                  {accounts.map(acc => (
+                    <button
+                      key={acc.id}
+                      onClick={() => {
+                        if (selectedAccounts.includes('all')) {
+                          setSelectedAccounts([acc.id]);
+                        } else if (selectedAccounts.includes(acc.id)) {
+                          const newSelection = selectedAccounts.filter(a => a !== acc.id);
+                          setSelectedAccounts(newSelection.length === 0 ? ['all'] : newSelection);
+                        } else {
+                          setSelectedAccounts([...selectedAccounts, acc.id]);
+                        }
+                      }}
+                      className={cn(
+                        'w-full text-left px-3 py-2 rounded text-sm flex items-center justify-between transition-colors',
+                        selectedAccounts.includes(acc.id) ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:bg-zinc-800'
+                      )}
+                    >
+                      <span className="truncate flex-1 mr-2">{acc.name}</span>
+                      {renderAccountTypeBadge(acc)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Table / Gallery view toggle */}
+            <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-zinc-800 border border-zinc-700 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setDbViewMode('table')}
+                title="Table view"
+                className={cn(
+                  'flex items-center justify-center w-8 h-8 rounded-md transition-colors',
+                  dbViewMode === 'table' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'
+                )}
+              >
+                <List className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setDbViewMode('gallery')}
+                title="Gallery view"
+                className={cn(
+                  'flex items-center justify-center w-8 h-8 rounded-md transition-colors',
+                  dbViewMode === 'gallery' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'
+                )}
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+            </div>
+
+            <button onClick={() => { resetTradeForm(); resetCalculator(); setShowAddTrade(true); }} className="flex items-center gap-2 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors flex-shrink-0">
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Add Trade</span>
+            </button>
+          </div>
         </div>
 
         {/* Filter bar */}
@@ -5160,8 +5240,45 @@ function App() {
           </p>
         </div>
 
-        {/* Full-page table */}
+        {/* Full-page table / gallery */}
         {dbPagedTrades.length > 0 ? (
+          dbViewMode === 'gallery' ? (
+            <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl p-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {dbPagedTrades.map(trade => renderFeaturedCard(trade))}
+              </div>
+
+              {/* Pagination */}
+              {dbPageCount > 1 && (
+                <div className="flex items-center justify-between px-1 pt-4 mt-4 border-t border-white/10 flex-wrap gap-2">
+                  <p className="text-xs text-zinc-500">
+                    Page {dbPage + 1} of {dbPageCount} · {dbFilteredTrades.length} total
+                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setDbPage(p => Math.max(0, p - 1))}
+                      disabled={dbPage === 0}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                      Prev
+                    </button>
+                    <span className="text-xs text-zinc-500 px-2">{dbPage + 1} / {dbPageCount}</span>
+                    <button
+                      type="button"
+                      onClick={() => setDbPage(p => Math.min(dbPageCount - 1, p + 1))}
+                      disabled={dbPage >= dbPageCount - 1}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Next
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
           <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1100px]">
@@ -5265,6 +5382,7 @@ function App() {
               </div>
             )}
           </div>
+          )
         ) : (
           <div className="text-center py-12 bg-zinc-900/40 border border-zinc-800/80 rounded-xl">
             <div className="w-14 h-14 mx-auto rounded-full bg-zinc-800 flex items-center justify-center mb-3">
