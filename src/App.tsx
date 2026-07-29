@@ -66,6 +66,8 @@ import {
   Search,
   ArrowLeft,
   Database,
+  Settings,
+  User,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -2329,6 +2331,10 @@ function App() {
   }, [theme]);
   const [isExportConfirmOpen, setIsExportConfirmOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Sleek Settings Modal — houses everything that used to live as loose
+  // clutter at the bottom of the sidebar (theme/privacy + data backup).
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [settingsModalTab, setSettingsModalTab] = useState<'appearance' | 'backup'>('appearance');
   // PHASE 0 (Mobile Instrumentation): tracks whether the off-canvas mobile
   // sidebar drawer is open. Fully independent from `sidebarCollapsed`, which
   // remains the desktop-only expand/collapse control.
@@ -3957,97 +3963,220 @@ function App() {
                 {!collapsed && (
                   <span className={section.headerClassName}>{section.header}</span>
                 )}
-                {section.items.map(item => (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      if (item.id !== 'trades') setTradeSubView('overview');
-                      setView(item.id);
-                      setIsMobileSidebarOpen(false);
-                    }}
-                    title={collapsed ? item.label : undefined}
-                    className={cn(
-                      'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm',
-                      collapsed && 'justify-center px-0',
-                      view === item.id
-                        ? theme !== 'light' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900'
-                        : theme !== 'light' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800/50' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50'
-                    )}
-                  >
-                    <item.icon className="w-4 h-4 flex-shrink-0" />
-                    {!collapsed && <span className="truncate">{item.label}</span>}
-                  </button>
-                ))}
+                <div className="flex flex-col gap-1 w-full">
+                  {section.items.map(item => (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        if (item.id !== 'trades') setTradeSubView('overview');
+                        setView(item.id);
+                        setIsMobileSidebarOpen(false);
+                      }}
+                      title={collapsed ? item.label : undefined}
+                      className={cn(
+                        'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm',
+                        collapsed && 'justify-center px-0',
+                        view === item.id
+                          ? theme !== 'light' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900'
+                          : theme !== 'light' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800/50' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50'
+                      )}
+                    >
+                      <item.icon className="w-4 h-4 flex-shrink-0" />
+                      {!collapsed && <span className="truncate">{item.label}</span>}
+                    </button>
+                  ))}
+                </div>
               </div>
             ))}
           </nav>
         </div>
 
-        {/* BOTTOM GROUP: theme/privacy + data backup, pinned to the bottom, strictly stacked */}
-        <div className="flex flex-col gap-4 mt-auto w-full">
-          <div className={cn("flex flex-col gap-1 w-full pt-4 border-t", theme !== 'light' ? 'border-zinc-800' : 'border-zinc-200')}>
+        {/* BOTTOM GROUP: single compact settings footer row, pinned to the bottom */}
+        <div
+          onClick={() => {
+            setIsSettingsModalOpen(true);
+            setIsMobileSidebarOpen(false);
+          }}
+          title={collapsed ? 'Settings' : undefined}
+          className={cn(
+            'flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-white/5 cursor-pointer mt-auto border-t border-white/5',
+            collapsed && 'justify-center'
+          )}
+        >
+          <div className={cn('flex items-center gap-2.5 min-w-0', collapsed && 'justify-center')}>
+            <div className={cn(
+              'w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0',
+              theme !== 'light' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-600'
+            )}>
+              <User className="w-3.5 h-3.5" />
+            </div>
+            {!collapsed && (
+              <span className={cn('text-sm font-medium truncate', theme !== 'light' ? 'text-zinc-300' : 'text-zinc-700')}>
+                Settings
+              </span>
+            )}
+          </div>
+          {!collapsed && (
+            <Settings className={cn('w-4 h-4 flex-shrink-0', theme !== 'light' ? 'text-zinc-500' : 'text-zinc-400')} />
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Sleek dark "obsidian" Settings Modal — consolidates what used to be
+  // loose sidebar clutter (theme/privacy toggles + backup actions) into two
+  // clean tabs.
+  const renderSettingsModal = () => {
+    if (!isSettingsModalOpen) return null;
+
+    const themeLabel = theme === 'dark' ? 'Dark' : theme === 'light' ? 'Light' : 'Minecraft';
+    const nextThemeLabel = theme === 'dark' ? 'Light' : theme === 'light' ? 'Minecraft' : 'Dark';
+
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+        onClick={() => setIsSettingsModalOpen(false)}
+      >
+        <div
+          className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl max-w-lg w-full"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center">
+                <Settings className="w-4 h-4 text-zinc-300" />
+              </div>
+              <h2 className="text-base font-semibold text-white">Settings</h2>
+            </div>
             <button
-              onClick={() => setTheme(theme === 'dark' ? 'light' : theme === 'light' ? 'minecraft' : 'dark')}
-              title={collapsed ? (theme === 'dark' ? 'Light Theme' : theme === 'light' ? 'Minecraft Theme' : 'Dark Theme') : undefined}
-              className={cn(
-                'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm',
-                collapsed && 'justify-center px-0',
-                theme !== 'light' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800/50' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
-              )}
+              onClick={() => setIsSettingsModalOpen(false)}
+              className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all"
+              aria-label="Close settings"
             >
-              {theme === 'dark' ? <Sun className="w-4 h-4 flex-shrink-0" /> : theme === 'light' ? <Box className="w-4 h-4 flex-shrink-0" /> : <Moon className="w-4 h-4 flex-shrink-0" />}
-              {!collapsed && <span className="truncate">{theme === 'dark' ? 'Light Theme' : theme === 'light' ? 'Minecraft Theme' : 'Dark Theme'}</span>}
-            </button>
-            <button
-              onClick={() => setPrivacyMode(!privacyMode)}
-              title={collapsed ? (privacyMode ? 'Privacy Mode On' : 'Privacy Mode Off') : undefined}
-              className={cn(
-                'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm',
-                collapsed && 'justify-center px-0',
-                privacyMode
-                  ? 'bg-amber-500/10 text-amber-500'
-                  : theme !== 'light' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800/50' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
-              )}
-            >
-              {privacyMode ? <EyeOff className="w-4 h-4 flex-shrink-0" /> : <Eye className="w-4 h-4 flex-shrink-0" />}
-              {!collapsed && <span className="truncate">{privacyMode ? 'Privacy Mode On' : 'Privacy Mode Off'}</span>}
+              <X className="w-4 h-4" />
             </button>
           </div>
 
-          <div className={cn("flex flex-col gap-1.5 w-full pt-4 border-t", theme !== 'light' ? 'border-zinc-800' : 'border-zinc-200')}>
-            {!collapsed && (
-              <div className="flex items-center gap-2 px-3 py-1.5 mb-1">
-                <HardDrive className={cn("w-4 h-4 flex-shrink-0", theme !== 'light' ? 'text-zinc-500' : 'text-zinc-400')} />
-                <span className={cn("text-xs uppercase tracking-wider truncate", theme !== 'light' ? 'text-zinc-500' : 'text-zinc-400')}>
-                  Data Backup
-                </span>
-              </div>
-            )}
+          {/* Tabs */}
+          <div className="flex items-center gap-1 mb-5 p-1 rounded-xl bg-zinc-800/60 border border-zinc-800">
             <button
-              onClick={() => setIsExportConfirmOpen(true)}
-              title={collapsed ? 'Export Journal Backup' : undefined}
+              onClick={() => setSettingsModalTab('appearance')}
               className={cn(
-                "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm",
-                collapsed && 'justify-center px-0',
-                theme !== 'light' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-900'
+                'flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all',
+                settingsModalTab === 'appearance'
+                  ? 'bg-zinc-700 text-white'
+                  : 'text-zinc-400 hover:text-zinc-200'
               )}
             >
-              <Download className="w-4 h-4 flex-shrink-0" />
-              {!collapsed && <span className="truncate">Export Journal Backup</span>}
+              <Sun className="w-3.5 h-3.5" />
+              Appearance & Privacy
             </button>
-            <label
-              title={collapsed ? 'Import & Restore Backup' : undefined}
+            <button
+              onClick={() => setSettingsModalTab('backup')}
               className={cn(
-                "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm cursor-pointer",
-                collapsed && 'justify-center px-0',
-                theme !== 'light' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-900'
+                'flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all',
+                settingsModalTab === 'backup'
+                  ? 'bg-zinc-700 text-white'
+                  : 'text-zinc-400 hover:text-zinc-200'
               )}
             >
-              <FolderSync className="w-4 h-4 flex-shrink-0" />
-              {!collapsed && <span className="truncate">Import & Restore Backup</span>}
-              <input type="file" accept=".json,application/json" className="hidden" onChange={importBackup} />
-            </label>
+              <HardDrive className="w-3.5 h-3.5" />
+              Data Backup
+            </button>
           </div>
+
+          {/* TAB 1: Appearance & Privacy */}
+          {settingsModalTab === 'appearance' && (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-4 px-4 py-3.5 rounded-xl bg-zinc-800/50 border border-zinc-800">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                    {theme === 'dark' ? <Moon className="w-4 h-4 text-zinc-300" /> : theme === 'light' ? <Sun className="w-4 h-4 text-amber-400" /> : <Box className="w-4 h-4 text-emerald-400" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-white truncate">Theme</p>
+                    <p className="text-xs text-zinc-500 truncate">Currently {themeLabel} — switch to {nextThemeLabel}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setTheme(theme === 'dark' ? 'light' : theme === 'light' ? 'minecraft' : 'dark')}
+                  className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-700 text-white hover:bg-zinc-600 transition-all"
+                >
+                  {nextThemeLabel}
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between gap-4 px-4 py-3.5 rounded-xl bg-zinc-800/50 border border-zinc-800">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                    {privacyMode ? <EyeOff className="w-4 h-4 text-amber-400" /> : <Eye className="w-4 h-4 text-zinc-300" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-white truncate">Privacy Mode</p>
+                    <p className="text-xs text-zinc-500 truncate">Blur sensitive figures across the journal</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={privacyMode}
+                  onClick={() => setPrivacyMode(!privacyMode)}
+                  className={cn(
+                    'relative flex-shrink-0 w-10 h-6 rounded-full transition-colors',
+                    privacyMode ? 'bg-amber-500' : 'bg-zinc-700'
+                  )}
+                >
+                  <span className={cn(
+                    'absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform',
+                    privacyMode && 'translate-x-4'
+                  )} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: Data Backup */}
+          {settingsModalTab === 'backup' && (
+            <div className="flex flex-col gap-3">
+              <div className="px-4 py-3.5 rounded-xl bg-zinc-800/50 border border-zinc-800">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                    <Download className="w-4 h-4 text-zinc-300" />
+                  </div>
+                  <p className="text-sm font-medium text-white">Export Journal Backup</p>
+                </div>
+                <p className="text-xs text-zinc-500 mb-3 leading-relaxed">
+                  Download a complete snapshot of your accounts, trades, rules, and notes as a single JSON file you can store safely or move to another device.
+                </p>
+                <button
+                  onClick={() => setIsExportConfirmOpen(true)}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-zinc-700 text-white hover:bg-zinc-600 transition-all"
+                >
+                  <Download className="w-4 h-4" />
+                  Export Backup
+                </button>
+              </div>
+
+              <div className="px-4 py-3.5 rounded-xl bg-zinc-800/50 border border-zinc-800">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                    <FolderSync className="w-4 h-4 text-zinc-300" />
+                  </div>
+                  <p className="text-sm font-medium text-white">Import & Restore Backup</p>
+                </div>
+                <p className="text-xs text-zinc-500 mb-3 leading-relaxed">
+                  Restore your journal from a previously exported backup file. This will replace your current data, so make sure it's the file you intend to load.
+                </p>
+                <label className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-zinc-700 text-white hover:bg-zinc-600 transition-all cursor-pointer">
+                  <FolderSync className="w-4 h-4" />
+                  Choose File to Import
+                  <input type="file" accept=".json,application/json" className="hidden" onChange={importBackup} />
+                </label>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -8418,6 +8547,7 @@ function App() {
       {renderDeleteTradeConfirm()}
       {renderDeleteAccountConfirm()}
       {renderLightbox()}
+      {renderSettingsModal()}
 
       {isExportConfirmOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
