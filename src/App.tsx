@@ -4386,8 +4386,8 @@ function App() {
     const outcomeCardClass = isBreakeven
       ? 'bg-zinc-800/50 group-hover:bg-zinc-800/70'
       : isWin
-        ? 'bg-emerald-900 border-t-2 border-emerald-400 group-hover:bg-emerald-800'
-        : 'bg-rose-900 border-t-2 border-rose-400 group-hover:bg-rose-800';
+        ? 'bg-emerald-900 border-t-0 shadow-none group-hover:bg-emerald-800'
+        : 'bg-rose-900 border-t-0 shadow-none group-hover:bg-rose-800';
     // Dynamic outcome border — same exact color as the fill so the border
     // line and the card body read as one solid color, strengthening on hover.
     const outcomeBorderClass = isBreakeven
