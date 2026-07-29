@@ -4404,13 +4404,15 @@ function App() {
           </div>
           <div className="min-w-0 flex-1">
             <p className={cn("text-[11px] uppercase tracking-wider truncate font-medium", tc.textMuted)}>Win / Loss Ratio</p>
-            <p className="text-lg font-semibold truncate tabular-nums">
-              <span className="text-emerald-500">{stats.wins}W</span>
-              <span className={cn("mx-1", tc.textMuted)}>-</span>
-              <span className="text-rose-500">{stats.losses}L</span>
-            </p>
-            <p className={cn("text-[10px] truncate tabular-nums mt-0.5", tc.textMuted)}>
-              {stats.totalTrades} Trades · {stats.winRate.toFixed(1)}% WR
+            <p className="text-lg font-semibold truncate tabular-nums flex items-baseline gap-1.5">
+              <span>
+                <span className="text-emerald-500">{stats.wins}W</span>
+                <span className={cn("mx-1", tc.textMuted)}>-</span>
+                <span className="text-rose-500">{stats.losses}L</span>
+              </span>
+              <span className={cn("text-[10px] font-normal truncate", tc.textMuted)}>
+                ({stats.totalTrades} · {stats.winRate.toFixed(1)}%)
+              </span>
             </p>
           </div>
         </div>
