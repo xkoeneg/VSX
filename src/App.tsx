@@ -7062,7 +7062,7 @@ function App() {
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => { setNewTrade(prev => ({ ...prev, rulesFollowed: 'followed' })); setRulesAdherenceError(false); }}
+                  onClick={() => { setNewTrade(prev => ({ ...prev, rulesFollowed: prev.rulesFollowed === 'followed' ? undefined : 'followed' })); setRulesAdherenceError(false); }}
                   className={cn('w-full flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm font-medium border transition-colors',
                     newTrade.rulesFollowed === 'followed'
                       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
@@ -7074,7 +7074,7 @@ function App() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setNewTrade(prev => ({ ...prev, rulesFollowed: 'broken' })); setRulesAdherenceError(false); }}
+                  onClick={() => { setNewTrade(prev => ({ ...prev, rulesFollowed: prev.rulesFollowed === 'broken' ? undefined : 'broken' })); setRulesAdherenceError(false); }}
                   className={cn('w-full flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm font-medium border transition-colors',
                     newTrade.rulesFollowed === 'broken'
                       ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
@@ -7519,7 +7519,7 @@ function App() {
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => { setNewTrade(prev => ({ ...prev, rulesFollowed: 'followed' })); setRulesAdherenceError(false); }}
+                  onClick={() => { setNewTrade(prev => ({ ...prev, rulesFollowed: prev.rulesFollowed === 'followed' ? undefined : 'followed' })); setRulesAdherenceError(false); }}
                   className={cn('w-full flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm font-medium border transition-colors',
                     newTrade.rulesFollowed === 'followed'
                       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
@@ -7531,7 +7531,7 @@ function App() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setNewTrade(prev => ({ ...prev, rulesFollowed: 'broken' })); setRulesAdherenceError(false); }}
+                  onClick={() => { setNewTrade(prev => ({ ...prev, rulesFollowed: prev.rulesFollowed === 'broken' ? undefined : 'broken' })); setRulesAdherenceError(false); }}
                   className={cn('w-full flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-sm font-medium border transition-colors',
                     newTrade.rulesFollowed === 'broken'
                       ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
