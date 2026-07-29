@@ -67,7 +67,6 @@ import {
   ArrowLeft,
   Database,
   Settings,
-  User,
   Scale,
   type LucideIcon,
 } from 'lucide-react';
@@ -3904,7 +3903,7 @@ function App() {
   const renderSidebarContent = (isMobile: boolean) => {
     const collapsed = !isMobile && sidebarCollapsed;
     return (
-      <div className="flex flex-col h-full w-full justify-between p-4">
+      <div className="flex flex-col h-full w-full justify-between px-3.5 py-4">
         {/* TOP GROUP: logo/header row + primary nav items, strictly stacked */}
         <div className="flex flex-col gap-1 w-full min-h-0">
           <div className={cn("pb-4 mb-2 border-b w-full", theme !== 'light' ? 'border-zinc-800' : 'border-zinc-200')}>
@@ -3962,7 +3961,7 @@ function App() {
             {[
               {
                 header: 'TRADING',
-                headerClassName: 'text-[10px] font-semibold text-zinc-500 uppercase tracking-wider px-4 mt-6 mb-2',
+                headerClassName: 'text-[10px] font-semibold text-zinc-500 uppercase tracking-wider px-3.5 mt-6 mb-2',
                 items: [
                   { id: 'dashboard' as ViewType, icon: LayoutDashboard, label: 'Dashboard' },
                   { id: 'trades' as ViewType, icon: TrendingUp, label: 'Trade History' },
@@ -3971,7 +3970,7 @@ function App() {
               },
               {
                 header: 'PROCESS',
-                headerClassName: 'text-[10px] font-semibold text-zinc-500 uppercase tracking-wider px-4 mt-6 mb-2',
+                headerClassName: 'text-[10px] font-semibold text-zinc-500 uppercase tracking-wider px-3.5 mt-6 mb-2',
                 items: [
                   { id: 'discipline' as ViewType, icon: Shield, label: 'Discipline Tracker' },
                   { id: 'playbook' as ViewType, icon: BookOpen, label: 'Rules Playbook' },
@@ -3980,7 +3979,7 @@ function App() {
               },
               {
                 header: 'RESOURCES',
-                headerClassName: 'text-[10px] font-semibold text-zinc-500 uppercase tracking-wider px-4 mt-6 mb-2',
+                headerClassName: 'text-[10px] font-semibold text-zinc-500 uppercase tracking-wider px-3.5 mt-6 mb-2',
                 items: [
                   { id: 'notices' as ViewType, icon: FileText, label: 'Market Notices' },
                   { id: 'wiki' as ViewType, icon: Lightbulb, label: 'Knowledge Wiki' },
@@ -4026,26 +4025,13 @@ function App() {
             setIsMobileSidebarOpen(false);
           }}
           title={collapsed ? 'Settings' : undefined}
-          className={cn(
-            'flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-white/5 cursor-pointer mt-auto border-t border-white/5',
-            collapsed && 'justify-center'
-          )}
+          className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg hover:bg-white/5 cursor-pointer mt-auto border-t border-white/5"
         >
-          <div className={cn('flex items-center gap-2.5 min-w-0', collapsed && 'justify-center')}>
-            <div className={cn(
-              'w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0',
-              theme !== 'light' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-600'
-            )}>
-              <User className="w-3.5 h-3.5" />
-            </div>
-            {!collapsed && (
-              <span className={cn('text-sm font-medium truncate', theme !== 'light' ? 'text-zinc-300' : 'text-zinc-700')}>
-                Settings
-              </span>
-            )}
-          </div>
+          <Settings className={cn('w-4 h-4 flex-shrink-0', theme !== 'light' ? 'text-zinc-400' : 'text-zinc-500')} />
           {!collapsed && (
-            <Settings className={cn('w-4 h-4 flex-shrink-0', theme !== 'light' ? 'text-zinc-500' : 'text-zinc-400')} />
+            <span className={cn('text-sm font-medium truncate', theme !== 'light' ? 'text-zinc-300' : 'text-zinc-700')}>
+              Settings
+            </span>
           )}
         </div>
       </div>
@@ -8696,7 +8682,7 @@ function App() {
           />
           {/* Actual Mobile Sidebar Panel */}
           <aside className={cn(
-            "relative w-64 h-full flex flex-col",
+            "relative w-56 h-full flex flex-col",
             theme !== 'light' ? 'bg-zinc-900 border-r border-zinc-800' : 'bg-white border-r border-zinc-200'
           )}>
             {renderSidebarContent(true)}
@@ -8708,7 +8694,7 @@ function App() {
       <aside className={cn(
         "hidden md:flex flex-col h-screen sticky top-0 flex-shrink-0 overflow-hidden transition-all duration-300",
         theme !== 'light' ? 'bg-zinc-900 border-r border-zinc-800' : 'bg-white border-r border-zinc-200',
-        sidebarCollapsed ? "w-[72px]" : "w-64"
+        sidebarCollapsed ? "w-[72px]" : "w-56"
       )}>
         {renderSidebarContent(false)}
       </aside>
@@ -8736,7 +8722,7 @@ function App() {
           </span>
         </div>
 
-        <div className="p-4 sm:p-6">
+        <div className="pt-4 pr-4 pb-4 pl-3 sm:pt-6 sm:pr-6 sm:pb-6 sm:pl-4">
           {view === 'dashboard' && renderDashboard()}
           {view === 'trades' && renderTradeHistory()}
           {view === 'discipline' && renderDisciplineTracker()}
