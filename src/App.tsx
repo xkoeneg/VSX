@@ -3775,7 +3775,7 @@ function App() {
       'DEMO': <Box className="w-3 h-3" />,
     };
     return (
-      <span className={cn('text-xs px-2 py-0.5 rounded flex items-center gap-1', colors[type])}>
+      <span className={cn('text-xs px-2 py-0.5 rounded inline-flex items-center gap-1 w-fit', colors[type])}>
         {icons[type]}
         {type}
       </span>
