@@ -4833,6 +4833,17 @@ function App() {
           <span className="text-zinc-500">BE:</span>{' '}
           <span className="text-amber-400 font-semibold tabular-nums">{accountFilteredTrades.filter(t => Math.abs(t.profitLoss) < 10).length}</span>
         </button>
+        <span className="text-xs font-medium tracking-wide">
+          <span className="text-zinc-500">WIN RATE:</span>{' '}
+          <span className={cn("font-semibold tabular-nums", tc.text)}>
+            {(() => {
+              const wins = accountFilteredTrades.filter(t => t.profitLoss >= 10).length;
+              const losses = accountFilteredTrades.filter(t => t.profitLoss <= -10).length;
+              const decided = wins + losses;
+              return decided > 0 ? `${((wins / decided) * 100).toFixed(1)}%` : '—';
+            })()}
+          </span>
+        </span>
       </div>
       {tradeFilter !== 'all' && (
         <div className="flex items-center gap-2 -mt-2 mb-4">
@@ -6166,7 +6177,21 @@ function App() {
                                 <p className={cn('text-sm font-bold font-mono truncate', day.pnl > 0 ? 'text-emerald-400' : day.pnl < 0 ? 'text-rose-400' : 'text-zinc-300')}>
                                   {formatCurrency(day.pnl, privacyMode)}
                                 </p>
-                                <p className="text-[10px] text-zinc-500 mt-0.5">{day.trades.length} trade{day.trades.length !== 1 ? 's' : ''}</p>
+                                <p className="text-[10px] text-zinc-500 mt-0.5 truncate">
+                                  {day.trades.length} trade{day.trades.length !== 1 ? 's' : ''}
+                                  {(() => {
+                                    const dWins = day.trades.filter(t => t.profitLoss > 0).length;
+                                    const dLosses = day.trades.filter(t => t.profitLoss < 0).length;
+                                    const decided = dWins + dLosses;
+                                    if (decided === 0) return null;
+                                    const dWinRate = (dWins / decided) * 100;
+                                    return (
+                                      <span className={cn('font-semibold', dWinRate >= 50 ? 'text-emerald-500' : 'text-rose-500')}>
+                                        {' '}· {dWinRate.toFixed(0)}% WR
+                                      </span>
+                                    );
+                                  })()}
+                                </p>
                               </div>
                             ) : (
                               <span className="text-xs text-zinc-700">—</span>
@@ -6225,7 +6250,7 @@ function App() {
                         <div
                           key={di}
                           className={cn(
-                            'rounded-lg p-1 min-h-[44px] flex flex-col justify-between min-w-0 transition-colors',
+                            'rounded-lg p-1 min-h-[50px] flex flex-col justify-between min-w-0 transition-colors',
                             day.day === null ? 'bg-transparent' :
                             day.trades.length === 0 ? 'bg-zinc-800/30 border border-zinc-800/60' :
                             day.pnl > 0 ? 'bg-emerald-500/15 border border-emerald-500/30' :
@@ -6237,9 +6262,23 @@ function App() {
                             <>
                               <span className="text-[9px] text-zinc-500 font-medium">{day.day}</span>
                               {day.trades.length > 0 ? (
-                                <p className={cn('text-[9px] font-bold font-mono truncate leading-tight', day.pnl > 0 ? 'text-emerald-400' : day.pnl < 0 ? 'text-rose-400' : 'text-zinc-300')}>
-                                  {formatCurrencyCompact(day.pnl, privacyMode)}
-                                </p>
+                                <div className="min-w-0">
+                                  <p className={cn('text-[9px] font-bold font-mono truncate leading-tight', day.pnl > 0 ? 'text-emerald-400' : day.pnl < 0 ? 'text-rose-400' : 'text-zinc-300')}>
+                                    {formatCurrencyCompact(day.pnl, privacyMode)}
+                                  </p>
+                                  {(() => {
+                                    const dWins = day.trades.filter(t => t.profitLoss > 0).length;
+                                    const dLosses = day.trades.filter(t => t.profitLoss < 0).length;
+                                    const decided = dWins + dLosses;
+                                    if (decided === 0) return null;
+                                    const dWinRate = (dWins / decided) * 100;
+                                    return (
+                                      <p className={cn('text-[8px] font-semibold leading-tight', dWinRate >= 50 ? 'text-emerald-500/90' : 'text-rose-500/90')}>
+                                        {dWinRate.toFixed(0)}% WR
+                                      </p>
+                                    );
+                                  })()}
+                                </div>
                               ) : (
                                 <span className="text-[9px] text-zinc-700">—</span>
                               )}
