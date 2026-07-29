@@ -4675,7 +4675,7 @@ function App() {
                         </td>
                         <td className="px-3 py-2.5 text-sm text-zinc-400 whitespace-nowrap">{formatDate(trade.date)}</td>
                         <td className="px-3 py-2.5 text-sm text-zinc-400 whitespace-nowrap truncate max-w-[160px]">
-                          {account ? `${account.name} - ${account.id}` : '-'}
+                          {account ? account.name : '-'}
                         </td>
                         <td className="px-3 py-2.5 text-sm text-white font-semibold truncate max-w-[100px]">{trade.symbol}</td>
                         <td className="px-3 py-2.5 whitespace-nowrap">
