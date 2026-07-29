@@ -974,7 +974,7 @@ const TimeInput: React.FC<TimeInputProps> = ({ value, onChange, label }) => {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="relative w-full bg-[#1c1d27] border border-[#2e303d] rounded-xl flex items-center hover:border-[#3d4152] focus:outline-none focus:border-[#3d4152] transition-colors group select-none overflow-hidden"
+        className="relative w-full bg-zinc-800 border border-zinc-700 rounded-xl flex items-center hover:border-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors group select-none overflow-hidden"
       >
         <div className="flex items-center pl-4 pr-2 text-zinc-400 group-hover:text-zinc-300 transition-colors">
           <Clock className="w-4 h-4" />
@@ -1001,7 +1001,7 @@ const TimeInput: React.FC<TimeInputProps> = ({ value, onChange, label }) => {
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 bg-[#1c1d27] border border-[#2e303d] rounded-xl shadow-xl z-30 p-2 flex gap-2 w-full min-w-[180px]">
+        <div className="absolute top-full left-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl z-30 p-2 flex gap-2 w-full min-w-[180px]">
           <div className="flex-1">
             <div className="text-[10px] text-zinc-500 text-center mb-1">Hour</div>
             <div className="h-40 overflow-y-auto rounded-lg bg-zinc-900/50">
@@ -1102,7 +1102,7 @@ const DateInput: React.FC<DateInputProps> = ({ value, onChange, label }) => {
       <button
         type="button"
         onClick={openCalendar}
-        className="relative w-full bg-[#1c1d27] border border-[#2e303d] rounded-xl flex items-center hover:border-[#3d4152] focus:outline-none focus:border-[#3d4152] transition-colors group select-none overflow-hidden"
+        className="relative w-full bg-zinc-800 border border-zinc-700 rounded-xl flex items-center hover:border-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors group select-none overflow-hidden"
       >
         <div className="flex items-center pl-4 pr-2 text-zinc-400 group-hover:text-zinc-300 transition-colors">
           <CalendarDays className="w-4 h-4" />
@@ -1118,7 +1118,7 @@ const DateInput: React.FC<DateInputProps> = ({ value, onChange, label }) => {
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 bg-[#1c1d27] border border-[#2e303d] rounded-xl shadow-xl z-30 p-3 w-64">
+        <div className="absolute top-full left-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl z-30 p-3 w-64">
           <div className="flex items-center justify-between mb-2">
             <button
               type="button"
@@ -1344,7 +1344,7 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
           onClose={() => setDeleteConfirm(null)}
           className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[80] flex items-center justify-center p-4"
         >
-          <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-rose-500/15 flex items-center justify-center flex-shrink-0">
                 <Trash2 className="w-5 h-5 text-rose-400" />
@@ -1524,7 +1524,7 @@ const TagSelectDropdown: React.FC<TagSelectDropdownProps> = ({
       <button
         type="button"
         onClick={() => setIsOpen(v => !v)}
-        className="w-full min-h-[46px] bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#3d4152] flex items-center justify-between gap-2"
+        className="w-full min-h-[46px] bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 flex items-center justify-between gap-2"
       >
         {selected.length === 0 ? (
           <span className="text-zinc-500">{placeholder}</span>
@@ -1553,7 +1553,7 @@ const TagSelectDropdown: React.FC<TagSelectDropdownProps> = ({
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-[#1c1d27] border border-[#2e303d] rounded-lg shadow-xl z-30 max-h-60 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-30 max-h-60 overflow-y-auto">
           {options.length === 0 && (
             <p className="px-3 py-2.5 text-xs text-zinc-500">No options yet</p>
           )}
@@ -1665,7 +1665,7 @@ const TagSelectDropdown: React.FC<TagSelectDropdownProps> = ({
           onClose={() => setDeleteConfirm(null)}
           className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[80] flex items-center justify-center p-4"
         >
-          <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-rose-500/15 flex items-center justify-center flex-shrink-0">
                 <Trash2 className="w-5 h-5 text-rose-400" />
@@ -1884,7 +1884,7 @@ const TimeframeChartInput: React.FC<TimeframeChartInputProps> = ({
   };
 
   return (
-    <div className="bg-[#1c1d27]/60 rounded-xl p-3 border border-[#2e303d]/80">
+    <div className="bg-zinc-800/60 rounded-xl p-3 border border-zinc-700/80">
       <div className="flex items-center justify-between gap-1 mb-2">
         <h4 title={timeframe} className={cn('text-sm font-semibold truncate min-w-0', isExecution ? 'text-white' : 'text-zinc-300')}>
           {timeframe}
@@ -2292,7 +2292,7 @@ const NumericInput: React.FC<NumericInputProps> = ({
         onBlur={onBlur}
         placeholder={placeholder}
         className={cn(
-          'w-full bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-[#3d4152]',
+          'w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-zinc-600',
           className
         )}
       />
@@ -6030,7 +6030,7 @@ function App() {
         onClose={() => setShowDisciplineReview(null)}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
-        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
           <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
@@ -6168,8 +6168,8 @@ function App() {
         onClose={() => { setShowTradeDetail(null); setShowExpandGallery(false); }}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
-        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-          <div className="sticky top-0 bg-[#13141b] border-b border-[#222430] px-6 py-4 flex items-center justify-between z-10">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center justify-between z-10">
             <div className="min-w-0 flex-1">
               <h3 className="text-xl font-bold text-white truncate">{trade.symbol}</h3>
               <p className="text-sm text-zinc-500 truncate">{account?.name} | {formatDate(trade.date)}</p>
@@ -6530,8 +6530,8 @@ function App() {
           }}
           className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
         >
-          <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="sticky top-0 bg-[#13141b] border-b border-[#222430] px-6 py-4 flex items-center justify-between z-10">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center justify-between z-10">
               <h3 className="text-lg font-bold text-white truncate">{isEditing ? 'Edit Account' : 'Add Trading Account'}</h3>
               <button onClick={() => { isEditing ? setShowEditAccount(null) : setShowAddAccount(false); resetCalculator(); }} className="p-1 text-zinc-400 hover:text-white">
                 <X className="w-5 h-5" />
@@ -6779,8 +6779,8 @@ function App() {
         onClose={() => { setShowAddTrade(false); resetCalculator(); }}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
-        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-          <div className="sticky top-0 bg-[#13141b] border-b border-[#222430] px-6 py-4 flex items-center justify-between z-20">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center justify-between z-20">
             <h3 className="text-xl font-bold text-white truncate">Add New Trade</h3>
             <button onClick={() => { setShowAddTrade(false); resetCalculator(); }} className="p-2 text-zinc-400 hover:text-white transition-colors">
               <X className="w-5 h-5" />
@@ -6789,7 +6789,7 @@ function App() {
 
           <form className="p-6 space-y-4">
             {/* ================= SECTION 1: Trade Execution & Metrics ================= */}
-            <div className="bg-[#15161e] border border-[#262833] p-4 rounded-xl space-y-3 shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]">
+            <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-xl space-y-3 shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]">
               <div className="flex items-center gap-2 pb-1">
                 <span className="text-[10px] font-bold text-cyan-400 font-mono tracking-widest">01</span>
                 <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Trade Execution &amp; Metrics</h4>
@@ -6800,7 +6800,7 @@ function App() {
                   <select
                     value={newTrade.accountId || ''}
                     onChange={(e) => setNewTrade(prev => ({ ...prev, accountId: e.target.value }))}
-                    className="w-full bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-[#3d4152]"
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-zinc-600"
                   >
                     {accounts.map(acc => (
                       <option key={acc.id} value={acc.id}>{acc.name}</option>
@@ -6848,7 +6848,7 @@ function App() {
                     <button
                       type="button"
                       onClick={() => setShowSymbolDropdown(!showSymbolDropdown)}
-                      className="w-full bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-[#3d4152] flex items-center justify-between"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-zinc-600 flex items-center justify-between"
                     >
                       <span className={cn(newTrade.symbol ? 'text-white' : 'text-zinc-500')}>
                         {newTrade.symbol || 'Select...'}
@@ -6856,7 +6856,7 @@ function App() {
                       <ChevronDown className="w-4 h-4 text-zinc-400" />
                     </button>
                     {showSymbolDropdown && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-[#1c1d27] border border-[#2e303d] rounded-lg shadow-xl z-30 max-h-40 overflow-y-auto">
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-30 max-h-40 overflow-y-auto">
                         {PRESET_SYMBOLS.map(sym => (
                           <button
                             type="button"
@@ -6881,7 +6881,7 @@ function App() {
                         <div className="border-t border-zinc-700 p-2">
                           <input type="text" value={symbolCustomInput} onChange={(e) => setSymbolCustomInput(e.target.value.toUpperCase())}
                             placeholder="Add custom..."
-                            className="w-full bg-[#242631] border border-[#3d4152] rounded px-2 py-1.5 text-xs text-white placeholder-zinc-400 focus:outline-none"
+                            className="w-full bg-[#242631] border border-zinc-600 rounded px-2 py-1.5 text-xs text-white placeholder-zinc-400 focus:outline-none"
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' && symbolCustomInput.trim()) {
                                 setNewTrade(prev => ({ ...prev, symbol: symbolCustomInput.trim() }));
@@ -6902,7 +6902,7 @@ function App() {
                     <button
                       type="button"
                       onClick={() => setShowSessionDropdown(!showSessionDropdown)}
-                      className="w-full bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-[#3d4152] flex items-center justify-between"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-zinc-600 flex items-center justify-between"
                     >
                       <span className={cn(newTrade.session ? 'text-white' : 'text-zinc-500')}>
                         {newTrade.session || 'Select...'}
@@ -6910,7 +6910,7 @@ function App() {
                       <ChevronDown className="w-4 h-4 text-zinc-400" />
                     </button>
                     {showSessionDropdown && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-[#1c1d27] border border-[#2e303d] rounded-lg shadow-xl z-30 max-h-40 overflow-y-auto">
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-30 max-h-40 overflow-y-auto">
                         {SESSION_OPTIONS.map(opt => (
                           <button
                             type="button"
@@ -6969,7 +6969,7 @@ function App() {
                 </div>
                 <div>
                   <label className="block text-xs text-zinc-400 mb-1.5">R:R Ratio</label>
-                  <div className="bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-3 text-sm">
+                  <div className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm">
                     {calculatedRR !== null ? (
                       <span className={cn('font-medium', calculatedRR >= 1 ? 'text-emerald-400' : calculatedRR >= 0 ? 'text-zinc-400' : 'text-rose-400')}>
                         {calculatedRR.toFixed(2)}R
@@ -7091,7 +7091,7 @@ function App() {
             </div>
 
             {/* ================= SECTION 2: Strategy & Tagging ================= */}
-            <div className="bg-[#15161e] border border-[#262833] p-4 rounded-xl space-y-3 shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]">
+            <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-xl space-y-3 shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]">
               <div className="flex items-center gap-2 pb-1">
                 <span className="text-[10px] font-bold text-cyan-400 font-mono tracking-widest">02</span>
                 <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Strategy &amp; Tagging</h4>
@@ -7136,7 +7136,7 @@ function App() {
             </div>
 
             {/* ================= SECTION 3: Chart Screenshots ================= */}
-            <div className="bg-[#15161e] border border-[#262833] p-4 rounded-xl space-y-3 shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]">
+            <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-xl space-y-3 shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]">
               <div className="flex items-center gap-2 pb-1">
                 <span className="text-[10px] font-bold text-cyan-400 font-mono tracking-widest">03</span>
                 <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Chart Screenshots</h4>
@@ -7165,7 +7165,7 @@ function App() {
             </div>
 
             {/* ================= SECTION 4: Post-Trade Reflection ================= */}
-            <div className="bg-[#15161e] border border-[#262833] p-4 rounded-xl space-y-3 shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]">
+            <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-xl space-y-3 shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]">
               <div className="flex items-center gap-2 pb-1">
                 <span className="text-[10px] font-bold text-cyan-400 font-mono tracking-widest">04</span>
                 <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Post-Trade Reflection</h4>
@@ -7178,7 +7178,7 @@ function App() {
                     onChange={(e) => setNewTrade(prev => ({ ...prev, mistakesAnalysis: e.target.value }))}
                     placeholder="What went wrong?"
                     rows={3}
-                    className="w-full bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#3d4152] placeholder-zinc-600 resize-none"
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 placeholder-zinc-600 resize-none"
                   />
                 </div>
                 <div>
@@ -7188,7 +7188,7 @@ function App() {
                     onChange={(e) => setNewTrade(prev => ({ ...prev, lessonsLearned: e.target.value }))}
                     placeholder="What did you learn?"
                     rows={3}
-                    className="w-full bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#3d4152] placeholder-zinc-600 resize-none"
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 placeholder-zinc-600 resize-none"
                   />
                 </div>
               </div>
@@ -7236,8 +7236,8 @@ function App() {
         onClose={() => { setShowEditTrade(false); setEditingTrade(null); resetTradeForm(); resetCalculator(); }}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
-        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-          <div className="sticky top-0 bg-[#13141b] border-b border-[#222430] px-6 py-4 flex items-center justify-between z-20">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center justify-between z-20">
             <h3 className="text-xl font-bold text-white truncate">Edit Trade</h3>
             <button onClick={() => { setShowEditTrade(false); setEditingTrade(null); resetTradeForm(); resetCalculator(); }} className="p-2 text-zinc-400 hover:text-white transition-colors">
               <X className="w-5 h-5" />
@@ -7246,7 +7246,7 @@ function App() {
 
           <form className="p-6 space-y-4">
             {/* ================= SECTION 1: Trade Execution & Metrics ================= */}
-            <div className="bg-[#15161e] border border-[#262833] p-4 rounded-xl space-y-3 shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]">
+            <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-xl space-y-3 shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]">
               <div className="flex items-center gap-2 pb-1">
                 <span className="text-[10px] font-bold text-cyan-400 font-mono tracking-widest">01</span>
                 <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Trade Execution &amp; Metrics</h4>
@@ -7257,7 +7257,7 @@ function App() {
                   <select
                     value={newTrade.accountId || ''}
                     onChange={(e) => setNewTrade(prev => ({ ...prev, accountId: e.target.value }))}
-                    className="w-full bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-[#3d4152]"
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-zinc-600"
                   >
                     {accounts.map(acc => (
                       <option key={acc.id} value={acc.id}>{acc.name}</option>
@@ -7305,7 +7305,7 @@ function App() {
                     <button
                       type="button"
                       onClick={() => setShowSymbolDropdown(!showSymbolDropdown)}
-                      className="w-full bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-[#3d4152] flex items-center justify-between"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-zinc-600 flex items-center justify-between"
                     >
                       <span className={cn(newTrade.symbol ? 'text-white' : 'text-zinc-500')}>
                         {newTrade.symbol || 'Select...'}
@@ -7313,7 +7313,7 @@ function App() {
                       <ChevronDown className="w-4 h-4 text-zinc-400" />
                     </button>
                     {showSymbolDropdown && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-[#1c1d27] border border-[#2e303d] rounded-lg shadow-xl z-30 max-h-40 overflow-y-auto">
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-30 max-h-40 overflow-y-auto">
                         {PRESET_SYMBOLS.map(sym => (
                           <button
                             type="button"
@@ -7338,7 +7338,7 @@ function App() {
                         <div className="border-t border-zinc-700 p-2">
                           <input type="text" value={symbolCustomInput} onChange={(e) => setSymbolCustomInput(e.target.value.toUpperCase())}
                             placeholder="Add custom..."
-                            className="w-full bg-[#242631] border border-[#3d4152] rounded px-2 py-1.5 text-xs text-white placeholder-zinc-400 focus:outline-none"
+                            className="w-full bg-[#242631] border border-zinc-600 rounded px-2 py-1.5 text-xs text-white placeholder-zinc-400 focus:outline-none"
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' && symbolCustomInput.trim()) {
                                 setNewTrade(prev => ({ ...prev, symbol: symbolCustomInput.trim() }));
@@ -7359,7 +7359,7 @@ function App() {
                     <button
                       type="button"
                       onClick={() => setShowSessionDropdown(!showSessionDropdown)}
-                      className="w-full bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-[#3d4152] flex items-center justify-between"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm text-white focus:outline-none focus:border-zinc-600 flex items-center justify-between"
                     >
                       <span className={cn(newTrade.session ? 'text-white' : 'text-zinc-500')}>
                         {newTrade.session || 'Select...'}
@@ -7367,7 +7367,7 @@ function App() {
                       <ChevronDown className="w-4 h-4 text-zinc-400" />
                     </button>
                     {showSessionDropdown && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-[#1c1d27] border border-[#2e303d] rounded-lg shadow-xl z-30 max-h-40 overflow-y-auto">
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-30 max-h-40 overflow-y-auto">
                         {SESSION_OPTIONS.map(opt => (
                           <button
                             type="button"
@@ -7426,7 +7426,7 @@ function App() {
                 </div>
                 <div>
                   <label className="block text-xs text-zinc-400 mb-1.5">R:R Ratio</label>
-                  <div className="bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-3 text-sm">
+                  <div className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-3 text-sm">
                     {calculatedRR !== null ? (
                       <span className={cn('font-medium', calculatedRR >= 1 ? 'text-emerald-400' : calculatedRR >= 0 ? 'text-zinc-400' : 'text-rose-400')}>
                         {calculatedRR.toFixed(2)}R
@@ -7548,7 +7548,7 @@ function App() {
             </div>
 
             {/* ================= SECTION 2: Strategy & Tagging ================= */}
-            <div className="bg-[#15161e] border border-[#262833] p-4 rounded-xl space-y-3 shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]">
+            <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-xl space-y-3 shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]">
               <div className="flex items-center gap-2 pb-1">
                 <span className="text-[10px] font-bold text-cyan-400 font-mono tracking-widest">02</span>
                 <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Strategy &amp; Tagging</h4>
@@ -7593,7 +7593,7 @@ function App() {
             </div>
 
             {/* ================= SECTION 3: Chart Screenshots ================= */}
-            <div className="bg-[#15161e] border border-[#262833] p-4 rounded-xl space-y-3 shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]">
+            <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-xl space-y-3 shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]">
               <div className="flex items-center gap-2 pb-1">
                 <span className="text-[10px] font-bold text-cyan-400 font-mono tracking-widest">03</span>
                 <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Chart Screenshots</h4>
@@ -7622,7 +7622,7 @@ function App() {
             </div>
 
             {/* ================= SECTION 4: Post-Trade Reflection ================= */}
-            <div className="bg-[#15161e] border border-[#262833] p-4 rounded-xl space-y-3 shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]">
+            <div className="bg-zinc-800 border border-zinc-700 p-4 rounded-xl space-y-3 shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset]">
               <div className="flex items-center gap-2 pb-1">
                 <span className="text-[10px] font-bold text-cyan-400 font-mono tracking-widest">04</span>
                 <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Post-Trade Reflection</h4>
@@ -7635,7 +7635,7 @@ function App() {
                     onChange={(e) => setNewTrade(prev => ({ ...prev, mistakesAnalysis: e.target.value }))}
                     placeholder="What went wrong?"
                     rows={3}
-                    className="w-full bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#3d4152] placeholder-zinc-600 resize-none"
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 placeholder-zinc-600 resize-none"
                   />
                 </div>
                 <div>
@@ -7645,7 +7645,7 @@ function App() {
                     onChange={(e) => setNewTrade(prev => ({ ...prev, lessonsLearned: e.target.value }))}
                     placeholder="What did you learn?"
                     rows={3}
-                    className="w-full bg-[#1c1d27] border border-[#2e303d] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#3d4152] placeholder-zinc-600 resize-none"
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 placeholder-zinc-600 resize-none"
                   />
                 </div>
               </div>
@@ -7693,7 +7693,7 @@ function App() {
         onClose={closeRuleModal}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
-        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
           <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
             <h3 className="text-lg font-bold text-white truncate">{editingRuleId ? 'Edit Trading Rule' : 'Add Trading Rule'}</h3>
             <button onClick={closeRuleModal} className="p-1 text-zinc-400 hover:text-white">
@@ -7774,7 +7774,7 @@ function App() {
         onClose={() => setShowAddNotice(false)}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
-        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
           <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
             <h3 className="text-lg font-bold text-white truncate">Add Market Notice</h3>
             <button onClick={() => setShowAddNotice(false)} className="p-1 text-zinc-400 hover:text-white">
@@ -7822,7 +7822,7 @@ function App() {
         onClose={() => setShowAddScenario(false)}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
-        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
           <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
             <h3 className="text-lg font-bold text-white truncate">Add Scenario</h3>
             <button onClick={() => setShowAddScenario(false)} className="p-1 text-zinc-400 hover:text-white">
@@ -7856,7 +7856,7 @@ function App() {
         onClose={() => setShowAddWiki(false)}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
-        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
           <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
             <h3 className="text-lg font-bold text-white truncate">Add Knowledge Entry</h3>
             <button onClick={() => setShowAddWiki(false)} className="p-1 text-zinc-400 hover:text-white">
@@ -7956,7 +7956,7 @@ function App() {
         onClose={() => setAccountPendingDelete(null)}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
       >
-        <div className="bg-[#13141b] border border-[#222430] rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 rounded-full bg-rose-500/15 flex items-center justify-center flex-shrink-0">
               <Trash2 className="w-5 h-5 text-rose-400" />
