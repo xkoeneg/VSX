@@ -4386,15 +4386,15 @@ function App() {
     const outcomeCardClass = isBreakeven
       ? 'bg-zinc-800/50 group-hover:bg-zinc-800/70'
       : isWin
-        ? 'bg-emerald-500/30 border-t border-emerald-500/60 group-hover:bg-emerald-500/40'
-        : 'bg-rose-500/30 border-t border-rose-500/60 group-hover:bg-rose-500/40';
-    // Dynamic outcome border — matches the fill color/opacity exactly so the
-    // whole card reads as one solid win/loss color, strengthening on hover.
+        ? 'bg-emerald-400/60 border-t border-emerald-400/60 group-hover:bg-emerald-400/70'
+        : 'bg-rose-400/60 border-t border-rose-400/60 group-hover:bg-rose-400/70';
+    // Dynamic outcome border — same exact color/opacity as the fill (not a
+    // brighter shade) so the border line and the card body read as one color.
     const outcomeBorderClass = isBreakeven
       ? 'border-zinc-700 hover:border-zinc-500'
       : isWin
-        ? 'border-emerald-500/60 hover:border-emerald-500/90'
-        : 'border-rose-500/60 hover:border-rose-500/90';
+        ? 'border-emerald-400/60 hover:border-emerald-400/70'
+        : 'border-rose-400/60 hover:border-rose-400/70';
 
     // CRITICAL: while in select mode, a click anywhere on the card (including the
     // checkbox overlay) must ONLY toggle selection — it must never open the Trade
@@ -4463,9 +4463,9 @@ function App() {
         </div>
         <div className={cn('p-3.5 min-w-0 flex-1 flex flex-col transition-colors duration-200', outcomeCardClass)}>
           <div className="flex items-start justify-between gap-2">
-            <h4 className={cn('font-semibold truncate tracking-tight text-sm min-w-0', isBreakeven ? 'text-white' : isWin ? 'text-emerald-400' : 'text-rose-400')}>{trade.symbol}</h4>
+            <h4 className="font-semibold truncate tracking-tight text-sm min-w-0 text-white">{trade.symbol}</h4>
             <div className="flex items-center gap-1.5 flex-shrink-0">
-              <span className={cn('text-sm font-mono font-bold tracking-tight whitespace-nowrap', isWin ? 'text-emerald-400' : 'text-rose-400')}>
+              <span className="text-sm font-mono font-bold tracking-tight whitespace-nowrap text-white">
                 {formatCurrency(trade.profitLoss, privacyMode)}
               </span>
               {trade.trackingNumber && <TrackingBadge value={trade.trackingNumber} size="sm" />}
