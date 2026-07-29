@@ -3927,13 +3927,13 @@ function App() {
           <nav className="flex flex-col gap-1 w-full overflow-y-auto overflow-x-hidden min-h-0">
             {[
               { id: 'dashboard' as ViewType, icon: LayoutDashboard, label: 'Dashboard' },
+              { id: 'calendar' as ViewType, icon: Calendar, label: 'Performance Calendar' },
               { id: 'trades' as ViewType, icon: TrendingUp, label: 'Trade History' },
               { id: 'discipline' as ViewType, icon: Shield, label: 'Discipline Tracker' },
               { id: 'lifeDiscipline' as ViewType, icon: Flame, label: 'Life Discipline Hub' },
               { id: 'playbook' as ViewType, icon: BookOpen, label: 'Rules Playbook' },
               { id: 'notices' as ViewType, icon: FileText, label: 'Market Notices' },
               { id: 'wiki' as ViewType, icon: Lightbulb, label: 'Knowledge Wiki' },
-              { id: 'calendar' as ViewType, icon: Calendar, label: 'Performance Calendar' },
             ].map(item => (
               <button
                 key={item.id}
