@@ -2480,15 +2480,19 @@ function App() {
   };
 
   const handleCalculatorEnter = useCallback(() => {
+    // Previously this tried to auto-advance focus to "the next field" in the
+    // form, but the next *visible* field is often in a completely different
+    // section (e.g. Risk ($) -> Setup Types, once Entry/SL/TP is collapsed
+    // and the file inputs are skipped), which still yanked the modal down to
+    // wherever that section happened to sit. Enter on the calculator should
+    // just confirm the value and close the popup in place — no focus jump,
+    // no scroll, nothing. The field that was being edited simply keeps its
+    // value and stays right where the user is looking.
     if (activeInputRef.current) {
-      const form = activeInputRef.current.closest('form');
-      if (form) {
-        const inputs = Array.from(form.querySelectorAll<HTMLElement>('input, select, textarea'));
-        const currentIndex = inputs.indexOf(activeInputRef.current);
-        if (currentIndex < inputs.length - 1) {
-          inputs[currentIndex + 1].focus();
-        }
-      }
+      // Re-focus the field itself (no-op if it's already focused) purely so
+      // the blinking cursor / focus ring stays put after the popup closes,
+      // with zero scrolling.
+      activeInputRef.current.focus({ preventScroll: true });
     }
   }, []);
 
