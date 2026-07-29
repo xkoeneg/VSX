@@ -4747,6 +4747,67 @@ function App() {
           <p className={cn("text-sm mt-1 font-normal truncate", tc.textMuted)}>Analyze your trade execution history</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          {/* All Accounts — same global account filter used on the Dashboard */}
+          <div className="relative" ref={accountDropdownRef}>
+            <button
+              onClick={() => setShowAccountDropdown(!showAccountDropdown)}
+              className={cn(
+                "flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors",
+                theme !== 'light'
+                  ? 'bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700'
+                  : 'bg-zinc-100 border border-zinc-200 text-zinc-700 hover:bg-zinc-200'
+              )}
+            >
+              <Filter className="w-4 h-4 flex-shrink-0" />
+              <span className="hidden sm:inline truncate max-w-[120px]">{selectedAccounts.includes('all') ? 'All Accounts' : `${selectedAccounts.length} Selected`}</span>
+              <ChevronsUpDown className="w-4 h-4 flex-shrink-0" />
+            </button>
+
+            {showAccountDropdown && (
+              <div className={cn(
+                "absolute left-0 mt-2 min-w-[200px] w-64 rounded-lg shadow-xl z-50 p-2",
+                theme !== 'light' ? 'bg-zinc-900 border border-zinc-800' : 'bg-white border border-zinc-200'
+              )}>
+                <button
+                  onClick={() => setSelectedAccounts(['all'])}
+                  className={cn(
+                    'w-full text-left px-3 py-2 rounded text-sm truncate transition-colors',
+                    selectedAccounts.includes('all')
+                      ? theme !== 'light' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900'
+                      : theme !== 'light' ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-zinc-100'
+                  )}
+                >
+                  All Accounts
+                </button>
+                <div className={cn("my-2", theme !== 'light' ? 'border-t border-zinc-800' : 'border-t border-zinc-200')} />
+                {accounts.map(acc => (
+                  <button
+                    key={acc.id}
+                    onClick={() => {
+                      if (selectedAccounts.includes('all')) {
+                        setSelectedAccounts([acc.id]);
+                      } else if (selectedAccounts.includes(acc.id)) {
+                        const newSelection = selectedAccounts.filter(a => a !== acc.id);
+                        setSelectedAccounts(newSelection.length === 0 ? ['all'] : newSelection);
+                      } else {
+                        setSelectedAccounts([...selectedAccounts, acc.id]);
+                      }
+                    }}
+                    className={cn(
+                      'w-full text-left px-3 py-2 rounded text-sm flex items-center justify-between transition-colors',
+                      selectedAccounts.includes(acc.id)
+                        ? theme !== 'light' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900'
+                        : theme !== 'light' ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-zinc-100'
+                    )}
+                  >
+                    <span className="truncate flex-1 mr-2">{acc.name}</span>
+                    {renderAccountTypeBadge(acc)}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <button
             type="button"
             onClick={toggleTradeSelectMode}
@@ -6218,7 +6279,56 @@ function App() {
             <h2 className="text-2xl font-bold text-white truncate">Performance Calendar</h2>
             <p className="text-zinc-500 text-sm truncate">Daily P&L overview</p>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
+            {/* All Accounts — same global account filter used on the Dashboard */}
+            <div className="relative" ref={accountDropdownRef}>
+              <button
+                onClick={() => setShowAccountDropdown(!showAccountDropdown)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700"
+              >
+                <Filter className="w-4 h-4 flex-shrink-0" />
+                <span className="hidden sm:inline truncate max-w-[120px]">{selectedAccounts.includes('all') ? 'All Accounts' : `${selectedAccounts.length} Selected`}</span>
+                <ChevronsUpDown className="w-4 h-4 flex-shrink-0" />
+              </button>
+
+              {showAccountDropdown && (
+                <div className="absolute left-0 mt-2 min-w-[200px] w-64 rounded-lg shadow-xl z-50 p-2 bg-zinc-900 border border-zinc-800">
+                  <button
+                    onClick={() => setSelectedAccounts(['all'])}
+                    className={cn(
+                      'w-full text-left px-3 py-2 rounded text-sm truncate transition-colors',
+                      selectedAccounts.includes('all') ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:bg-zinc-800'
+                    )}
+                  >
+                    All Accounts
+                  </button>
+                  <div className="my-2 border-t border-zinc-800" />
+                  {accounts.map(acc => (
+                    <button
+                      key={acc.id}
+                      onClick={() => {
+                        if (selectedAccounts.includes('all')) {
+                          setSelectedAccounts([acc.id]);
+                        } else if (selectedAccounts.includes(acc.id)) {
+                          const newSelection = selectedAccounts.filter(a => a !== acc.id);
+                          setSelectedAccounts(newSelection.length === 0 ? ['all'] : newSelection);
+                        } else {
+                          setSelectedAccounts([...selectedAccounts, acc.id]);
+                        }
+                      }}
+                      className={cn(
+                        'w-full text-left px-3 py-2 rounded text-sm flex items-center justify-between transition-colors',
+                        selectedAccounts.includes(acc.id) ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:bg-zinc-800'
+                      )}
+                    >
+                      <span className="truncate flex-1 mr-2">{acc.name}</span>
+                      {renderAccountTypeBadge(acc)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <button onClick={() => { setCalendarMonth(prev => prev.month === 0 ? { year: prev.year - 1, month: 11 } : { ...prev, month: prev.month - 1 }); }} className="p-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors">
               <ChevronLeft className="w-4 h-4" />
             </button>
