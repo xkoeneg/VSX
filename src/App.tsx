@@ -4409,6 +4409,9 @@ function App() {
               <span className={cn("mx-1", tc.textMuted)}>-</span>
               <span className="text-rose-500">{stats.losses}L</span>
             </p>
+            <p className={cn("text-[10px] truncate tabular-nums mt-0.5", tc.textMuted)}>
+              {stats.totalTrades} Trades · {stats.winRate.toFixed(1)}% WR
+            </p>
           </div>
         </div>
 
