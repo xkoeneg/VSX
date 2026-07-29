@@ -3924,36 +3924,61 @@ function App() {
             </div>
           </div>
 
-          <nav className="flex flex-col gap-1 w-full overflow-y-auto overflow-x-hidden min-h-0">
+          <nav className="flex flex-col w-full overflow-y-auto overflow-x-hidden min-h-0">
             {[
-              { id: 'dashboard' as ViewType, icon: LayoutDashboard, label: 'Dashboard' },
-              { id: 'calendar' as ViewType, icon: Calendar, label: 'Performance Calendar' },
-              { id: 'trades' as ViewType, icon: TrendingUp, label: 'Trade History' },
-              { id: 'discipline' as ViewType, icon: Shield, label: 'Discipline Tracker' },
-              { id: 'lifeDiscipline' as ViewType, icon: Flame, label: 'Life Discipline Hub' },
-              { id: 'playbook' as ViewType, icon: BookOpen, label: 'Rules Playbook' },
-              { id: 'notices' as ViewType, icon: FileText, label: 'Market Notices' },
-              { id: 'wiki' as ViewType, icon: Lightbulb, label: 'Knowledge Wiki' },
-            ].map(item => (
-              <button
-                key={item.id}
-                onClick={() => {
-                  if (item.id !== 'trades') setTradeSubView('overview');
-                  setView(item.id);
-                  setIsMobileSidebarOpen(false);
-                }}
-                title={collapsed ? item.label : undefined}
-                className={cn(
-                  'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm',
-                  collapsed && 'justify-center px-0',
-                  view === item.id
-                    ? theme !== 'light' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900'
-                    : theme !== 'light' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800/50' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50'
+              {
+                header: 'TRADING',
+                headerClassName: 'text-[10px] font-semibold text-zinc-500 uppercase tracking-wider px-4 mt-6 mb-2',
+                items: [
+                  { id: 'dashboard' as ViewType, icon: LayoutDashboard, label: 'Dashboard' },
+                  { id: 'trades' as ViewType, icon: TrendingUp, label: 'Trade History' },
+                  { id: 'calendar' as ViewType, icon: Calendar, label: 'Performance Calendar' },
+                ],
+              },
+              {
+                header: 'PROCESS',
+                headerClassName: 'text-[10px] font-semibold text-zinc-500 uppercase tracking-wider px-4 mt-6 mb-2',
+                items: [
+                  { id: 'discipline' as ViewType, icon: Shield, label: 'Discipline Tracker' },
+                  { id: 'playbook' as ViewType, icon: BookOpen, label: 'Rules Playbook' },
+                  { id: 'lifeDiscipline' as ViewType, icon: Flame, label: 'Life Discipline Hub' },
+                ],
+              },
+              {
+                header: 'RESOURCES',
+                headerClassName: 'text-[10px] font-semibold text-zinc-500 uppercase tracking-wider px-4 mt-6 mb-2',
+                items: [
+                  { id: 'notices' as ViewType, icon: FileText, label: 'Market Notices' },
+                  { id: 'wiki' as ViewType, icon: Lightbulb, label: 'Knowledge Wiki' },
+                ],
+              },
+            ].map(section => (
+              <div key={section.header} className="flex flex-col gap-1 w-full">
+                {!collapsed && (
+                  <span className={section.headerClassName}>{section.header}</span>
                 )}
-              >
-                <item.icon className="w-4 h-4 flex-shrink-0" />
-                {!collapsed && <span className="truncate">{item.label}</span>}
-              </button>
+                {section.items.map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      if (item.id !== 'trades') setTradeSubView('overview');
+                      setView(item.id);
+                      setIsMobileSidebarOpen(false);
+                    }}
+                    title={collapsed ? item.label : undefined}
+                    className={cn(
+                      'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm',
+                      collapsed && 'justify-center px-0',
+                      view === item.id
+                        ? theme !== 'light' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900'
+                        : theme !== 'light' ? 'text-zinc-400 hover:text-white hover:bg-zinc-800/50' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50'
+                    )}
+                  >
+                    <item.icon className="w-4 h-4 flex-shrink-0" />
+                    {!collapsed && <span className="truncate">{item.label}</span>}
+                  </button>
+                ))}
+              </div>
             ))}
           </nav>
         </div>
