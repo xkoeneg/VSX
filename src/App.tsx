@@ -2306,6 +2306,20 @@ function App() {
   const [privacyMode, setPrivacyMode] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark' | 'minecraft'>('dark');
 
+  // Ref to the main scrollable workspace container. Used to reset scroll
+  // position back to the top whenever the active page/tab changes, so
+  // switching between sidebar links (e.g. Trade History -> Dashboard ->
+  // Trade History) always lands the user at the top of the fresh view
+  // instead of preserving the previous page's scroll offset.
+  const mainScrollRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTop = 0;
+    }
+    window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+  }, [view]);
+
   // Keep the actual <body> background in sync with the active theme. Without
   // this, the browser's default white background can peek through as a gap
   // (e.g. mobile browser chrome resizing viewport height) since our app
@@ -8278,9 +8292,9 @@ function App() {
         </div>
       )}
 
-      {/* DESKTOP SIDEBAR (Permanent Layout) - FIXED HEIGHT */}
+      {/* DESKTOP SIDEBAR (Permanent Layout) - FIXED HEIGHT, PINNED TO VIEWPORT */}
       <aside className={cn(
-        "hidden md:flex flex-col h-screen flex-shrink-0 overflow-hidden transition-all duration-300",
+        "hidden md:flex flex-col h-screen sticky top-0 flex-shrink-0 overflow-hidden transition-all duration-300",
         theme !== 'light' ? 'bg-zinc-900 border-r border-zinc-800' : 'bg-white border-r border-zinc-200',
         sidebarCollapsed ? "w-[72px]" : "w-64"
       )}>
@@ -8288,7 +8302,7 @@ function App() {
       </aside>
 
       {/* MAIN WORKSPACE - ISOLATED SCROLL */}
-      <main className={cn("flex-1 min-w-0 h-screen flex flex-col overflow-y-auto transition-colors duration-300", theme !== 'light' ? 'bg-zinc-950 text-white' : 'bg-zinc-50 text-zinc-900')}>
+      <main ref={mainScrollRef} className={cn("flex-1 min-w-0 h-screen overflow-y-auto flex flex-col transition-colors duration-300", theme !== 'light' ? 'bg-zinc-950 text-white' : 'bg-zinc-50 text-zinc-900')}>
         {/* MOBILE STICKY TOP BAR */}
         <div className={cn(
           "md:hidden sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b backdrop-blur-sm",
