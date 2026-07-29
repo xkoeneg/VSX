@@ -4710,11 +4710,11 @@ function App() {
                           {!tradeSelectMode && (
                             <button
                               type="button"
-                              onClick={(e) => { e.stopPropagation(); setShowTradeDetail(trade.id); }}
+                              onClick={(e) => { e.stopPropagation(); openEditTrade(trade); }}
                               className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors"
-                              title="View trade details"
+                              title="Edit trade"
                             >
-                              <Eye className="w-3.5 h-3.5" />
+                              <Edit2 className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </td>
