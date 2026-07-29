@@ -2858,14 +2858,20 @@ function App() {
   }, [trades]);
 
   // Calculated values
+  // Account-filtered trades only, before the outcome (win/loss/breakeven) filter
+  // is applied. Used by the stats bar so its WINS/LOSSES/BE counts always
+  // reflect the full picture, even while one of them is actively selected as
+  // a filter below.
+  const accountFilteredTrades = useMemo(() => {
+    if (selectedAccounts.includes('all')) return trades;
+    return trades.filter(t => selectedAccounts.includes(t.accountId));
+  }, [trades, selectedAccounts]);
+
   const filteredTrades = useMemo(() => {
-    let filtered = trades;
-    if (!selectedAccounts.includes('all')) {
-      filtered = filtered.filter(t => selectedAccounts.includes(t.accountId));
-    }
+    let filtered = accountFilteredTrades;
     if (tradeFilter !== 'all') {
-      if (tradeFilter === 'profit') filtered = filtered.filter(t => t.profitLoss > 0);
-      else if (tradeFilter === 'loss') filtered = filtered.filter(t => t.profitLoss < 0);
+      if (tradeFilter === 'profit') filtered = filtered.filter(t => t.profitLoss >= 10);
+      else if (tradeFilter === 'loss') filtered = filtered.filter(t => t.profitLoss <= -10);
       else filtered = filtered.filter(t => Math.abs(t.profitLoss) < 10);
     }
     const dir = tradeSortOrder === 'asc' ? 1 : -1;
@@ -2899,7 +2905,7 @@ function App() {
         }
       }
     });
-  }, [trades, selectedAccounts, tradeFilter, tradeSortField, tradeSortOrder]);
+  }, [accountFilteredTrades, tradeFilter, tradeSortField, tradeSortOrder]);
 
   // Database sub-page: applies its own independent filter set on top of the
   // already account/outcome-filtered trades, then paginates the result.
@@ -4568,28 +4574,66 @@ function App() {
         </div>
       )}
 
-      {/* METRICS INDICATOR BAR — compact summary stats, directly above the gallery */}
+      {/* METRICS INDICATOR BAR — compact summary stats, directly above the gallery.
+          WINS / LOSSES / BE are clickable and toggle `tradeFilter` to narrow the
+          gallery + table below to just that outcome; clicking the active one again
+          clears it back to 'all'. TOTAL is informational only, not clickable. */}
       <div className={cn(
         "flex items-center justify-between bg-zinc-900/40 border border-zinc-800/80 rounded-xl px-5 py-3 mb-4",
         theme === 'light' && 'bg-white border-zinc-200'
       )}>
         <span className="text-xs font-medium tracking-wide">
           <span className="text-zinc-500">TOTAL:</span>{' '}
-          <span className={cn("font-semibold tabular-nums", tc.text)}>{filteredTrades.length}</span>
+          <span className={cn("font-semibold tabular-nums", tc.text)}>{accountFilteredTrades.length}</span>
         </span>
-        <span className="text-xs font-medium tracking-wide">
+        <button
+          type="button"
+          onClick={() => setTradeFilter(prev => prev === 'profit' ? 'all' : 'profit')}
+          className={cn(
+            "text-xs font-medium tracking-wide px-2 py-1 -my-1 rounded-lg transition-colors",
+            tradeFilter === 'profit' ? 'bg-emerald-500/10 ring-1 ring-emerald-500/40' : 'hover:bg-white/5'
+          )}
+        >
           <span className="text-zinc-500">WINS:</span>{' '}
-          <span className="text-emerald-400 font-semibold tabular-nums">{filteredTrades.filter(t => t.profitLoss >= 10).length}</span>
-        </span>
-        <span className="text-xs font-medium tracking-wide">
+          <span className="text-emerald-400 font-semibold tabular-nums">{accountFilteredTrades.filter(t => t.profitLoss >= 10).length}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setTradeFilter(prev => prev === 'loss' ? 'all' : 'loss')}
+          className={cn(
+            "text-xs font-medium tracking-wide px-2 py-1 -my-1 rounded-lg transition-colors",
+            tradeFilter === 'loss' ? 'bg-rose-500/10 ring-1 ring-rose-500/40' : 'hover:bg-white/5'
+          )}
+        >
           <span className="text-zinc-500">LOSSES:</span>{' '}
-          <span className="text-rose-400 font-semibold tabular-nums">{filteredTrades.filter(t => t.profitLoss <= -10).length}</span>
-        </span>
-        <span className="text-xs font-medium tracking-wide">
+          <span className="text-rose-400 font-semibold tabular-nums">{accountFilteredTrades.filter(t => t.profitLoss <= -10).length}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setTradeFilter(prev => prev === 'breakeven' ? 'all' : 'breakeven')}
+          className={cn(
+            "text-xs font-medium tracking-wide px-2 py-1 -my-1 rounded-lg transition-colors",
+            tradeFilter === 'breakeven' ? 'bg-amber-500/10 ring-1 ring-amber-500/40' : 'hover:bg-white/5'
+          )}
+        >
           <span className="text-zinc-500">BE:</span>{' '}
-          <span className="text-amber-400 font-semibold tabular-nums">{filteredTrades.filter(t => Math.abs(t.profitLoss) < 10).length}</span>
-        </span>
+          <span className="text-amber-400 font-semibold tabular-nums">{accountFilteredTrades.filter(t => Math.abs(t.profitLoss) < 10).length}</span>
+        </button>
       </div>
+      {tradeFilter !== 'all' && (
+        <div className="flex items-center gap-2 -mt-2 mb-4">
+          <span className="text-xs text-zinc-500">
+            Showing only {tradeFilter === 'profit' ? 'wins' : tradeFilter === 'loss' ? 'losses' : 'breakeven trades'}
+          </span>
+          <button
+            type="button"
+            onClick={() => setTradeFilter('all')}
+            className="text-xs text-zinc-400 hover:text-white underline underline-offset-2"
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       {/* TOP SECTION — Featured Gallery Grid (scrollable frame, all trades) */}
       {recentTrades.length > 0 && (
