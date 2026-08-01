@@ -191,6 +191,12 @@ interface Mistake {
   color: TagColor;
 }
 
+interface EmotionTag {
+  id: string;
+  name: string;
+  color: TagColor;
+}
+
 // Notion-style tag color system — shared by Setup Types, Confluences, and
 // Mistakes Made tags. Each preset pairs a subtle tinted chip style (used for
 // selected badges/options) with a solid dot swatch (used in the color picker
@@ -513,6 +519,7 @@ interface StoredData {
   setupTypes: SetupType[];
   confluences: Confluence[];
   mistakesList: Mistake[];
+  emotionsList: EmotionTag[];
   customSymbols: string[];
 }
 
@@ -533,6 +540,9 @@ const migrateStoredData = (raw: any): StoredData => {
     setupTypes: Array.isArray(data.setupTypes) ? data.setupTypes.map((item: any) => normalizeNamedItem(item, 'gray')) : [],
     confluences: Array.isArray(data.confluences) ? data.confluences.map((item: any) => normalizeNamedItem(item, 'gray')) : [],
     mistakesList: Array.isArray(data.mistakesList) ? data.mistakesList.map((item: any) => normalizeNamedItem(item, 'red')) : [],
+    emotionsList: Array.isArray(data.emotionsList) && data.emotionsList.length > 0
+      ? data.emotionsList.map((item: any) => normalizeNamedItem(item, 'purple'))
+      : EMOTION_OPTIONS.map(name => ({ id: generateId(), name, color: 'purple' as TagColor })),
     customSymbols: Array.isArray(data.customSymbols) ? data.customSymbols.filter((s: any) => typeof s === 'string') : [],
   };
 };
@@ -2510,6 +2520,9 @@ function App() {
   const [setupTypes, setSetupTypes] = useState<SetupType[]>([]);
   const [confluences, setConfluences] = useState<Confluence[]>([]);
   const [mistakesList, setMistakesList] = useState<Mistake[]>([]);
+  const [emotionsList, setEmotionsList] = useState<EmotionTag[]>(() =>
+    EMOTION_OPTIONS.map(name => ({ id: generateId(), name, color: 'purple' as TagColor }))
+  );
   const [customSymbols, setCustomSymbols] = useState<string[]>([]);
 
   // Modal state
@@ -2695,6 +2708,7 @@ function App() {
         setSetupTypes(migrated.setupTypes);
         setConfluences(migrated.confluences);
         setMistakesList(migrated.mistakesList);
+        setEmotionsList(migrated.emotionsList);
         setCustomSymbols(migrated.customSymbols);
         // Write the migrated (current-schema, versioned) shape straight
         // back to localStorage so the migration only has to run once.
@@ -2707,13 +2721,13 @@ function App() {
 
   // Save to localStorage
   useEffect(() => {
-    const data: StoredData = { version: DATA_SCHEMA_VERSION, accounts, trades, rules, notices, noticeScenarios, wikiEntries, setupTypes, confluences, mistakesList, customSymbols };
+    const data: StoredData = { version: DATA_SCHEMA_VERSION, accounts, trades, rules, notices, noticeScenarios, wikiEntries, setupTypes, confluences, mistakesList, emotionsList, customSymbols };
     try {
       localStorage.setItem('tradingJournal', JSON.stringify(data));
     } catch (e) {
       console.error('Failed to save data:', e);
     }
-  }, [accounts, trades, rules, notices, noticeScenarios, wikiEntries, setupTypes, confluences, mistakesList, customSymbols]);
+  }, [accounts, trades, rules, notices, noticeScenarios, wikiEntries, setupTypes, confluences, mistakesList, emotionsList, customSymbols]);
 
   // ---- Life Discipline Hub persistence ----
   // Kept in its own localStorage key, deliberately separate from the trading
@@ -3484,6 +3498,15 @@ function App() {
     setMistakesList(prev => prev.map(m => (m.id === id ? { ...m, color } : m)));
   };
 
+  const handleDeleteEmotion = (id: string, name: string) => {
+    setEmotionsList(prev => prev.filter(e => e.id !== id));
+    setDisciplineReviewDraft(prev => ({ ...prev, emotions: prev.emotions.filter(e => e !== name) }));
+  };
+
+  const handleChangeEmotionColor = (id: string, color: TagColor) => {
+    setEmotionsList(prev => prev.map(e => (e.id === id ? { ...e, color } : e)));
+  };
+
   // File handlers
   const handleFileUpload = async (file: File, key: string, isEditing: boolean = false) => {
     const reader = new FileReader();
@@ -3637,6 +3660,7 @@ function App() {
       setupTypes,
       confluences,
       mistakesList,
+      emotionsList,
       customSymbols,
     };
 
@@ -3701,6 +3725,7 @@ function App() {
         setSetupTypes(migrated.setupTypes);
         setConfluences(migrated.confluences);
         setMistakesList(migrated.mistakesList);
+        setEmotionsList(migrated.emotionsList);
         setCustomSymbols(migrated.customSymbols);
         localStorage.setItem('tradingJournal', JSON.stringify(migrated));
         alert('Backup restored successfully!');
@@ -7080,15 +7105,6 @@ function App() {
     if (!trade) return null;
     const account = accounts.find(a => a.id === trade.accountId);
 
-    const toggleEmotion = (emotion: string) => {
-      setDisciplineReviewDraft(prev => ({
-        ...prev,
-        emotions: prev.emotions.includes(emotion)
-          ? prev.emotions.filter(e => e !== emotion)
-          : [...prev.emotions, emotion],
-      }));
-    };
-
     return (
       <ModalBackdrop
         onClose={() => setShowDisciplineReview(null)}
@@ -7129,47 +7145,30 @@ function App() {
             </div>
 
             <div>
-              <label className="block text-xs text-zinc-400 mb-2">Emotions Tracker</label>
-              <div className="flex flex-wrap gap-1.5">
-                {EMOTION_OPTIONS.map(emotion => {
-                  const isSelected = disciplineReviewDraft.emotions.includes(emotion);
-                  return (
-                    <button
-                      key={emotion}
-                      type="button"
-                      onClick={() => toggleEmotion(emotion)}
-                      className={cn(
-                        'px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150 flex items-center gap-1',
-                        isSelected
-                          ? 'bg-violet-500 text-white border-violet-500'
-                          : 'bg-zinc-800/60 text-zinc-400 border-zinc-700/80 hover:border-violet-500/50 hover:text-violet-300 hover:bg-zinc-800'
-                      )}
-                    >
-                      {isSelected && <Check className="w-3 h-3" />}
-                      {emotion}
-                    </button>
-                  );
-                })}
-              </div>
-              <EditableTagInput
-                values={disciplineReviewDraft.emotions.filter(e => !EMOTION_OPTIONS.includes(e))}
-                onAdd={(value) => setDisciplineReviewDraft(prev => ({ ...prev, emotions: [...prev.emotions, value] }))}
-                onRemove={(value) => setDisciplineReviewDraft(prev => ({ ...prev, emotions: prev.emotions.filter(e => e !== value) }))}
-                placeholder="Type a custom emotion and press Enter..."
-                colorScheme="violet"
+              <TagSelectDropdown
+                label="Emotions Tracker"
+                options={emotionsList}
+                selected={disciplineReviewDraft.emotions}
+                onChange={(selected) => setDisciplineReviewDraft(prev => ({ ...prev, emotions: selected }))}
+                onAddNew={(name) => setEmotionsList(prev => [...prev, { id: generateId(), name, color: 'purple' }])}
+                onDeleteOption={handleDeleteEmotion}
+                onColorChange={handleChangeEmotionColor}
+                placeholder="Select Emotions..."
+                colorScheme="rose"
               />
             </div>
 
             <div>
-              <MultiSelectDropdown
+              <TagSelectDropdown
                 label="Mistakes Analysis"
                 options={mistakesList}
                 selected={disciplineReviewDraft.mistakes}
                 onChange={(selected) => setDisciplineReviewDraft(prev => ({ ...prev, mistakes: selected }))}
                 onAddNew={(name) => setMistakesList(prev => [...prev, { id: generateId(), name, color: 'red' }])}
                 onDeleteOption={handleDeleteMistakeType}
-                placeholder="No mistakes logged"
-                colorScheme="red"
+                onColorChange={handleChangeMistakeColor}
+                placeholder="Select Mistakes..."
+                colorScheme="rose"
               />
             </div>
 
