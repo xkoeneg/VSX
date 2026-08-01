@@ -6766,26 +6766,29 @@ function App() {
           </div>
 
           {/* Mini Discipline Calendar — right column, compact and sleek */}
-          <div className="lg:col-span-4 bg-[#121318] border border-white/10 rounded-xl p-5 min-w-0 h-full flex flex-col justify-between select-none">
+          <div className={cn(
+            "lg:col-span-4 rounded-xl p-5 min-w-0 h-full flex flex-col justify-between select-none border",
+            theme !== 'light' ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-white border-zinc-200'
+          )}>
             <div>
               <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
-                <h3 className="text-sm font-semibold text-white flex items-center gap-2 truncate">
-                  <Shield className="w-4 h-4 text-zinc-400 flex-shrink-0" />
+                <h3 className={cn("text-sm font-semibold flex items-center gap-2 truncate", tc.text)}>
+                  <Shield className={cn("w-4 h-4 flex-shrink-0", tc.textMuted)} />
                   MINI DISCIPLINE CALENDAR
                 </h3>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button
                     onClick={() => setDisciplineCalendarMonth(prev => prev.month === 0 ? { year: prev.year - 1, month: 11 } : { ...prev, month: prev.month - 1 })}
-                    className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-md transition-colors"
+                    className={cn("p-1.5 rounded-md transition-colors", tc.btnSecondary)}
                   >
                     <ChevronLeft className="w-3.5 h-3.5" />
                   </button>
-                  <span className="text-xs font-medium text-zinc-300 whitespace-nowrap min-w-[92px] text-center">
+                  <span className={cn("text-xs font-medium whitespace-nowrap min-w-[92px] text-center", tc.textSecondary)}>
                     {miniMonthNames[miniMonth]} {miniYear}
                   </span>
                   <button
                     onClick={() => setDisciplineCalendarMonth(prev => prev.month === 11 ? { year: prev.year + 1, month: 0 } : { ...prev, month: prev.month + 1 })}
-                    className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-md transition-colors"
+                    className={cn("p-1.5 rounded-md transition-colors", tc.btnSecondary)}
                   >
                     <ChevronRight className="w-3.5 h-3.5" />
                   </button>
@@ -6794,7 +6797,7 @@ function App() {
 
               <div ref={disciplineCalendarGridRef} className="grid grid-cols-7 gap-1 select-none">
                 {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
-                  <div key={`${d}-${i}`} className="text-center text-[10px] text-zinc-500 font-medium py-1">
+                  <div key={`${d}-${i}`} className={cn("text-center text-[10px] font-medium py-1", tc.textMuted)}>
                     {d}
                   </div>
                 ))}
@@ -6821,7 +6824,9 @@ function App() {
                           hasTrades ? 'cursor-pointer hover:scale-105 transition-transform' : 'cursor-default',
                           allFollowed && 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
                           anyBroken && 'bg-rose-500/10 border-rose-500/30 text-rose-300',
-                          !hasTrades && 'border-white/5 bg-white/[0.02] hover:bg-white/5 text-zinc-500'
+                          !hasTrades && (theme !== 'light'
+                            ? 'border-white/5 bg-white/[0.02] hover:bg-white/5 text-zinc-500'
+                            : 'border-zinc-200 bg-zinc-50 hover:bg-zinc-100 text-zinc-400')
                         )}
                       >
                         <span className="text-xs font-medium">{cell.day}</span>
@@ -6833,13 +6838,14 @@ function App() {
                       {isOpen && (
                         <div
                           className={cn(
-                            'absolute z-50 top-full mt-1.5 w-72 max-w-[calc(100vw-2rem)] bg-[#181920] border border-white/15 rounded-xl p-3.5 shadow-2xl',
+                            'absolute z-50 top-full mt-1.5 w-72 max-w-[calc(100vw-2rem)] border rounded-xl p-3.5 shadow-2xl',
+                            theme !== 'light' ? 'bg-zinc-900 border-white/10' : 'bg-white border-zinc-200',
                             alignRight ? 'right-0' : 'left-0'
                           )}
                         >
                           {/* Header — date + rule adherence badge */}
                           <div className="flex items-center justify-between gap-2 mb-1">
-                            <span className="text-sm font-semibold text-white truncate">
+                            <span className={cn("text-sm font-semibold truncate", tc.text)}>
                               {miniMonthNames[miniMonth]} {cell.day}, {miniYear}
                             </span>
                             <span
@@ -6852,23 +6858,26 @@ function App() {
                               {anyBroken ? `${brokenCount} Rule${brokenCount !== 1 ? 's' : ''} Broken` : '100% Compliant'}
                             </span>
                           </div>
-                          <p className="text-[11px] text-zinc-500 mb-3">
+                          <p className={cn("text-[11px] mb-3", tc.textMuted)}>
                             {cell.trades.length} Trade{cell.trades.length !== 1 ? 's' : ''} logged
                           </p>
 
                           {/* Daily trades list */}
-                          <div className="border-t border-white/10 pt-3 mt-2 max-h-56 overflow-y-auto overscroll-contain">
+                          <div className={cn("border-t pt-3 mt-2 max-h-56 overflow-y-auto overscroll-contain", tc.border)}>
                             {cell.trades.map(t => {
                               const tradeAccount = accounts.find(a => a.id === t.accountId);
                               return (
-                                <div key={t.id} className="bg-[#1e1f29]/60 border border-white/10 rounded-xl p-3 pb-3 mb-2.5">
+                                <div key={t.id} className={cn(
+                                  "rounded-xl p-3 pb-3 mb-2.5 border",
+                                  theme !== 'light' ? 'bg-zinc-800/60 border-white/10' : 'bg-zinc-50 border-zinc-200'
+                                )}>
                                   <div className="flex items-center justify-between gap-2">
-                                    <span className="text-xs font-semibold text-white truncate">
+                                    <span className={cn("text-xs font-semibold truncate", tc.text)}>
                                       {t.symbol}
-                                      {t.session && <span className="text-zinc-500 font-normal"> · {t.session}</span>}
+                                      {t.session && <span className={cn("font-normal", tc.textMuted)}> · {t.session}</span>}
                                       {tradeAccount && (
                                         <>
-                                          <span className="mx-1.5 text-zinc-500">|</span>
+                                          <span className={cn("mx-1.5", tc.textMuted)}>|</span>
                                           <span className="text-sky-400 font-medium text-xs">
                                             {formatAccountName(tradeAccount)}
                                           </span>
@@ -6907,7 +6916,10 @@ function App() {
                               setDbPage(0);
                               setOpenDisciplineDay(null);
                             }}
-                            className="w-full flex items-center justify-center gap-1.5 mt-2 pt-3 border-t border-white/10 text-xs font-medium text-zinc-400 hover:text-white transition-colors"
+                            className={cn(
+                              "w-full flex items-center justify-center gap-1.5 mt-2 pt-3 border-t text-xs font-medium transition-colors",
+                              tc.border, tc.textMuted, theme !== 'light' ? 'hover:text-white' : 'hover:text-zinc-900'
+                            )}
                           >
                             View in Trade History
                             <ArrowUpRight className="w-3 h-3" />
@@ -6921,7 +6933,7 @@ function App() {
             </div>
 
             {/* Legend footer — aligned horizontally with the Streak card's bottom stat row */}
-            <div className="flex items-center justify-between pt-3 mt-auto border-t border-white/5 text-xs text-zinc-400">
+            <div className={cn("flex items-center justify-between pt-3 mt-auto border-t text-xs", tc.border, tc.textMuted)}>
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />
                 100% Followed
