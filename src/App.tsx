@@ -6062,6 +6062,93 @@ function App() {
           </div>
         </div>
 
+        {/* Psychology & Behavioral Analytics — now positioned above the log, full width, two columns */}
+        <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-5 min-w-0">
+          <h3 className="text-base font-semibold text-white flex items-center gap-2 mb-4">
+            <Brain className="w-4 h-4 text-violet-400 flex-shrink-0" />
+            <span className="truncate">Psychology & Behavioral Analytics</span>
+          </h3>
+
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-br from-amber-500/10 to-transparent border border-amber-500/20 mb-5">
+            <div className="w-10 h-10 rounded-lg bg-amber-500/15 border border-amber-500/25 flex items-center justify-center flex-shrink-0">
+              <Flame className="w-5 h-5 text-amber-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-zinc-400 uppercase tracking-wider truncate">Current Discipline Streak</p>
+              <p className="text-lg font-bold text-white truncate">{disciplineStreak} trade{disciplineStreak !== 1 ? 's' : ''}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h4 className="text-sm font-semibold text-violet-400 mb-3 flex items-center gap-1.5">
+                <Brain className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">Top Emotions This Week</span>
+              </h4>
+              {topEmotions.length === 0 ? (
+                <p className="text-sm text-zinc-500 py-1">No emotions logged this week</p>
+              ) : (
+                <div className="space-y-3">
+                  {topEmotions.map(({ emotion, count, pnl, winRate }) => {
+                    const isProfit = pnl >= 0;
+                    return (
+                      <div key={emotion} className="min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <span className="text-sm text-zinc-300 truncate">{emotion}</span>
+                          <span className={cn('text-sm font-mono font-medium flex-shrink-0', isProfit ? 'text-emerald-400' : 'text-rose-400')}>
+                            {formatCurrency(pnl, privacyMode)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="h-1.5 flex-1 bg-zinc-800 rounded-full overflow-hidden">
+                            <div
+                              className={cn('h-full rounded-full', isProfit ? 'bg-gradient-to-r from-emerald-600 to-emerald-400' : 'bg-gradient-to-r from-rose-600 to-orange-400')}
+                              style={{ width: `${(count / maxEmotionCount) * 100}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-zinc-500 font-mono flex-shrink-0">{winRate.toFixed(0)}% WR</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="md:pl-6 md:border-l md:border-zinc-800/70">
+              <h4 className="text-sm font-semibold text-rose-400 mb-3 flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">Top Mistakes Committed</span>
+              </h4>
+              {topMistakes.length === 0 ? (
+                <p className="text-sm text-zinc-500 py-1">No mistakes logged yet</p>
+              ) : (
+                <div className="space-y-3">
+                  {topMistakes.map(({ mistake, count, pnl }) => (
+                    <div key={mistake} className="min-w-0">
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <span className="text-sm text-zinc-300 truncate">{mistake}</span>
+                        <span className="text-sm font-mono font-medium text-rose-400 flex-shrink-0">
+                          {formatCurrency(pnl, privacyMode)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 flex-1 bg-zinc-800 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-rose-600 to-orange-400"
+                            style={{ width: `${(count / maxMistakeCount) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-zinc-500 font-mono flex-shrink-0">{count}x</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Rule Adherence Log — full width so trades have room to show every emotion/mistake tag, not just the first couple */}
         <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-5 min-w-0">
           <h3 className="text-base font-semibold text-white flex items-center gap-2 mb-4">
@@ -6149,93 +6236,6 @@ function App() {
                   </div>
                 )}
               </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Psychology & Behavioral Analytics — moved below the log, full width, two columns */}
-        <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-5 min-w-0">
-          <h3 className="text-base font-semibold text-white flex items-center gap-2 mb-4">
-            <Brain className="w-4 h-4 text-violet-400 flex-shrink-0" />
-            <span className="truncate">Psychology & Behavioral Analytics</span>
-          </h3>
-
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-br from-amber-500/10 to-transparent border border-amber-500/20 mb-5">
-            <div className="w-10 h-10 rounded-lg bg-amber-500/15 border border-amber-500/25 flex items-center justify-center flex-shrink-0">
-              <Flame className="w-5 h-5 text-amber-400" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs text-zinc-400 uppercase tracking-wider truncate">Current Discipline Streak</p>
-              <p className="text-lg font-bold text-white truncate">{disciplineStreak} trade{disciplineStreak !== 1 ? 's' : ''}</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h4 className="text-sm font-semibold text-violet-400 mb-3 flex items-center gap-1.5">
-                <Brain className="w-4 h-4 flex-shrink-0" />
-                <span className="truncate">Top Emotions This Week</span>
-              </h4>
-              {topEmotions.length === 0 ? (
-                <p className="text-sm text-zinc-500 py-1">No emotions logged this week</p>
-              ) : (
-                <div className="space-y-3">
-                  {topEmotions.map(({ emotion, count, pnl, winRate }) => {
-                    const isProfit = pnl >= 0;
-                    return (
-                      <div key={emotion} className="min-w-0">
-                        <div className="flex items-center justify-between gap-2 mb-1.5">
-                          <span className="text-sm text-zinc-300 truncate">{emotion}</span>
-                          <span className={cn('text-sm font-mono font-medium flex-shrink-0', isProfit ? 'text-emerald-400' : 'text-rose-400')}>
-                            {formatCurrency(pnl, privacyMode)}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="h-1.5 flex-1 bg-zinc-800 rounded-full overflow-hidden">
-                            <div
-                              className={cn('h-full rounded-full', isProfit ? 'bg-gradient-to-r from-emerald-600 to-emerald-400' : 'bg-gradient-to-r from-rose-600 to-orange-400')}
-                              style={{ width: `${(count / maxEmotionCount) * 100}%` }}
-                            />
-                          </div>
-                          <span className="text-xs text-zinc-500 font-mono flex-shrink-0">{winRate.toFixed(0)}% WR</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="md:pl-6 md:border-l md:border-zinc-800/70">
-              <h4 className="text-sm font-semibold text-rose-400 mb-3 flex items-center gap-1.5">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                <span className="truncate">Top Mistakes Committed</span>
-              </h4>
-              {topMistakes.length === 0 ? (
-                <p className="text-sm text-zinc-500 py-1">No mistakes logged yet</p>
-              ) : (
-                <div className="space-y-3">
-                  {topMistakes.map(({ mistake, count, pnl }) => (
-                    <div key={mistake} className="min-w-0">
-                      <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <span className="text-sm text-zinc-300 truncate">{mistake}</span>
-                        <span className="text-sm font-mono font-medium text-rose-400 flex-shrink-0">
-                          {formatCurrency(pnl, privacyMode)}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="h-1.5 flex-1 bg-zinc-800 rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-rose-600 to-orange-400"
-                            style={{ width: `${(count / maxMistakeCount) * 100}%` }}
-                          />
-                        </div>
-                        <span className="text-xs text-zinc-500 font-mono flex-shrink-0">{count}x</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         </div>
