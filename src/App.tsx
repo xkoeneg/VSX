@@ -5662,6 +5662,14 @@ function App() {
       .slice(0, 8);
     const maxMistakeCount = topMistakes[0]?.count || 1;
 
+    // Trades Needing Review — recent trades with no emotion or mistake tags
+    // logged yet, newest first, so the discipline queue surfaces what's left
+    // to tag before it gets buried in history.
+    const pendingReviewTrades = [...filteredTrades]
+      .filter(t => (!t.emotions || t.emotions.length === 0) && (!t.mistakes || t.mistakes.length === 0))
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 8);
+
     // Current Discipline Streak — based on actual TRADING DAYS, not individual
     // trades, so a rest day (weekend, no trades logged) never breaks the chain.
     // A trading day only counts as "Compliant" when every trade logged that
@@ -6060,6 +6068,59 @@ function App() {
               </span>
             </div>
           </div>
+        </div>
+
+        {/* Trades Needing Review — recent trades with no emotion/mistake tags logged yet */}
+        <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-5 min-w-0">
+          <h3 className="text-base font-semibold text-white flex items-center gap-2 mb-4">
+            <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+            <span className="truncate">Trades Needing Review</span>
+            {pendingReviewTrades.length > 0 && (
+              <span className="text-xs font-mono text-zinc-400 flex-shrink-0 px-2 py-0.5 rounded bg-zinc-800/60 ml-auto">
+                {pendingReviewTrades.length}
+              </span>
+            )}
+          </h3>
+
+          {pendingReviewTrades.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+              <span className="text-2xl">🎉</span>
+              <p className="text-sm text-zinc-500">All trades tagged! Great job.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {pendingReviewTrades.map(trade => (
+                <div
+                  key={trade.id}
+                  onClick={() => setShowDisciplineReview(trade.id)}
+                  className="flex items-center justify-between gap-3 p-3 bg-zinc-800/30 rounded-lg hover:bg-zinc-800/50 cursor-pointer transition-colors min-w-0"
+                >
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <TrackingBadge value={trade.trackingNumber} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-white truncate">
+                        {trade.symbol}
+                        {trade.session && <span className="text-zinc-500 font-normal"> · {trade.session}</span>}
+                      </p>
+                      <p className="text-xs text-zinc-500 truncate">{formatDate(trade.date)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <span className={cn('font-mono font-medium text-sm', trade.profitLoss >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
+                      {formatCurrency(trade.profitLoss, privacyMode)}
+                    </span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setShowDisciplineReview(trade.id); }}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-violet-500/15 border border-violet-500/30 text-violet-300 text-xs font-medium hover:bg-violet-500/25 transition-colors flex-shrink-0"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Tag Discipline
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Psychology & Behavioral Analytics — now positioned above the log, full width, two columns */}
