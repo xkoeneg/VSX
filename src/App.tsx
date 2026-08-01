@@ -6411,7 +6411,7 @@ function App() {
                 {followedTrades.map(trade => {
                   const account = accounts.find(a => a.id === trade.accountId);
                   return (
-                    <div key={trade.id} onClick={() => { setShowRuleReviewModal(trade.id); setIsEditingRuleReview(false); }} className="p-3 bg-zinc-800/30 rounded-lg hover:bg-zinc-800/50 cursor-pointer transition-colors min-w-0">
+                    <div key={trade.id} onClick={() => { setShowRuleReviewModal(trade.id); setIsEditingRuleReview(false); }} className="p-3 bg-zinc-800/30 rounded-lg hover:bg-zinc-800/50 cursor-pointer transition-colors min-w-0 border-l-2 border-emerald-500/70">
                       <div className="flex items-start justify-between gap-3 min-w-0">
                         <div className="flex items-center gap-2 min-w-0 flex-1">
                           <TrackingBadge value={trade.trackingNumber} size="sm" />
@@ -6452,7 +6452,7 @@ function App() {
                 {brokenTrades.map(trade => {
                   const account = accounts.find(a => a.id === trade.accountId);
                   return (
-                    <div key={trade.id} onClick={() => { setShowRuleReviewModal(trade.id); setIsEditingRuleReview(false); }} className="p-3 bg-zinc-800/30 rounded-lg hover:bg-zinc-800/50 cursor-pointer transition-colors min-w-0">
+                    <div key={trade.id} onClick={() => { setShowRuleReviewModal(trade.id); setIsEditingRuleReview(false); }} className="p-3 bg-zinc-800/30 rounded-lg hover:bg-zinc-800/50 cursor-pointer transition-colors min-w-0 border-l-2 border-rose-500/70">
                       <div className="flex items-start justify-between gap-3 min-w-0">
                         <div className="flex items-center gap-2 min-w-0 flex-1">
                           <TrackingBadge value={trade.trackingNumber} size="sm" />
