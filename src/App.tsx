@@ -145,12 +145,19 @@ interface Rule {
   pillar: RulePillar;
 }
 
+interface StrategyStep {
+  id: string;
+  title: string; // e.g. "Step 1: Asian High Sweep & MSS"
+  notes: string; // short description / checklist rule for this step
+  images: TradeImage[]; // optional zoomed-in chart screenshot(s) for this step — supports multiple
+}
+
 interface Strategy {
   id: string;
   title: string;
   market: string; // e.g. "NYC / NQ" — market/session tag
-  steps: string; // step-by-step entry rules, one step per line
-  imageUrl: string; // ideal A+ chart example
+  steps: StrategyStep[]; // ordered, dynamic step-by-step execution builder
+  imageUrl: string; // main cover / ideal A+ chart example — used as gallery thumbnail
 }
 
 interface ChatMessage {
@@ -375,7 +382,7 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 // always produce fully-shaped, current-version objects, so nothing in the
 // UI ever crashes on a field that "isn't there yet" in older data.
 // ============================================================
-const DATA_SCHEMA_VERSION = 4;
+const DATA_SCHEMA_VERSION = 6;
 
 const createEmptyTimeframes = (): TimeframeChart[] =>
   TIMEFRAMES.map(tf => ({ name: tf, images: [], notes: '' }));
@@ -476,11 +483,48 @@ const normalizeRule = (r: any): Rule => ({
   pillar: RULE_PILLARS.includes(r?.pillar) ? r.pillar : guessRulePillar(r),
 });
 
+const normalizeStrategyStep = (s: any): StrategyStep => {
+  // Two legacy shapes to account for: steps that predate the visual builder
+  // entirely (no image field at all) and steps saved by the first version of
+  // the builder, which had a single `imageUrl` string instead of an array.
+  let images: TradeImage[];
+  if (Array.isArray(s?.images)) {
+    images = s.images.map(normalizeTradeImage);
+  } else if (typeof s?.imageUrl === 'string' && s.imageUrl) {
+    images = [{ id: generateId(), url: s.imageUrl, type: 'base64' }];
+  } else {
+    images = [];
+  }
+  return {
+    id: typeof s?.id === 'string' ? s.id : generateId(),
+    title: normalizeStringField(s?.title),
+    notes: normalizeStringField(s?.notes),
+    images,
+  };
+};
+
+// Strategies saved before the step-by-step visual builder existed stored
+// `steps` as a single newline-delimited string. Migrate each non-empty line
+// into its own step object (title = the line, no notes/images) so old
+// playbooks still render correctly in the new dynamic builder + timeline.
+const normalizeStrategySteps = (raw: any): StrategyStep[] => {
+  if (Array.isArray(raw)) return raw.map(normalizeStrategyStep);
+  if (typeof raw === 'string' && raw.trim()) {
+    return raw.split('\n').map(line => line.trim()).filter(Boolean).map(line => ({
+      id: generateId(),
+      title: line,
+      notes: '',
+      images: [],
+    }));
+  }
+  return [];
+};
+
 const normalizeStrategy = (s: any): Strategy => ({
   id: typeof s?.id === 'string' ? s.id : generateId(),
   title: normalizeStringField(s?.title),
   market: normalizeStringField(s?.market),
-  steps: normalizeStringField(s?.steps),
+  steps: normalizeStrategySteps(s?.steps),
   imageUrl: normalizeStringField(s?.imageUrl),
 });
 
@@ -2571,9 +2615,14 @@ function App() {
   const [showAddRule, setShowAddRule] = useState(false);
   const [showAddStrategy, setShowAddStrategy] = useState(false);
   const [viewStrategyId, setViewStrategyId] = useState<string | null>(null);
-  const [newStrategy, setNewStrategy] = useState<{ title: string; market: string; steps: string; imageUrl: string }>({ title: '', market: '', steps: '', imageUrl: '' });
+  const [newStrategy, setNewStrategy] = useState<{ title: string; market: string; steps: StrategyStep[]; imageUrl: string }>({ title: '', market: '', steps: [], imageUrl: '' });
   const [editingStrategyId, setEditingStrategyId] = useState<string | null>(null);
+  const [strategyPendingDelete, setStrategyPendingDelete] = useState<string | null>(null);
+  const [stepPendingDeleteId, setStepPendingDeleteId] = useState<string | null>(null);
   const strategyImageInputRef = useRef<HTMLInputElement>(null);
+  // Dynamic step builder can have any number of steps, each with its own
+  // optional screenshot uploader — keyed ref map instead of one ref per step.
+  const strategyStepImageInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [showAddNotice, setShowAddNotice] = useState(false);
   const [activeNoticeId, setActiveNoticeId] = useState<string | null>(null);
   const [noticeDraftMessage, setNoticeDraftMessage] = useState('');
@@ -3491,36 +3540,108 @@ function App() {
 
   const openAddStrategyModal = () => {
     setEditingStrategyId(null);
-    setNewStrategy({ title: '', market: '', steps: '', imageUrl: '' });
+    setNewStrategy({ title: '', market: '', steps: [], imageUrl: '' });
+    strategyStepImageInputRefs.current = {};
+    setStepPendingDeleteId(null);
     setShowAddStrategy(true);
   };
 
   const openEditStrategyModal = (strategy: Strategy) => {
     setEditingStrategyId(strategy.id);
-    setNewStrategy({ title: strategy.title, market: strategy.market, steps: strategy.steps, imageUrl: strategy.imageUrl });
+    setNewStrategy({ title: strategy.title, market: strategy.market, steps: strategy.steps.map(s => ({ ...s, images: s.images.map(img => ({ ...img })) })), imageUrl: strategy.imageUrl });
+    strategyStepImageInputRefs.current = {};
+    setStepPendingDeleteId(null);
     setShowAddStrategy(true);
   };
 
   const closeStrategyModal = () => {
     setShowAddStrategy(false);
     setEditingStrategyId(null);
-    setNewStrategy({ title: '', market: '', steps: '', imageUrl: '' });
+    setNewStrategy({ title: '', market: '', steps: [], imageUrl: '' });
+    setStepPendingDeleteId(null);
+  };
+
+  // Dynamic Step-by-Step Execution Builder — add / edit / remove / reorder-free
+  // list of steps, each an independent { title, notes, images[] } unit.
+  const addStrategyStep = () => {
+    setNewStrategy(prev => ({ ...prev, steps: [...prev.steps, { id: generateId(), title: '', notes: '', images: [] }] }));
+  };
+
+  const updateStrategyStep = (id: string, field: 'title' | 'notes', value: string) => {
+    setNewStrategy(prev => ({ ...prev, steps: prev.steps.map(s => s.id === id ? { ...s, [field]: value } : s) }));
+  };
+
+  // Removing a step always goes through a confirmation prompt first — this
+  // just opens it; the actual removal happens in confirmRemoveStrategyStep.
+  const requestRemoveStrategyStep = (id: string) => setStepPendingDeleteId(id);
+
+  const removeStrategyStep = (id: string) => {
+    setNewStrategy(prev => ({ ...prev, steps: prev.steps.filter(s => s.id !== id) }));
+    delete strategyStepImageInputRefs.current[id];
+  };
+
+  const confirmRemoveStrategyStep = () => {
+    if (!stepPendingDeleteId) return;
+    removeStrategyStep(stepPendingDeleteId);
+    setStepPendingDeleteId(null);
+  };
+
+  // Each step supports multiple screenshots — every file picked (the input
+  // allows multi-select) gets appended as its own entry rather than
+  // replacing whatever images the step already has.
+  const handleStrategyStepImagesPick = (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const url = ev.target?.result as string;
+        setNewStrategy(prev => ({
+          ...prev,
+          steps: prev.steps.map(s => s.id === id ? { ...s, images: [...s.images, { id: generateId(), url, type: 'base64' as const }] } : s),
+        }));
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = ''; // allow re-selecting the same file(s) again later
+  };
+
+  const removeStrategyStepImage = (stepId: string, imageId: string) => {
+    setNewStrategy(prev => ({
+      ...prev,
+      steps: prev.steps.map(s => s.id === stepId ? { ...s, images: s.images.filter(img => img.id !== imageId) } : s),
+    }));
   };
 
   const handleSaveStrategy = () => {
     if (!newStrategy.title.trim()) return;
+    // Drop fully-empty step rows (no title, no notes, no images) so blank
+    // "+ Add Execution Step" rows the user never filled in aren't persisted.
+    const cleanedSteps = newStrategy.steps
+      .map(s => ({ ...s, title: s.title.trim(), notes: s.notes.trim() }))
+      .filter(s => s.title || s.notes || s.images.length > 0);
     if (editingStrategyId) {
       setStrategies(prev => prev.map(s => s.id === editingStrategyId
-        ? { ...s, title: newStrategy.title.trim(), market: newStrategy.market.trim(), steps: newStrategy.steps, imageUrl: newStrategy.imageUrl }
+        ? { ...s, title: newStrategy.title.trim(), market: newStrategy.market.trim(), steps: cleanedSteps, imageUrl: newStrategy.imageUrl }
         : s
       ));
     } else {
-      setStrategies(prev => [...prev, { id: generateId(), title: newStrategy.title.trim(), market: newStrategy.market.trim(), steps: newStrategy.steps, imageUrl: newStrategy.imageUrl }]);
+      setStrategies(prev => [...prev, { id: generateId(), title: newStrategy.title.trim(), market: newStrategy.market.trim(), steps: cleanedSteps, imageUrl: newStrategy.imageUrl }]);
     }
     closeStrategyModal();
   };
 
-  const handleDeleteStrategy = (id: string) => setStrategies(prev => prev.filter(s => s.id !== id));
+  // Deleting a strategy always goes through a confirmation prompt first —
+  // this just opens it; the actual removal happens in confirmDeleteStrategy.
+  const handleDeleteStrategy = (id: string) => setStrategyPendingDelete(id);
+
+  const confirmDeleteStrategy = () => {
+    if (!strategyPendingDelete) return;
+    const id = strategyPendingDelete;
+    setStrategies(prev => prev.filter(s => s.id !== id));
+    setStrategyPendingDelete(null);
+    setViewStrategyId(prev => (prev === id ? null : prev));
+  };
 
   const handleNoticeImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -9292,16 +9413,17 @@ function App() {
         onClose={closeStrategyModal}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-          <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-lg w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between flex-shrink-0">
             <h3 className="text-lg font-bold text-white truncate">{editingStrategyId ? 'Edit Strategy Model' : 'Add Strategy Model'}</h3>
             <button onClick={closeStrategyModal} className="p-1 text-zinc-400 hover:text-white">
               <X className="w-5 h-5" />
             </button>
           </div>
-          <div className="p-6 space-y-4">
+          <div className="p-6 space-y-5 overflow-y-auto">
+            {/* MAIN COVER / A+ CHART EXAMPLE — doubles as the gallery thumbnail */}
             <div>
-              <label className="block text-sm text-zinc-400 mb-2">Ideal A+ Chart Example</label>
+              <label className="block text-sm text-zinc-400 mb-2">Main Cover — Ideal A+ Chart Example</label>
               <button
                 type="button"
                 onClick={() => strategyImageInputRef.current?.click()}
@@ -9317,7 +9439,10 @@ function App() {
                 )}
               </button>
               <input ref={strategyImageInputRef} type="file" accept="image/*" className="hidden" onChange={handleStrategyImagePick} />
+              <p className="text-xs text-zinc-600 mt-1.5">This becomes the strategy's thumbnail on the Playbook gallery card.</p>
             </div>
+
+            {/* BASIC INFO */}
             <div>
               <label className="block text-sm text-zinc-400 mb-2">Strategy Title</label>
               <input type="text" value={newStrategy.title} onChange={(e) => setNewStrategy(prev => ({ ...prev, title: e.target.value }))} placeholder="NY Open Liquidity Sweep" className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600" />
@@ -9326,10 +9451,93 @@ function App() {
               <label className="block text-sm text-zinc-400 mb-2">Market / Session <span className="text-zinc-600">(e.g. "NYC / NQ")</span></label>
               <input type="text" value={newStrategy.market} onChange={(e) => setNewStrategy(prev => ({ ...prev, market: e.target.value }))} placeholder="NYC / NQ" className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600" />
             </div>
+
+            {/* DYNAMIC STEP-BY-STEP EXECUTION BUILDER */}
             <div>
-              <label className="block text-sm text-zinc-400 mb-2">Step-by-Step Entry Rules <span className="text-zinc-600">(one step per line)</span></label>
-              <textarea value={newStrategy.steps} onChange={(e) => setNewStrategy(prev => ({ ...prev, steps: e.target.value }))} placeholder={"Wait for liquidity sweep of prior session low\nConfirm shift in structure on 1m\nEnter on retest of order block"} rows={4} className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600 resize-none" />
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm text-zinc-400">Step-by-Step Execution Builder</label>
+                {newStrategy.steps.length > 0 && (
+                  <span className="text-xs text-zinc-600">{newStrategy.steps.length} step{newStrategy.steps.length === 1 ? '' : 's'}</span>
+                )}
+              </div>
+
+              {newStrategy.steps.length > 0 && (
+                <div className="space-y-3 mb-3">
+                  {newStrategy.steps.map((step, idx) => (
+                    <div key={step.id} className="rounded-lg border border-zinc-700 bg-zinc-800/40 p-3 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">Step {idx + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => requestRemoveStrategyStep(step.id)}
+                          title="Remove step"
+                          className="p-1 text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 rounded transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        value={step.title}
+                        onChange={(e) => updateStrategyStep(step.id, 'title', e.target.value)}
+                        placeholder={`Step ${idx + 1}: Asian High Sweep & MSS`}
+                        className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600"
+                      />
+                      <textarea
+                        value={step.notes}
+                        onChange={(e) => updateStrategyStep(step.id, 'notes', e.target.value)}
+                        placeholder="Notes / checklist rule for this step..."
+                        rows={2}
+                        className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 resize-none"
+                      />
+                      <div>
+                        <div className="grid grid-cols-3 gap-2">
+                          {step.images.map(img => (
+                            <div key={img.id} className="relative aspect-video rounded-lg overflow-hidden border border-zinc-700 bg-zinc-950 group">
+                              <img src={img.url} alt="Step screenshot" className="w-full h-full object-cover" />
+                              <button
+                                type="button"
+                                onClick={() => removeStrategyStepImage(step.id, img.id)}
+                                title="Remove screenshot"
+                                className="absolute top-1 right-1 p-1 rounded-full bg-black/70 text-white opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => strategyStepImageInputRefs.current[step.id]?.click()}
+                            className="aspect-video rounded-lg border border-dashed border-zinc-700 hover:border-zinc-500 flex flex-col items-center justify-center gap-1 text-zinc-500 hover:text-zinc-300 transition-all bg-zinc-950"
+                          >
+                            <ImagePlus className="w-4 h-4" />
+                            <span className="text-[10px] text-center leading-tight px-1">{step.images.length > 0 ? 'Add more' : 'Upload screenshot(s)'}</span>
+                          </button>
+                        </div>
+                        <input
+                          ref={(el) => { strategyStepImageInputRefs.current[step.id] = el; }}
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className="hidden"
+                          onChange={(e) => handleStrategyStepImagesPick(step.id, e)}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={addStrategyStep}
+                className="w-full flex items-center justify-center gap-1.5 py-2.5 border border-dashed border-zinc-700 hover:border-zinc-500 text-zinc-400 hover:text-white rounded-lg text-xs font-medium transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Execution Step
+              </button>
             </div>
+
             <button type="button" onClick={handleSaveStrategy} disabled={!newStrategy.title.trim()} className="w-full py-2.5 bg-white hover:bg-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed text-black rounded-lg text-sm font-medium transition-colors">{editingStrategyId ? 'Save Changes' : 'Add Strategy Model'}</button>
           </div>
         </div>
@@ -9337,18 +9545,62 @@ function App() {
     )
   );
 
+  // Confirmation prompt for removing a single step from the Step-by-Step
+  // Execution Builder — layers on top of the Add/Edit Strategy modal.
+  const renderDeleteStepConfirm = () => {
+    if (!stepPendingDeleteId) return null;
+    const idx = newStrategy.steps.findIndex(s => s.id === stepPendingDeleteId);
+    if (idx === -1) return null;
+    const step = newStrategy.steps[idx];
+    return (
+      <ModalBackdrop
+        onClose={() => setStepPendingDeleteId(null)}
+        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[80] flex items-center justify-center p-4"
+      >
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-full bg-rose-500/15 flex items-center justify-center flex-shrink-0">
+              <Trash2 className="w-5 h-5 text-rose-400" />
+            </div>
+            <h3 className="text-lg font-bold text-white">Remove Step {idx + 1}?</h3>
+          </div>
+          <p className="text-sm text-zinc-400 mb-6">
+            This removes "{step.title || `Step ${idx + 1}`}"{step.images.length > 0 ? ` and its ${step.images.length} screenshot${step.images.length > 1 ? 's' : ''}` : ''} from this strategy. This cannot be undone.
+          </p>
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setStepPendingDeleteId(null)}
+              className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={confirmRemoveStrategyStep}
+              className="px-4 py-2 bg-rose-500/90 hover:bg-rose-500 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      </ModalBackdrop>
+    );
+  };
+
   const renderStrategyDetailModal = () => {
     const strategy = strategies.find(s => s.id === viewStrategyId) || null;
     if (!strategy) return null;
-    const steps = strategy.steps.split('\n').map(s => s.trim()).filter(Boolean);
+    const steps = strategy.steps;
     return (
       <ModalBackdrop
         onClose={() => setViewStrategyId(null)}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-md w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          {/* MAIN COVER / A+ CHART EXAMPLE */}
           <div
-            className={cn("aspect-video w-full bg-zinc-950 border-b border-zinc-800 flex items-center justify-center overflow-hidden", strategy.imageUrl && "cursor-pointer")}
+            className={cn("aspect-video w-full bg-zinc-950 border-b border-zinc-800 flex items-center justify-center overflow-hidden flex-shrink-0", strategy.imageUrl && "cursor-pointer")}
             onClick={() => strategy.imageUrl && setLightboxImage(strategy.imageUrl)}
           >
             {strategy.imageUrl ? (
@@ -9360,7 +9612,7 @@ function App() {
               </div>
             )}
           </div>
-          <div className="px-6 py-4 border-b border-zinc-800 flex items-start justify-between gap-3">
+          <div className="px-6 py-4 border-b border-zinc-800 flex items-start justify-between gap-3 flex-shrink-0">
             <div className="min-w-0">
               <h3 className="text-lg font-bold text-white truncate">{strategy.title}</h3>
               {strategy.market && (
@@ -9371,18 +9623,53 @@ function App() {
               <X className="w-5 h-5" />
             </button>
           </div>
-          <div className="p-6 space-y-4">
+
+          {/* SCROLLABLE BODY — VERTICAL TIMELINE / STEP GALLERY */}
+          <div className="p-6 space-y-6 overflow-y-auto">
             <div>
-              <p className="text-xs uppercase tracking-wider text-zinc-500 font-semibold mb-2">Entry Rules</p>
+              <p className="text-xs uppercase tracking-wider text-zinc-500 font-semibold mb-4">Execution Playbook</p>
               {steps.length > 0 ? (
-                <ol className="text-sm text-zinc-300 space-y-1.5 list-decimal list-inside">
-                  {steps.map((step, i) => <li key={i}>{step}</li>)}
-                </ol>
+                <div className="relative">
+                  {/* connecting timeline rail */}
+                  <div className="absolute left-[15px] top-2 bottom-2 w-px bg-zinc-800" aria-hidden="true" />
+                  <div className="space-y-5">
+                    {steps.map((step, idx) => (
+                      <div key={step.id} className="relative pl-10">
+                        <div className="absolute left-0 top-0 w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs font-bold text-white flex-shrink-0 z-10">
+                          {idx + 1}
+                        </div>
+                        <div className="rounded-lg border border-zinc-800 bg-[#16181e] overflow-hidden">
+                          {step.images.length > 0 && (
+                            <div className={cn("grid gap-0.5", step.images.length === 1 ? "grid-cols-1" : "grid-cols-2")}>
+                              {step.images.map(img => (
+                                <div
+                                  key={img.id}
+                                  className="w-full bg-zinc-950 cursor-pointer"
+                                  onClick={() => setLightboxImage(img.url)}
+                                >
+                                  <img
+                                    src={img.url}
+                                    alt={`${step.title || `Step ${idx + 1}`} screenshot`}
+                                    className="w-full h-full object-cover aspect-video"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <div className="p-3.5 space-y-1.5">
+                            <h4 className="text-sm font-semibold text-white">{step.title || `Step ${idx + 1}`}</h4>
+                            {step.notes && <p className="text-sm text-zinc-400 whitespace-pre-wrap leading-relaxed">{step.notes}</p>}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               ) : (
-                <p className="text-sm text-zinc-600 italic">No entry rules added yet.</p>
+                <p className="text-sm text-zinc-600 italic">No execution steps added yet.</p>
               )}
             </div>
-            <div className="flex items-center gap-2 pt-2">
+            <div className="flex items-center gap-2 pt-1 flex-shrink-0">
               <button
                 onClick={() => { const s = strategy; setViewStrategyId(null); openEditStrategyModal(s); }}
                 className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors"
@@ -9391,7 +9678,7 @@ function App() {
                 Edit
               </button>
               <button
-                onClick={() => { handleDeleteStrategy(strategy.id); setViewStrategyId(null); }}
+                onClick={() => handleDeleteStrategy(strategy.id)}
                 className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-lg text-sm transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -9613,6 +9900,46 @@ function App() {
             <button
               type="button"
               onClick={confirmDeleteAccount}
+              className="px-4 py-2 bg-rose-500/90 hover:bg-rose-500 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </ModalBackdrop>
+    );
+  };
+
+  const renderDeleteStrategyConfirm = () => {
+    if (!strategyPendingDelete) return null;
+    const strategy = strategies.find(s => s.id === strategyPendingDelete);
+    const stepCount = strategy?.steps.length ?? 0;
+    return (
+      <ModalBackdrop
+        onClose={() => setStrategyPendingDelete(null)}
+        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
+      >
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-full bg-rose-500/15 flex items-center justify-center flex-shrink-0">
+              <Trash2 className="w-5 h-5 text-rose-400" />
+            </div>
+            <h3 className="text-lg font-bold text-white">Delete "{strategy?.title || 'this strategy'}"?</h3>
+          </div>
+          <p className="text-sm text-zinc-400 mb-6">
+            This permanently deletes the strategy model{stepCount > 0 ? ` and all ${stepCount} execution step${stepCount > 1 ? 's' : ''}` : ''}. This cannot be undone.
+          </p>
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setStrategyPendingDelete(null)}
+              className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={confirmDeleteStrategy}
               className="px-4 py-2 bg-rose-500/90 hover:bg-rose-500 text-white rounded-lg text-sm font-medium transition-colors"
             >
               Delete
@@ -9967,12 +10294,14 @@ function App() {
       {renderExpandGallery()}
       {renderAddRuleModal()}
       {renderAddStrategyModal()}
+      {renderDeleteStepConfirm()}
       {renderStrategyDetailModal()}
       {renderAddNoticeModal()}
       {renderAddScenarioModal()}
       {renderAddWikiModal()}
       {renderDeleteTradeConfirm()}
       {renderDeleteAccountConfirm()}
+      {renderDeleteStrategyConfirm()}
       {renderLightbox()}
       {renderSettingsModal()}
 
