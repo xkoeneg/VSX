@@ -7151,9 +7151,12 @@ function App() {
 
           {/* SECTION 1: ACTIVE STRATEGY MODELS — wrapped in a system card container to match other dashboard widgets */}
           <div className="min-w-0 lg:col-span-2 h-full">
-            <div className="h-full flex flex-col bg-[#181920] border border-white/10 rounded-2xl p-6 shadow-xl">
+            <div className={cn(
+              "h-full flex flex-col rounded-2xl p-6 shadow-xl border",
+              theme !== 'light' ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-white border-zinc-200'
+            )}>
               <div className="flex items-center justify-between flex-wrap gap-3">
-                <h3 className="text-sm font-bold tracking-wide flex items-center gap-1.5 text-white">
+                <h3 className={cn("text-sm font-bold tracking-wide flex items-center gap-1.5", tc.text)}>
                   <Layers className="w-4 h-4 text-emerald-400" strokeWidth={2} />
                   STRATEGY MODELS
                 </h3>
@@ -7164,7 +7167,7 @@ function App() {
                         type="button"
                         onClick={() => scrollStrategyCarousel('left')}
                         title="Scroll left"
-                        className="p-1.5 rounded-lg transition-colors bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white"
+                        className={cn("p-1.5 rounded-lg transition-colors", tc.bgSecondary, tc.bgHover, "border", tc.border, tc.textSecondary, theme !== 'light' ? 'hover:text-white' : 'hover:text-zinc-900')}
                       >
                         <ChevronLeft className="w-4 h-4" />
                       </button>
@@ -7172,13 +7175,13 @@ function App() {
                         type="button"
                         onClick={() => scrollStrategyCarousel('right')}
                         title="Scroll right"
-                        className="p-1.5 rounded-lg transition-colors bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white"
+                        className={cn("p-1.5 rounded-lg transition-colors", tc.bgSecondary, tc.bgHover, "border", tc.border, tc.textSecondary, theme !== 'light' ? 'hover:text-white' : 'hover:text-zinc-900')}
                       >
                         <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
                   )}
-                  <button onClick={openAddStrategyModal} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors flex-shrink-0 bg-white/5 hover:bg-white/10 text-white">
+                  <button onClick={openAddStrategyModal} className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors flex-shrink-0", tc.btnSecondary)}>
                     <Plus className="w-3.5 h-3.5" />
                     <span>Add Strategy</span>
                   </button>
@@ -7188,7 +7191,7 @@ function App() {
               {strategies.length === 0 ? (
                 <button
                   onClick={openAddStrategyModal}
-                  className="w-full flex-1 mt-4 flex flex-col items-center justify-center gap-2 py-12 rounded-xl border border-dashed border-white/10 text-zinc-500 hover:text-zinc-300 hover:border-zinc-500 transition-all"
+                  className={cn("w-full flex-1 mt-4 flex flex-col items-center justify-center gap-2 py-12 rounded-xl border border-dashed transition-all", tc.border, tc.textMuted, theme !== 'light' ? 'hover:text-zinc-300 hover:border-zinc-500' : 'hover:text-zinc-600 hover:border-zinc-400')}
                 >
                   <Plus className="w-5 h-5" />
                   <span className="text-sm">+ Add Your First A+ Trading Model</span>
@@ -7223,14 +7226,15 @@ function App() {
                       onClick={() => setViewStrategyId(strategy.id)}
                       title="Drag to reorder — click to view"
                       className={cn(
-                        "group snap-start w-[calc((100%-2*1rem)/3)] min-w-[calc((100%-2*1rem)/3)] shrink-0 h-full flex flex-col border rounded-xl overflow-hidden cursor-grab active:cursor-grabbing transition-all duration-200 ease-out text-left bg-zinc-900/40",
+                        "group snap-start w-[calc((100%-2*1rem)/3)] min-w-[calc((100%-2*1rem)/3)] shrink-0 h-full flex flex-col border rounded-xl overflow-hidden cursor-grab active:cursor-grabbing transition-all duration-200 ease-out text-left",
+                        theme !== 'light' ? 'bg-zinc-900/40' : 'bg-white',
                         dragOverStrategyId === strategy.id
                           ? "border-sky-400 ring-2 ring-sky-400/60"
-                          : "border-white/10 hover:border-white/20",
+                          : theme !== 'light' ? "border-zinc-800/80 hover:border-zinc-700" : "border-zinc-200 hover:border-zinc-300",
                         draggingStrategyId === strategy.id && "opacity-40"
                       )}
                     >
-                      <div className="aspect-video flex items-center justify-center relative overflow-hidden flex-shrink-0 bg-zinc-800/60">
+                      <div className={cn("aspect-video flex items-center justify-center relative overflow-hidden flex-shrink-0", tc.bgSecondary)}>
                         {strategy.images[0]?.url ? (
                           <img
                             src={strategy.images[0].url}
@@ -7238,7 +7242,7 @@ function App() {
                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 pointer-events-none"
                           />
                         ) : (
-                          <div className="flex flex-col items-center gap-1.5 text-zinc-500">
+                          <div className={cn("flex flex-col items-center gap-1.5", tc.textMuted)}>
                             <ImageIcon className="w-7 h-7" />
                             <span className="text-[10px]">No image</span>
                           </div>
@@ -7248,7 +7252,7 @@ function App() {
                         </div>
                       </div>
                       <div className="p-3.5 min-w-0 flex-1 flex flex-col">
-                        <h4 className="font-semibold truncate tracking-tight text-sm min-w-0 text-white">{strategy.title}</h4>
+                        <h4 className={cn("font-semibold truncate tracking-tight text-sm min-w-0", tc.text)}>{strategy.title}</h4>
                       </div>
                     </button>
                   ))}
