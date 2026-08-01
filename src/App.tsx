@@ -2589,8 +2589,8 @@ function App() {
   // Discipline Tracker — Mini Discipline Calendar day popover: the date string
   // (YYYY-MM-DD) of the currently open day flyout, or null when closed.
   const [openDisciplineDay, setOpenDisciplineDay] = useState<string | null>(null);
-  const disciplineDayPopoverRef = useRef<HTMLDivElement>(null);
-  useClickOutside(disciplineDayPopoverRef, useCallback(() => setOpenDisciplineDay(null), []), openDisciplineDay !== null);
+  const disciplineCalendarGridRef = useRef<HTMLDivElement>(null);
+  useClickOutside(disciplineCalendarGridRef, useCallback(() => setOpenDisciplineDay(null), []), openDisciplineDay !== null);
 
   // Form state
   const [newAccount, setNewAccount] = useState<Partial<Account>>({
@@ -5879,7 +5879,7 @@ function App() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-7 gap-1">
+              <div ref={disciplineCalendarGridRef} className="grid grid-cols-7 gap-1">
                 {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
                   <div key={`${d}-${i}`} className="text-center text-[10px] text-zinc-500 font-medium py-1">
                     {d}
@@ -5919,7 +5919,6 @@ function App() {
 
                       {isOpen && (
                         <div
-                          ref={disciplineDayPopoverRef}
                           className={cn(
                             'absolute z-50 top-full mt-1.5 w-72 max-w-[calc(100vw-2rem)] bg-[#181920] border border-white/15 rounded-xl p-3.5 shadow-2xl',
                             alignRight ? 'right-0' : 'left-0'
