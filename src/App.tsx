@@ -2619,6 +2619,8 @@ function App() {
   const [editingStrategyId, setEditingStrategyId] = useState<string | null>(null);
   const [strategyPendingDelete, setStrategyPendingDelete] = useState<string | null>(null);
   const [stepPendingDeleteId, setStepPendingDeleteId] = useState<string | null>(null);
+  const [draggingStepImageId, setDraggingStepImageId] = useState<string | null>(null);
+  const [dragOverStepImageId, setDragOverStepImageId] = useState<string | null>(null);
   const strategyImageInputRef = useRef<HTMLInputElement>(null);
   // Dynamic step builder can have any number of steps, each with its own
   // optional screenshot uploader — keyed ref map instead of one ref per step.
@@ -3543,6 +3545,8 @@ function App() {
     setNewStrategy({ title: '', market: '', steps: [], imageUrl: '' });
     strategyStepImageInputRefs.current = {};
     setStepPendingDeleteId(null);
+    setDraggingStepImageId(null);
+    setDragOverStepImageId(null);
     setShowAddStrategy(true);
   };
 
@@ -3551,6 +3555,8 @@ function App() {
     setNewStrategy({ title: strategy.title, market: strategy.market, steps: strategy.steps.map(s => ({ ...s, images: s.images.map(img => ({ ...img })) })), imageUrl: strategy.imageUrl });
     strategyStepImageInputRefs.current = {};
     setStepPendingDeleteId(null);
+    setDraggingStepImageId(null);
+    setDragOverStepImageId(null);
     setShowAddStrategy(true);
   };
 
@@ -3559,6 +3565,8 @@ function App() {
     setEditingStrategyId(null);
     setNewStrategy({ title: '', market: '', steps: [], imageUrl: '' });
     setStepPendingDeleteId(null);
+    setDraggingStepImageId(null);
+    setDragOverStepImageId(null);
   };
 
   // Dynamic Step-by-Step Execution Builder — add / edit / remove / reorder-free
@@ -3610,6 +3618,25 @@ function App() {
     setNewStrategy(prev => ({
       ...prev,
       steps: prev.steps.map(s => s.id === stepId ? { ...s, images: s.images.filter(img => img.id !== imageId) } : s),
+    }));
+  };
+
+  // Drag-and-drop reordering within a single step's image set — lets the
+  // user pick which screenshot shows first (e.g. in the timeline gallery).
+  const moveStrategyStepImage = (stepId: string, fromImageId: string, toImageId: string) => {
+    if (fromImageId === toImageId) return;
+    setNewStrategy(prev => ({
+      ...prev,
+      steps: prev.steps.map(s => {
+        if (s.id !== stepId) return s;
+        const images = [...s.images];
+        const fromIdx = images.findIndex(img => img.id === fromImageId);
+        const toIdx = images.findIndex(img => img.id === toImageId);
+        if (fromIdx === -1 || toIdx === -1) return s;
+        const [moved] = images.splice(fromIdx, 1);
+        images.splice(toIdx, 0, moved);
+        return { ...s, images };
+      }),
     }));
   };
 
@@ -9492,12 +9519,42 @@ function App() {
                       />
                       <div>
                         <div className="grid grid-cols-3 gap-2">
-                          {step.images.map(img => (
-                            <div key={img.id} className="relative aspect-video rounded-lg overflow-hidden border border-zinc-700 bg-zinc-950 group">
-                              <img src={img.url} alt="Step screenshot" className="w-full h-full object-cover" />
+                          {step.images.map((img, imgIdx) => (
+                            <div
+                              key={img.id}
+                              draggable
+                              onDragStart={(e) => {
+                                setDraggingStepImageId(img.id);
+                                e.dataTransfer.effectAllowed = 'move';
+                                e.dataTransfer.setData('text/plain', img.id);
+                              }}
+                              onDragEnd={() => { setDraggingStepImageId(null); setDragOverStepImageId(null); }}
+                              onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+                              onDragEnter={() => setDragOverStepImageId(img.id)}
+                              onDragLeave={() => setDragOverStepImageId(prev => (prev === img.id ? null : prev))}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                const draggedId = e.dataTransfer.getData('text/plain');
+                                moveStrategyStepImage(step.id, draggedId, img.id);
+                                setDraggingStepImageId(null);
+                                setDragOverStepImageId(null);
+                              }}
+                              onClick={() => setLightboxImage(img.url)}
+                              title="Drag to reorder — click to view larger"
+                              className={cn(
+                                "relative aspect-video rounded-lg overflow-hidden border bg-zinc-950 group cursor-grab active:cursor-grabbing transition-all",
+                                dragOverStepImageId === img.id ? "border-sky-400 ring-2 ring-sky-400/60" : "border-zinc-700",
+                                draggingStepImageId === img.id && "opacity-40"
+                              )}
+                            >
+                              <img src={img.url} alt="Step screenshot" className="w-full h-full object-cover pointer-events-none" />
+                              <div className="absolute top-1 left-1 flex items-center gap-0.5 px-1 py-0.5 rounded bg-black/70 text-white text-[9px] font-semibold pointer-events-none">
+                                <GripVertical className="w-2.5 h-2.5" />
+                                {imgIdx + 1}
+                              </div>
                               <button
                                 type="button"
-                                onClick={() => removeStrategyStepImage(step.id, img.id)}
+                                onClick={(e) => { e.stopPropagation(); removeStrategyStepImage(step.id, img.id); }}
                                 title="Remove screenshot"
                                 className="absolute top-1 right-1 p-1 rounded-full bg-black/70 text-white opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
                               >
@@ -9514,6 +9571,9 @@ function App() {
                             <span className="text-[10px] text-center leading-tight px-1">{step.images.length > 0 ? 'Add more' : 'Upload screenshot(s)'}</span>
                           </button>
                         </div>
+                        {step.images.length > 1 && (
+                          <p className="text-[10px] text-zinc-600 mt-1.5">Drag a photo to reorder — the first one shows first in the playbook. Click any photo to view it larger.</p>
+                        )}
                         <input
                           ref={(el) => { strategyStepImageInputRefs.current[step.id] = el; }}
                           type="file"
