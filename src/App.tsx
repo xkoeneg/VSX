@@ -7331,18 +7331,24 @@ function App() {
         </div>
 
         {/* HORIZONTAL PRE-SESSION PROTOCOL STRIP — full width, sits above Trading Rules */}
-        <div className="min-w-0 bg-[#181920] border border-white/10 rounded-xl px-5 py-3 shadow-md space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className={cn(
+          "relative overflow-hidden min-w-0 border rounded-2xl px-5 py-4 shadow-md space-y-3 transition-colors duration-300",
+          theme !== 'light'
+            ? 'bg-gradient-to-br from-zinc-900 via-zinc-900/90 to-zinc-900/60 border-zinc-800'
+            : 'bg-gradient-to-br from-white via-zinc-50 to-zinc-100 border-zinc-200'
+        )}>
+          <div className="absolute inset-0 bg-gradient-to-br from-violet-500/[0.06] via-transparent to-emerald-500/[0.05] pointer-events-none" />
+          <div className="relative flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3 flex-shrink-0">
               <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
                 <ListChecks className="w-3.5 h-3.5 text-emerald-400" strokeWidth={2} />
               </div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 whitespace-nowrap">Pre-Session Protocol</h3>
+              <h3 className={cn("text-xs font-bold uppercase tracking-wider whitespace-nowrap", tc.textMuted)}>Pre-Session Protocol</h3>
               <span className={cn(
                 "text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 whitespace-nowrap",
                 preSessionCompletedCount === PRE_SESSION_CHECKLIST_ITEMS.length
                   ? "bg-emerald-500/15 text-emerald-400"
-                  : "bg-white/5 text-zinc-500"
+                  : cn(tc.bgSecondary, tc.textMuted)
               )}>
                 {preSessionCompletedCount}/{PRE_SESSION_CHECKLIST_ITEMS.length} Ready
               </span>
@@ -7369,13 +7375,13 @@ function App() {
                   >
                     <span className={cn(
                       "flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center border-2 transition-colors",
-                      checked ? "bg-emerald-500 border-emerald-500" : "bg-transparent border-zinc-600 group-hover:border-zinc-400"
+                      checked ? "bg-emerald-500 border-emerald-500" : cn("bg-transparent", tc.borderSecondary, theme !== 'light' ? 'group-hover:border-zinc-400' : 'group-hover:border-zinc-500')
                     )}>
-                      {checked && <Check className="w-2.5 h-2.5 text-zinc-950" strokeWidth={3.5} />}
+                      {checked && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3.5} />}
                     </span>
                     <span className={cn(
                       "text-xs font-medium whitespace-nowrap transition-colors",
-                      checked ? "text-zinc-500 line-through" : "text-zinc-300 group-hover:text-white"
+                      checked ? cn(tc.textMuted, "line-through") : cn(tc.textSecondary, theme !== 'light' ? 'group-hover:text-white' : 'group-hover:text-zinc-900')
                     )}>
                       {item.label}
                     </span>
@@ -7386,7 +7392,7 @@ function App() {
           </div>
 
           {/* Progress bar */}
-          <div className="w-full h-1.5 rounded-full overflow-hidden bg-white/5">
+          <div className={cn("relative w-full h-1.5 rounded-full overflow-hidden", tc.bgSecondary)}>
             <div
               className="h-full bg-emerald-500 transition-all duration-300 ease-out rounded-full"
               style={{ width: `${(preSessionCompletedCount / PRE_SESSION_CHECKLIST_ITEMS.length) * 100}%` }}
