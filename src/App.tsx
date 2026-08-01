@@ -2906,6 +2906,29 @@ function App() {
   // Scroll container for the single-row "Active Strategy Models" carousel —
   // the < / > nav buttons and drag-to-scroll both act on this ref.
   const strategyCarouselRef = useRef<HTMLDivElement>(null);
+  // Live scroll-position state driving the nav arrows' active/disabled look —
+  // recalculated on every scroll event (mouse drag, arrow click, trackpad, etc.)
+  // and whenever the strategy list itself changes (add/remove/reorder).
+  const [canScrollLeftStrategy, setCanScrollLeftStrategy] = useState(false);
+  const [canScrollRightStrategy, setCanScrollRightStrategy] = useState(false);
+  const updateStrategyScrollState = useCallback(() => {
+    const el = strategyCarouselRef.current;
+    if (!el) return;
+    const maxScrollLeft = el.scrollWidth - el.clientWidth;
+    setCanScrollLeftStrategy(el.scrollLeft > 1);
+    setCanScrollRightStrategy(el.scrollLeft < maxScrollLeft - 1);
+  }, []);
+  useEffect(() => {
+    const el = strategyCarouselRef.current;
+    if (!el) return;
+    updateStrategyScrollState();
+    el.addEventListener('scroll', updateStrategyScrollState, { passive: true });
+    window.addEventListener('resize', updateStrategyScrollState);
+    return () => {
+      el.removeEventListener('scroll', updateStrategyScrollState);
+      window.removeEventListener('resize', updateStrategyScrollState);
+    };
+  }, [strategies, updateStrategyScrollState]);
   const scrollStrategyCarousel = (direction: 'left' | 'right') => {
     const el = strategyCarouselRef.current;
     if (!el) return;
@@ -7165,17 +7188,31 @@ function App() {
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
-                        onClick={() => scrollStrategyCarousel('left')}
+                        onClick={() => canScrollLeftStrategy && scrollStrategyCarousel('left')}
                         title="Scroll left"
-                        className={cn("p-1.5 rounded-lg transition-colors", tc.bgSecondary, tc.bgHover, "border", tc.border, tc.textSecondary, theme !== 'light' ? 'hover:text-white' : 'hover:text-zinc-900')}
+                        disabled={!canScrollLeftStrategy}
+                        aria-disabled={!canScrollLeftStrategy}
+                        className={cn(
+                          "p-1.5 rounded-lg border transition-colors",
+                          canScrollLeftStrategy
+                            ? "text-white bg-white/10 hover:bg-white/20 border-white/20 cursor-pointer"
+                            : "text-white/20 bg-transparent border-white/5 cursor-not-allowed pointer-events-none"
+                        )}
                       >
                         <ChevronLeft className="w-4 h-4" />
                       </button>
                       <button
                         type="button"
-                        onClick={() => scrollStrategyCarousel('right')}
+                        onClick={() => canScrollRightStrategy && scrollStrategyCarousel('right')}
                         title="Scroll right"
-                        className={cn("p-1.5 rounded-lg transition-colors", tc.bgSecondary, tc.bgHover, "border", tc.border, tc.textSecondary, theme !== 'light' ? 'hover:text-white' : 'hover:text-zinc-900')}
+                        disabled={!canScrollRightStrategy}
+                        aria-disabled={!canScrollRightStrategy}
+                        className={cn(
+                          "p-1.5 rounded-lg border transition-colors",
+                          canScrollRightStrategy
+                            ? "text-white bg-white/10 hover:bg-white/20 border-white/20 cursor-pointer"
+                            : "text-white/20 bg-transparent border-white/5 cursor-not-allowed pointer-events-none"
+                        )}
                       >
                         <ChevronRight className="w-4 h-4" />
                       </button>
@@ -7201,7 +7238,7 @@ function App() {
                 <div className="overflow-hidden flex-1 mt-4">
                 <div
                   ref={strategyCarouselRef}
-                  className="custom-slider-scrollbar flex flex-nowrap overflow-x-auto snap-x snap-mandatory scroll-smooth gap-4 pb-2 h-full"
+                  className="custom-slider-scrollbar scrollbar-none flex flex-nowrap overflow-x-auto snap-x snap-mandatory scroll-smooth gap-4 pb-2 h-full"
                 >
                   {strategies.map(strategy => (
                     <button
@@ -11266,33 +11303,17 @@ function App() {
           background-color: rgba(161,161,170,0.7);
         }
 
-        /* Active Strategy Models carousel — ultra-thin horizontal scrollbar,
-           always visible so it reads as a slider rather than clipped content. */
-        .custom-slider-scrollbar {
-          scrollbar-width: thin;
-          scrollbar-color: rgba(255,255,255,0.2) transparent;
+        /* Active Strategy Models carousel — scrollbar fully hidden so it reads
+           as a clean slider driven only by the < / > nav arrows (and drag/swipe),
+           with no native scrollbar track ever visible. */
+        .custom-slider-scrollbar,
+        .scrollbar-none {
+          scrollbar-width: none; /* Firefox */
+          -ms-overflow-style: none; /* IE / legacy Edge */
         }
-        .custom-slider-scrollbar::-webkit-scrollbar {
-          display: block;
-          height: 6px;
-        }
-        .custom-slider-scrollbar::-webkit-scrollbar-track {
-          background: rgba(255, 255, 255, 0.03);
-          border-radius: 9999px;
-        }
-        .custom-slider-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.2);
-          border-radius: 9999px;
-          transition: background-color 0.15s ease;
-        }
-        .custom-slider-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.4);
-        }
-        .custom-slider-scrollbar::-webkit-scrollbar-thumb:active {
-          background: rgba(255, 255, 255, 0.6);
-        }
-        .custom-slider-scrollbar::-webkit-scrollbar-button {
-          display: none;
+        .custom-slider-scrollbar::-webkit-scrollbar,
+        .scrollbar-none::-webkit-scrollbar {
+          display: none; /* Chrome, Safari, modern Edge */
           width: 0;
           height: 0;
         }
