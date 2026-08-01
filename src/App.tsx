@@ -6407,7 +6407,7 @@ function App() {
                 </span>
                 <span className="text-xs font-mono text-zinc-400 flex-shrink-0 px-2 py-0.5 rounded bg-zinc-800/60">{followedTrades.length}</span>
               </div>
-              <div className="space-y-2 flex-1 overflow-y-auto max-h-[420px] pr-1">
+              <div className="space-y-2 flex-1 overflow-y-auto max-h-[420px] pr-1 overscroll-contain" onWheel={(e) => e.stopPropagation()}>
                 {followedTrades.map(trade => {
                   const account = accounts.find(a => a.id === trade.accountId);
                   return (
@@ -6448,7 +6448,7 @@ function App() {
                 </span>
                 <span className="text-xs font-mono text-zinc-400 flex-shrink-0 px-2 py-0.5 rounded bg-zinc-800/60">{brokenTrades.length}</span>
               </div>
-              <div className="space-y-2 flex-1 overflow-y-auto max-h-[420px] pr-1">
+              <div className="space-y-2 flex-1 overflow-y-auto max-h-[420px] pr-1 overscroll-contain" onWheel={(e) => e.stopPropagation()}>
                 {brokenTrades.map(trade => {
                   const account = accounts.find(a => a.id === trade.accountId);
                   return (
