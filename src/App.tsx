@@ -157,7 +157,7 @@ interface Strategy {
   title: string;
   market: string; // e.g. "NYC / NQ" — market/session tag
   steps: StrategyStep[]; // ordered, dynamic step-by-step execution builder
-  imageUrl: string; // main cover / ideal A+ chart example — used as gallery thumbnail
+  images: TradeImage[]; // main cover / ideal A+ chart example(s) — supports multiple, first one used as gallery thumbnail
 }
 
 interface ChatMessage {
@@ -520,12 +520,23 @@ const normalizeStrategySteps = (raw: any): StrategyStep[] => {
   return [];
 };
 
+// Strategies saved before multi-image cover support existed stored a single
+// `imageUrl` string instead of an `images` array — migrate that legacy shape
+// into a one-item array so old playbooks still render correctly.
+const normalizeStrategyImages = (s: any): TradeImage[] => {
+  if (Array.isArray(s?.images)) return s.images.map(normalizeTradeImage);
+  if (typeof s?.imageUrl === 'string' && s.imageUrl) {
+    return [{ id: generateId(), url: s.imageUrl, type: 'base64' }];
+  }
+  return [];
+};
+
 const normalizeStrategy = (s: any): Strategy => ({
   id: typeof s?.id === 'string' ? s.id : generateId(),
   title: normalizeStringField(s?.title),
   market: normalizeStringField(s?.market),
   steps: normalizeStrategySteps(s?.steps),
-  imageUrl: normalizeStringField(s?.imageUrl),
+  images: normalizeStrategyImages(s),
 });
 
 const normalizeChatMessage = (m: any): ChatMessage => ({
@@ -2615,12 +2626,23 @@ function App() {
   const [showAddRule, setShowAddRule] = useState(false);
   const [showAddStrategy, setShowAddStrategy] = useState(false);
   const [viewStrategyId, setViewStrategyId] = useState<string | null>(null);
-  const [newStrategy, setNewStrategy] = useState<{ title: string; market: string; steps: StrategyStep[]; imageUrl: string }>({ title: '', market: '', steps: [], imageUrl: '' });
+  const [newStrategy, setNewStrategy] = useState<{ title: string; market: string; steps: StrategyStep[]; images: TradeImage[] }>({ title: '', market: '', steps: [], images: [] });
   const [editingStrategyId, setEditingStrategyId] = useState<string | null>(null);
   const [strategyPendingDelete, setStrategyPendingDelete] = useState<string | null>(null);
   const [stepPendingDeleteId, setStepPendingDeleteId] = useState<string | null>(null);
   const [draggingStepImageId, setDraggingStepImageId] = useState<string | null>(null);
   const [dragOverStepImageId, setDragOverStepImageId] = useState<string | null>(null);
+  // Drag-reorder state for the main cover carousel's multi-image manager in
+  // the edit modal (separate from the per-step drag state above).
+  const [draggingCoverImageId, setDraggingCoverImageId] = useState<string | null>(null);
+  const [dragOverCoverImageId, setDragOverCoverImageId] = useState<string | null>(null);
+  // Drag-reorder state for the Strategy Model gallery itself — lets the user
+  // drag any strategy card into any position (e.g. pin a model to the front).
+  const [draggingStrategyId, setDraggingStrategyId] = useState<string | null>(null);
+  const [dragOverStrategyId, setDragOverStrategyId] = useState<string | null>(null);
+  // Which cover slide the Preview Mode carousel is currently showing —
+  // reset to 0 whenever a different strategy is opened.
+  const [strategyCoverIndex, setStrategyCoverIndex] = useState(0);
   const strategyImageInputRef = useRef<HTMLInputElement>(null);
   // Dynamic step builder can have any number of steps, each with its own
   // optional screenshot uploader — keyed ref map instead of one ref per step.
@@ -2926,6 +2948,12 @@ function App() {
       }
     }
   }, [showTradeDetail]);
+
+  // Reset the cover carousel back to the first slide whenever a (different)
+  // strategy model is opened in Preview Mode.
+  useEffect(() => {
+    if (viewStrategyId) setStrategyCoverIndex(0);
+  }, [viewStrategyId]);
 
   // Populate Discipline & Psychology Review draft when opened
   useEffect(() => {
@@ -3532,41 +3560,90 @@ function App() {
 
   const handleDeleteRule = (id: string) => setRules(rules.filter(r => r.id !== id));
 
-  const handleStrategyImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => setNewStrategy(prev => ({ ...prev, imageUrl: ev.target?.result as string }));
-    reader.readAsDataURL(file);
+  // The main cover now supports multiple images — every file picked (the
+  // input allows multi-select) gets appended as its own entry rather than
+  // replacing whatever cover images already exist.
+  // Drag-and-drop reordering of the strategy gallery itself — lets the user
+  // pin any strategy model to the front or anywhere else in the grid.
+  const moveStrategy = (fromStrategyId: string, toStrategyId: string) => {
+    if (fromStrategyId === toStrategyId) return;
+    setStrategies(prev => {
+      const list = [...prev];
+      const fromIdx = list.findIndex(s => s.id === fromStrategyId);
+      const toIdx = list.findIndex(s => s.id === toStrategyId);
+      if (fromIdx === -1 || toIdx === -1) return prev;
+      const [moved] = list.splice(fromIdx, 1);
+      list.splice(toIdx, 0, moved);
+      return list;
+    });
+  };
+
+  const handleStrategyImagesPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const url = ev.target?.result as string;
+        setNewStrategy(prev => ({ ...prev, images: [...prev.images, { id: generateId(), url, type: 'base64' as const }] }));
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = ''; // allow re-selecting the same file(s) again later
+  };
+
+  const removeStrategyImage = (imageId: string) => {
+    setNewStrategy(prev => ({ ...prev, images: prev.images.filter(img => img.id !== imageId) }));
+  };
+
+  // Drag-and-drop reordering of the main cover images — the first slide
+  // becomes both the gallery thumbnail and the carousel's opening slide.
+  const moveStrategyImage = (fromImageId: string, toImageId: string) => {
+    if (fromImageId === toImageId) return;
+    setNewStrategy(prev => {
+      const images = [...prev.images];
+      const fromIdx = images.findIndex(img => img.id === fromImageId);
+      const toIdx = images.findIndex(img => img.id === toImageId);
+      if (fromIdx === -1 || toIdx === -1) return prev;
+      const [moved] = images.splice(fromIdx, 1);
+      images.splice(toIdx, 0, moved);
+      return { ...prev, images };
+    });
   };
 
   const openAddStrategyModal = () => {
     setEditingStrategyId(null);
-    setNewStrategy({ title: '', market: '', steps: [], imageUrl: '' });
+    setNewStrategy({ title: '', market: '', steps: [], images: [] });
     strategyStepImageInputRefs.current = {};
     setStepPendingDeleteId(null);
     setDraggingStepImageId(null);
     setDragOverStepImageId(null);
+    setDraggingCoverImageId(null);
+    setDragOverCoverImageId(null);
     setShowAddStrategy(true);
   };
 
   const openEditStrategyModal = (strategy: Strategy) => {
     setEditingStrategyId(strategy.id);
-    setNewStrategy({ title: strategy.title, market: strategy.market, steps: strategy.steps.map(s => ({ ...s, images: s.images.map(img => ({ ...img })) })), imageUrl: strategy.imageUrl });
+    setNewStrategy({ title: strategy.title, market: strategy.market, steps: strategy.steps.map(s => ({ ...s, images: s.images.map(img => ({ ...img })) })), images: strategy.images.map(img => ({ ...img })) });
     strategyStepImageInputRefs.current = {};
     setStepPendingDeleteId(null);
     setDraggingStepImageId(null);
     setDragOverStepImageId(null);
+    setDraggingCoverImageId(null);
+    setDragOverCoverImageId(null);
     setShowAddStrategy(true);
   };
 
   const closeStrategyModal = () => {
     setShowAddStrategy(false);
     setEditingStrategyId(null);
-    setNewStrategy({ title: '', market: '', steps: [], imageUrl: '' });
+    setNewStrategy({ title: '', market: '', steps: [], images: [] });
     setStepPendingDeleteId(null);
     setDraggingStepImageId(null);
     setDragOverStepImageId(null);
+    setDraggingCoverImageId(null);
+    setDragOverCoverImageId(null);
   };
 
   // Dynamic Step-by-Step Execution Builder — add / edit / remove / reorder-free
@@ -3649,11 +3726,11 @@ function App() {
       .filter(s => s.title || s.notes || s.images.length > 0);
     if (editingStrategyId) {
       setStrategies(prev => prev.map(s => s.id === editingStrategyId
-        ? { ...s, title: newStrategy.title.trim(), market: newStrategy.market.trim(), steps: cleanedSteps, imageUrl: newStrategy.imageUrl }
+        ? { ...s, title: newStrategy.title.trim(), market: newStrategy.market.trim(), steps: cleanedSteps, images: newStrategy.images }
         : s
       ));
     } else {
-      setStrategies(prev => [...prev, { id: generateId(), title: newStrategy.title.trim(), market: newStrategy.market.trim(), steps: cleanedSteps, imageUrl: newStrategy.imageUrl }]);
+      setStrategies(prev => [...prev, { id: generateId(), title: newStrategy.title.trim(), market: newStrategy.market.trim(), steps: cleanedSteps, images: newStrategy.images }]);
     }
     closeStrategyModal();
   };
@@ -6741,19 +6818,42 @@ function App() {
               <span className="text-sm">+ Add Your First A+ Trading Model</span>
             </button>
           ) : (
+            <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {strategies.map(strategy => (
                 <button
                   key={strategy.id}
+                  draggable
+                  onDragStart={(e) => {
+                    setDraggingStrategyId(strategy.id);
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', strategy.id);
+                  }}
+                  onDragEnd={() => { setDraggingStrategyId(null); setDragOverStrategyId(null); }}
+                  onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+                  onDragEnter={() => setDragOverStrategyId(strategy.id)}
+                  onDragLeave={() => setDragOverStrategyId(prev => (prev === strategy.id ? null : prev))}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const draggedId = e.dataTransfer.getData('text/plain');
+                    moveStrategy(draggedId, strategy.id);
+                    setDraggingStrategyId(null);
+                    setDragOverStrategyId(null);
+                  }}
                   onClick={() => setViewStrategyId(strategy.id)}
-                  className="group h-full flex flex-col border border-zinc-800/70 hover:border-zinc-600 rounded-xl overflow-hidden cursor-pointer bg-[#16181e] transition-all duration-200 ease-out min-w-0 hover:-translate-y-0.5 text-left"
+                  title="Drag to reorder — click to view"
+                  className={cn(
+                    "group h-full flex flex-col border rounded-xl overflow-hidden cursor-grab active:cursor-grabbing bg-[#16181e] transition-all duration-200 ease-out min-w-0 hover:-translate-y-0.5 text-left",
+                    dragOverStrategyId === strategy.id ? "border-sky-400 ring-2 ring-sky-400/60" : "border-zinc-800/70 hover:border-zinc-600",
+                    draggingStrategyId === strategy.id && "opacity-40"
+                  )}
                 >
                   <div className="aspect-video bg-zinc-800 flex items-center justify-center relative overflow-hidden flex-shrink-0">
-                    {strategy.imageUrl ? (
+                    {strategy.images[0]?.url ? (
                       <img
-                        src={strategy.imageUrl}
+                        src={strategy.images[0].url}
                         alt={`${strategy.title} A+ example`}
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 pointer-events-none"
                       />
                     ) : (
                       <div className="flex flex-col items-center gap-1.5 text-zinc-600">
@@ -6761,6 +6861,9 @@ function App() {
                         <span className="text-[10px]">No image</span>
                       </div>
                     )}
+                    <div className="absolute top-1.5 left-1.5 flex items-center gap-0.5 px-1 py-0.5 rounded bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                      <GripVertical className="w-3 h-3" />
+                    </div>
                   </div>
                   <div className="p-3.5 min-w-0 flex-1 flex flex-col">
                     <h4 className="font-semibold truncate tracking-tight text-sm min-w-0 text-white">{strategy.title}</h4>
@@ -6768,6 +6871,10 @@ function App() {
                 </button>
               ))}
             </div>
+            {strategies.length > 1 && (
+              <p className="text-[11px] text-zinc-600 mt-2">Drag a card to reorder — drop it first to pin it at the top of the gallery.</p>
+            )}
+            </>
           )}
         </div>
 
@@ -9448,25 +9555,75 @@ function App() {
             </button>
           </div>
           <div className="p-6 space-y-5 overflow-y-auto">
-            {/* MAIN COVER / A+ CHART EXAMPLE — doubles as the gallery thumbnail */}
+            {/* MAIN COVER / A+ CHART EXAMPLE — supports multiple images, shown as a
+                full-width carousel in Preview Mode; first image doubles as the
+                gallery thumbnail */}
             <div>
-              <label className="block text-sm text-zinc-400 mb-2">Main Cover — Ideal A+ Chart Example</label>
-              <button
-                type="button"
-                onClick={() => strategyImageInputRef.current?.click()}
-                className="w-full aspect-video rounded-lg border border-dashed border-zinc-700 hover:border-zinc-500 flex flex-col items-center justify-center gap-2 text-zinc-500 hover:text-zinc-300 transition-all overflow-hidden bg-zinc-950"
-              >
-                {newStrategy.imageUrl ? (
-                  <img src={newStrategy.imageUrl} alt="Preview" className="w-full h-full object-cover" />
-                ) : (
-                  <>
-                    <ImagePlus className="w-5 h-5" />
-                    <span className="text-xs">Upload chart example</span>
-                  </>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm text-zinc-400">Main Cover — Ideal A+ Chart Example(s)</label>
+                {newStrategy.images.length > 0 && (
+                  <span className="text-xs text-zinc-600">{newStrategy.images.length} image{newStrategy.images.length === 1 ? '' : 's'}</span>
                 )}
-              </button>
-              <input ref={strategyImageInputRef} type="file" accept="image/*" className="hidden" onChange={handleStrategyImagePick} />
-              <p className="text-xs text-zinc-600 mt-1.5">This becomes the strategy's thumbnail on the Playbook gallery card.</p>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {newStrategy.images.map((img, imgIdx) => (
+                  <div
+                    key={img.id}
+                    draggable
+                    onDragStart={(e) => {
+                      setDraggingCoverImageId(img.id);
+                      e.dataTransfer.effectAllowed = 'move';
+                      e.dataTransfer.setData('text/plain', img.id);
+                    }}
+                    onDragEnd={() => { setDraggingCoverImageId(null); setDragOverCoverImageId(null); }}
+                    onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+                    onDragEnter={() => setDragOverCoverImageId(img.id)}
+                    onDragLeave={() => setDragOverCoverImageId(prev => (prev === img.id ? null : prev))}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const draggedId = e.dataTransfer.getData('text/plain');
+                      moveStrategyImage(draggedId, img.id);
+                      setDraggingCoverImageId(null);
+                      setDragOverCoverImageId(null);
+                    }}
+                    onClick={() => setLightboxImage(img.url)}
+                    title="Drag to reorder — click to view larger"
+                    className={cn(
+                      "relative aspect-video rounded-lg overflow-hidden border bg-zinc-950 group cursor-grab active:cursor-grabbing transition-all",
+                      dragOverCoverImageId === img.id ? "border-sky-400 ring-2 ring-sky-400/60" : "border-zinc-700",
+                      draggingCoverImageId === img.id && "opacity-40"
+                    )}
+                  >
+                    <img src={img.url} alt="Cover screenshot" className="w-full h-full object-cover pointer-events-none" />
+                    <div className="absolute top-1 left-1 flex items-center gap-0.5 px-1 py-0.5 rounded bg-black/70 text-white text-[9px] font-semibold pointer-events-none">
+                      <GripVertical className="w-2.5 h-2.5" />
+                      {imgIdx + 1}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); removeStrategyImage(img.id); }}
+                      title="Remove image"
+                      className="absolute top-1 right-1 p-1 rounded-full bg-black/70 text-white opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => strategyImageInputRef.current?.click()}
+                  className="aspect-video rounded-lg border border-dashed border-zinc-700 hover:border-zinc-500 flex flex-col items-center justify-center gap-1 text-zinc-500 hover:text-zinc-300 transition-all bg-zinc-950"
+                >
+                  <ImagePlus className="w-4 h-4" />
+                  <span className="text-[10px] text-center leading-tight px-1">{newStrategy.images.length > 0 ? 'Add more' : 'Upload chart example(s)'}</span>
+                </button>
+              </div>
+              <input ref={strategyImageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleStrategyImagesPick} />
+              <p className="text-xs text-zinc-600 mt-1.5">
+                {newStrategy.images.length > 1
+                  ? 'Drag a photo to reorder — the first one becomes the gallery thumbnail and opening slide.'
+                  : "This becomes the strategy's thumbnail on the Playbook gallery card."}
+              </p>
             </div>
 
             {/* BASIC INFO */}
@@ -9511,11 +9668,17 @@ function App() {
                         className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600"
                       />
                       <textarea
+                        ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px`; } }}
                         value={step.notes}
-                        onChange={(e) => updateStrategyStep(step.id, 'notes', e.target.value)}
+                        onChange={(e) => {
+                          updateStrategyStep(step.id, 'notes', e.target.value);
+                          const el = e.currentTarget;
+                          el.style.height = 'auto';
+                          el.style.height = `${el.scrollHeight}px`;
+                        }}
                         placeholder="Notes / checklist rule for this step..."
                         rows={2}
-                        className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 resize-none"
+                        className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 resize-none overflow-hidden"
                       />
                       <div>
                         <div className="grid grid-cols-3 gap-2">
@@ -9658,20 +9821,68 @@ function App() {
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
-          {/* MAIN COVER / A+ CHART EXAMPLE */}
-          <div
-            className={cn("aspect-video w-full bg-zinc-950 border-b border-zinc-800 flex items-center justify-center overflow-hidden flex-shrink-0", strategy.imageUrl && "cursor-pointer")}
-            onClick={() => strategy.imageUrl && setLightboxImage(strategy.imageUrl)}
-          >
-            {strategy.imageUrl ? (
-              <img src={strategy.imageUrl} alt={`${strategy.title} A+ example`} className="w-full h-full object-cover" />
-            ) : (
-              <div className="flex flex-col items-center gap-1.5 text-zinc-700">
-                <ImageIcon className="w-6 h-6" />
-                <span className="text-xs">No A+ example yet</span>
+          {/* MAIN COVER / A+ CHART EXAMPLE — full-width carousel when there's
+              more than one cover image, with left/right nav + a slide counter */}
+          {(() => {
+            const coverImages = strategy.images;
+            const hasMultipleCovers = coverImages.length > 1;
+            const activeCoverIdx = hasMultipleCovers ? Math.min(strategyCoverIndex, coverImages.length - 1) : 0;
+            const activeCover = coverImages[activeCoverIdx];
+            return (
+              <div className="group relative aspect-video w-full bg-zinc-950 border-b border-zinc-800 flex items-center justify-center overflow-hidden flex-shrink-0">
+                {activeCover ? (
+                  <img
+                    src={activeCover.url}
+                    alt={`${strategy.title} A+ example`}
+                    className="w-full h-full object-cover cursor-pointer"
+                    onClick={() => setLightboxImage(activeCover.url)}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center gap-1.5 text-zinc-700">
+                    <ImageIcon className="w-6 h-6" />
+                    <span className="text-xs">No A+ example yet</span>
+                  </div>
+                )}
+                {hasMultipleCovers && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setStrategyCoverIndex(prev => prev === 0 ? coverImages.length - 1 : prev - 1)}
+                      title="Previous image"
+                      className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 bg-black/50 hover:bg-black/75 backdrop-blur-sm rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStrategyCoverIndex(prev => prev === coverImages.length - 1 ? 0 : prev + 1)}
+                      title="Next image"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 bg-black/50 hover:bg-black/75 backdrop-blur-sm rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                    {/* subtle slide counter badge */}
+                    <div className="absolute top-2.5 right-2.5 px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-white text-[10px] font-bold border border-white/10 shadow-sm pointer-events-none">
+                      {activeCoverIdx + 1} / {coverImages.length}
+                    </div>
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                      {coverImages.map((_, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setStrategyCoverIndex(idx)}
+                          className={cn(
+                            'h-1.5 rounded-full transition-all duration-200',
+                            idx === activeCoverIdx ? 'w-4 bg-white' : 'w-1.5 bg-white/40 hover:bg-white/60'
+                          )}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
-            )}
-          </div>
+            );
+          })()}
           <div className="px-6 py-4 border-b border-zinc-800 flex items-start justify-between gap-3 flex-shrink-0">
             <div className="min-w-0">
               <h3 className="text-lg font-bold text-white truncate">{strategy.title}</h3>
@@ -9701,10 +9912,10 @@ function App() {
                         <div className="rounded-lg border border-zinc-800 bg-[#16181e] overflow-hidden">
                           {step.images.length > 0 && (
                             <div className={cn("grid gap-0.5", step.images.length === 1 ? "grid-cols-1" : "grid-cols-2")}>
-                              {step.images.map(img => (
+                              {step.images.map((img, imgIdx) => (
                                 <div
                                   key={img.id}
-                                  className="w-full bg-zinc-950 cursor-pointer"
+                                  className="relative w-full bg-zinc-950 cursor-pointer"
                                   onClick={() => setLightboxImage(img.url)}
                                 >
                                   <img
@@ -9712,6 +9923,11 @@ function App() {
                                     alt={`${step.title || `Step ${idx + 1}`} screenshot`}
                                     className="w-full h-full object-cover aspect-video"
                                   />
+                                  {step.images.length > 1 && (
+                                    <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md border border-white/10 shadow-sm pointer-events-none">
+                                      #{imgIdx + 1}
+                                    </div>
+                                  )}
                                 </div>
                               ))}
                             </div>
