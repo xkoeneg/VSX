@@ -2644,6 +2644,12 @@ function App() {
   // reset to 0 whenever a different strategy is opened.
   const [strategyCoverIndex, setStrategyCoverIndex] = useState(0);
   const strategyImageInputRef = useRef<HTMLInputElement>(null);
+  // Scroll container for the single-row "Active Strategy Models" carousel —
+  // the < / > nav buttons and drag-to-scroll both act on this ref.
+  const strategyCarouselRef = useRef<HTMLDivElement>(null);
+  const scrollStrategyCarousel = (direction: 'left' | 'right') => {
+    strategyCarouselRef.current?.scrollBy({ left: direction === 'left' ? -300 : 300, behavior: 'smooth' });
+  };
   // Dynamic step builder can have any number of steps, each with its own
   // optional screenshot uploader — keyed ref map instead of one ref per step.
   const strategyStepImageInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -6803,10 +6809,32 @@ function App() {
         <div className="min-w-0 space-y-3">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <h3 className={cn("text-sm font-bold tracking-wide", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>⚔️ ACTIVE STRATEGY MODELS</h3>
-            <button onClick={openAddStrategyModal} className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs transition-colors flex-shrink-0">
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Strategy</span>
-            </button>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {strategies.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => scrollStrategyCarousel('left')}
+                    title="Scroll left"
+                    className="bg-[#181920] border border-white/10 hover:bg-white/5 p-1.5 rounded-lg text-zinc-400 hover:text-white transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => scrollStrategyCarousel('right')}
+                    title="Scroll right"
+                    className="bg-[#181920] border border-white/10 hover:bg-white/5 p-1.5 rounded-lg text-zinc-400 hover:text-white transition-colors"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+              <button onClick={openAddStrategyModal} className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs transition-colors flex-shrink-0">
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Strategy</span>
+              </button>
+            </div>
           </div>
 
           {strategies.length === 0 ? (
@@ -6819,7 +6847,10 @@ function App() {
             </button>
           ) : (
             <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div
+              ref={strategyCarouselRef}
+              className="strategy-carousel-scroll flex flex-nowrap overflow-x-auto gap-4 pb-2"
+            >
               {strategies.map(strategy => (
                 <button
                   key={strategy.id}
@@ -6843,7 +6874,7 @@ function App() {
                   onClick={() => setViewStrategyId(strategy.id)}
                   title="Drag to reorder — click to view"
                   className={cn(
-                    "group h-full flex flex-col border rounded-xl overflow-hidden cursor-grab active:cursor-grabbing bg-[#16181e] transition-all duration-200 ease-out min-w-0 hover:-translate-y-0.5 text-left",
+                    "group w-[280px] min-w-[280px] shrink-0 h-full flex flex-col border rounded-xl overflow-hidden cursor-grab active:cursor-grabbing bg-[#16181e] transition-all duration-200 ease-out text-left",
                     dragOverStrategyId === strategy.id ? "border-sky-400 ring-2 ring-sky-400/60" : "border-zinc-800/70 hover:border-zinc-600",
                     draggingStrategyId === strategy.id && "opacity-40"
                   )}
@@ -10286,6 +10317,28 @@ function App() {
         }
         .trade-table-scroll::-webkit-scrollbar-thumb:hover {
           background-color: rgba(161,161,170,0.7);
+        }
+
+        /* Active Strategy Models carousel — ultra-thin horizontal scrollbar,
+           always visible so it reads as a slider rather than clipped content. */
+        .strategy-carousel-scroll {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255,255,255,0.2) rgba(255,255,255,0.05);
+        }
+        .strategy-carousel-scroll::-webkit-scrollbar {
+          display: block;
+          height: 6px;
+        }
+        .strategy-carousel-scroll::-webkit-scrollbar-track {
+          background: rgba(255,255,255,0.05);
+          border-radius: 9999px;
+        }
+        .strategy-carousel-scroll::-webkit-scrollbar-thumb {
+          background-color: rgba(255,255,255,0.2);
+          border-radius: 9999px;
+        }
+        .strategy-carousel-scroll::-webkit-scrollbar-thumb:hover {
+          background-color: rgba(255,255,255,0.4);
         }
 
         /* ---- Light theme color fixes ----
