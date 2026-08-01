@@ -2597,12 +2597,13 @@ function App() {
   // timeframe so the user can compare e.g. "This Week" emotions against
   // "All-Time" mistakes; the section's Global Timeframe dropdown is a master
   // toggle that snaps both cards to the same value when changed.
-  type DisciplineAnalyticsTimeframe = 'week' | 'month' | '3months' | 'all';
+  type DisciplineAnalyticsTimeframe = 'week' | 'month' | 'lastMonth' | '3months' | 'all';
   const [emotionsTimeframe, setEmotionsTimeframe] = useState<DisciplineAnalyticsTimeframe>('week');
   const [mistakesTimeframe, setMistakesTimeframe] = useState<DisciplineAnalyticsTimeframe>('all');
   const disciplineAnalyticsTimeframeOptions: { value: DisciplineAnalyticsTimeframe; label: string }[] = [
     { value: 'week', label: 'This Week' },
     { value: 'month', label: 'This Month' },
+    { value: 'lastMonth', label: 'Last Month' },
     { value: '3months', label: 'Last 3 Months' },
     { value: 'all', label: 'All-Time' },
   ];
@@ -5647,12 +5648,32 @@ function App() {
     // trades carrying that tag (the "financial damage/gain" of that state of
     // mind), and the win rate of trades tagged with it. Mistakes get the same
     // P&L-impact treatment, filtered by its own independent timeframe.
+    // "This Month" and "Last Month" are true calendar-month boundaries (not a
+    // rolling 30-day window), so on the 1st of the month "This Month" only
+    // shows that day's trades instead of still pulling in the prior month.
     const filterTradesByTimeframe = (trades: Trade[], timeframe: DisciplineAnalyticsTimeframe): Trade[] => {
       if (timeframe === 'all') return trades;
-      const cutoff = new Date();
-      if (timeframe === 'week') cutoff.setDate(cutoff.getDate() - 7);
-      else if (timeframe === 'month') cutoff.setMonth(cutoff.getMonth() - 1);
-      else if (timeframe === '3months') cutoff.setMonth(cutoff.getMonth() - 3);
+      const now = new Date();
+      if (timeframe === 'week') {
+        const cutoff = new Date(now);
+        cutoff.setDate(cutoff.getDate() - 7);
+        return trades.filter(t => new Date(t.date) >= cutoff);
+      }
+      if (timeframe === 'month') {
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        return trades.filter(t => new Date(t.date) >= monthStart);
+      }
+      if (timeframe === 'lastMonth') {
+        const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        return trades.filter(t => {
+          const d = new Date(t.date);
+          return d >= lastMonthStart && d < thisMonthStart;
+        });
+      }
+      // 3months: rolling 90-day-ish window (3 calendar months back from today)
+      const cutoff = new Date(now);
+      cutoff.setMonth(cutoff.getMonth() - 3);
       return trades.filter(t => new Date(t.date) >= cutoff);
     };
     const emotionsTimeframeTrades = filterTradesByTimeframe(filteredTrades, emotionsTimeframe);
