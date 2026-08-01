@@ -2598,8 +2598,8 @@ function App() {
   // "All-Time" mistakes; the section's Global Timeframe dropdown is a master
   // toggle that snaps both cards to the same value when changed.
   type DisciplineAnalyticsTimeframe = 'week' | 'month' | 'lastMonth' | '3months' | 'all';
-  const [emotionsTimeframe, setEmotionsTimeframe] = useState<DisciplineAnalyticsTimeframe>('week');
-  const [mistakesTimeframe, setMistakesTimeframe] = useState<DisciplineAnalyticsTimeframe>('all');
+  const [emotionsTimeframe, setEmotionsTimeframe] = useState<DisciplineAnalyticsTimeframe>('month');
+  const [mistakesTimeframe, setMistakesTimeframe] = useState<DisciplineAnalyticsTimeframe>('month');
   const disciplineAnalyticsTimeframeOptions: { value: DisciplineAnalyticsTimeframe; label: string }[] = [
     { value: 'week', label: 'This Week' },
     { value: 'month', label: 'This Month' },
