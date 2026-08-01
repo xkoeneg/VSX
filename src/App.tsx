@@ -2648,7 +2648,12 @@ function App() {
   // the < / > nav buttons and drag-to-scroll both act on this ref.
   const strategyCarouselRef = useRef<HTMLDivElement>(null);
   const scrollStrategyCarousel = (direction: 'left' | 'right') => {
-    strategyCarouselRef.current?.scrollBy({ left: direction === 'left' ? -300 : 300, behavior: 'smooth' });
+    const el = strategyCarouselRef.current;
+    if (!el) return;
+    // Scroll by exactly one "page" — the container's own visible width,
+    // which is precisely the 5-card + gap offset since 5 cards fill it edge-to-edge.
+    const amount = el.clientWidth;
+    el.scrollBy({ left: direction === 'left' ? -amount : amount, behavior: 'smooth' });
   };
   // Dynamic step builder can have any number of steps, each with its own
   // optional screenshot uploader — keyed ref map instead of one ref per step.
@@ -6847,9 +6852,10 @@ function App() {
             </button>
           ) : (
             <>
+            <div className="overflow-hidden">
             <div
               ref={strategyCarouselRef}
-              className="custom-slider-scrollbar flex flex-nowrap overflow-x-auto gap-4 pb-2"
+              className="custom-slider-scrollbar flex flex-nowrap overflow-x-auto snap-x snap-mandatory scroll-smooth gap-4 pb-2"
             >
               {strategies.map(strategy => (
                 <button
@@ -6874,7 +6880,7 @@ function App() {
                   onClick={() => setViewStrategyId(strategy.id)}
                   title="Drag to reorder — click to view"
                   className={cn(
-                    "group w-[280px] min-w-[280px] shrink-0 h-full flex flex-col border rounded-xl overflow-hidden cursor-grab active:cursor-grabbing bg-[#16181e] transition-all duration-200 ease-out text-left",
+                    "group snap-start w-[calc((100%-4*1rem)/5)] min-w-[calc((100%-4*1rem)/5)] shrink-0 h-full flex flex-col border rounded-xl overflow-hidden cursor-grab active:cursor-grabbing bg-[#16181e] transition-all duration-200 ease-out text-left",
                     dragOverStrategyId === strategy.id ? "border-sky-400 ring-2 ring-sky-400/60" : "border-zinc-800/70 hover:border-zinc-600",
                     draggingStrategyId === strategy.id && "opacity-40"
                   )}
@@ -6901,6 +6907,7 @@ function App() {
                   </div>
                 </button>
               ))}
+            </div>
             </div>
             {strategies.length > 1 && (
               <p className="text-[11px] text-zinc-600 mt-2">Drag a card to reorder — drop it first to pin it at the top of the gallery.</p>
