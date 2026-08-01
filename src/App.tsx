@@ -68,6 +68,10 @@ import {
   Database,
   Settings,
   Scale,
+  Layers,
+  ShieldCheck,
+  Zap,
+  AlertTriangle,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -296,18 +300,18 @@ const SESSION_SHORT_LABEL: Record<SessionOption, string> = {
 // ---- Rules Playbook: the 3 command-center columns ----
 const RULE_PILLARS: RulePillar[] = ['risk', 'execution', 'psychology'];
 
-const RULE_PILLAR_META: Record<RulePillar, { label: string; icon: string; accent: string; iconBg: string }> = {
-  risk: { label: 'Risk & Capital Rules', icon: '🛡️', accent: 'border-t-sky-500', iconBg: 'bg-sky-500/10' },
-  execution: { label: 'Execution Rules', icon: '⚡', accent: 'border-t-amber-500', iconBg: 'bg-amber-500/10' },
-  psychology: { label: 'Psychology Rules', icon: '🧠', accent: 'border-t-violet-500', iconBg: 'bg-violet-500/10' },
+const RULE_PILLAR_META: Record<RulePillar, { label: string; Icon: LucideIcon; color: string; iconBg: string; accent: string }> = {
+  risk: { label: 'Risk & Capital Rules', Icon: Shield, color: 'text-blue-400', iconBg: 'bg-blue-500/10', accent: 'border-t-sky-500' },
+  execution: { label: 'Execution Rules', Icon: Zap, color: 'text-amber-400', iconBg: 'bg-amber-500/10', accent: 'border-t-amber-500' },
+  psychology: { label: 'Psychology Rules', Icon: Brain, color: 'text-purple-400', iconBg: 'bg-purple-500/10', accent: 'border-t-violet-500' },
 };
 
-// Short category header labels for the Core Trading Mandates document view
+// Section titles used inside the unified "Trading Charter & Mandates" card
 // (drops the trailing " Rules" from the pillar meta label above).
 const RULE_PILLAR_SHORT_LABEL: Record<RulePillar, string> = {
   risk: 'Risk & Capital',
-  execution: 'Execution',
-  psychology: 'Psychology',
+  execution: 'Execution Protocol',
+  psychology: 'Psychology & Mindset',
 };
 
 // ---- Rules Playbook: severity tiers ----
@@ -2624,6 +2628,7 @@ function App() {
   const [showRuleReviewModal, setShowRuleReviewModal] = useState<string | null>(null);
   const [isEditingRuleReview, setIsEditingRuleReview] = useState(false);
   const [showAddRule, setShowAddRule] = useState(false);
+  const [showManageRulesModal, setShowManageRulesModal] = useState(false);
   const [showAddStrategy, setShowAddStrategy] = useState(false);
   const [viewStrategyId, setViewStrategyId] = useState<string | null>(null);
   const [newStrategy, setNewStrategy] = useState<{ title: string; market: string; steps: StrategyStep[]; images: TradeImage[] }>({ title: '', market: '', steps: [], images: [] });
@@ -6813,7 +6818,10 @@ function App() {
         {/* SECTION 1: ACTIVE STRATEGY MODELS — clean image-focused gallery */}
         <div className="min-w-0 space-y-3">
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <h3 className={cn("text-sm font-bold tracking-wide", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>⚔️ ACTIVE STRATEGY MODELS</h3>
+            <h3 className={cn("text-sm font-bold tracking-wide flex items-center gap-1.5", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>
+              <Layers className="w-4 h-4 text-emerald-400" strokeWidth={2} />
+              ACTIVE STRATEGY MODELS
+            </h3>
             <div className="flex items-center gap-2 flex-shrink-0">
               {strategies.length > 0 && (
                 <div className="flex items-center gap-1.5">
@@ -6916,62 +6924,36 @@ function App() {
           )}
         </div>
 
-        {/* SECTION 2: CORE TRADING RULES BIBLE — unified, full-width, 3-column */}
-        <div className="min-w-0 space-y-3">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <h3 className={cn("text-sm font-bold tracking-wide", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>📜 CORE TRADING RULES BIBLE</h3>
-            <button onClick={() => openAddRuleModal('risk')} className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs transition-colors flex-shrink-0">
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Rule</span>
+        {/* SECTION 2: TRADING CHARTER & MANDATES — single unified, read-only card */}
+        <div className="min-w-0 bg-[#181920] border border-white/10 rounded-2xl p-6 shadow-xl">
+          <div className="flex items-center justify-between flex-wrap gap-4 mb-6">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                <ShieldCheck className="w-5 h-5 text-emerald-400" strokeWidth={2} />
+              </div>
+              <div className="min-w-0">
+                <h3 className={cn("text-sm font-bold uppercase tracking-wide truncate", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>Trading Charter &amp; Mandates</h3>
+                <p className="text-xs text-zinc-500 truncate">Your core risk, execution &amp; psychology rules — read-only here, editable in Manage Rules.</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowManageRulesModal(true)}
+              className="inline-flex items-center px-3.5 py-2 bg-white hover:bg-zinc-200 text-black rounded-lg text-xs font-semibold transition-colors flex-shrink-0"
+            >
+              <SlidersHorizontal className="w-4 h-4 mr-2" strokeWidth={2} />
+              Manage Rules
             </button>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
-            {/* Column 1: Risk & Capital Rules */}
-            <div className="min-w-0 rounded-xl border border-white/10 bg-[#181920] shadow-lg p-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 divide-y md:divide-y-0 md:divide-x divide-white/5">
+            <div className="min-w-0 pt-6 first:pt-0 md:pt-0 md:pr-6">
               {renderRulePillarColumn('risk')}
             </div>
-
-            {/* Column 2: Execution & Psychology Rules */}
-            <div className="min-w-0 rounded-xl border border-white/10 bg-[#181920] shadow-lg p-4 space-y-4">
+            <div className="min-w-0 pt-6 md:pt-0 md:px-6">
               {renderRulePillarColumn('execution')}
-              <div className="border-t border-white/5 pt-4">
-                {renderRulePillarColumn('psychology')}
-              </div>
             </div>
-
-            {/* Column 3: Quick Reference Parameters */}
-            <div className="min-w-0 rounded-xl border border-white/10 bg-[#181920] shadow-lg p-4">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-3">⚡ Quick Reference</h4>
-              <div className="space-y-2.5">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-6 h-6 rounded-md bg-rose-500/10 flex items-center justify-center flex-shrink-0">
-                    <DollarSign className="w-3 h-3 text-rose-400" />
-                  </span>
-                  <div className="min-w-0 leading-tight">
-                    <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">Max Daily Risk</p>
-                    <p className="text-xs font-bold text-white truncate">$100.00 / 2 Losses Max</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <span className="w-6 h-6 rounded-md bg-sky-500/10 flex items-center justify-center flex-shrink-0">
-                    <Clock className="w-3 h-3 text-sky-400" />
-                  </span>
-                  <div className="min-w-0 leading-tight">
-                    <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">Trading Hours</p>
-                    <p className="text-xs font-bold text-white truncate">09:30 AM - 11:30 AM EST</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <span className="w-6 h-6 rounded-md bg-amber-500/10 flex items-center justify-center flex-shrink-0">
-                    <AlertCircle className="w-3 h-3 text-amber-400" />
-                  </span>
-                  <div className="min-w-0 leading-tight">
-                    <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">Violation Penalty</p>
-                    <p className="text-xs font-bold text-white truncate">Immediate session shutdown</p>
-                  </div>
-                </div>
-              </div>
+            <div className="min-w-0 pt-6 md:pt-0 md:pl-6">
+              {renderRulePillarColumn('psychology')}
             </div>
           </div>
         </div>
@@ -6979,63 +6961,39 @@ function App() {
     );
   };
 
-  // Compact rule list for one pillar — used inside the 3-column Rules Bible.
-  // Zero vertical filler: header row + a tight divided list, nothing else.
-  // Called directly (not as a JSX component) so it re-renders in place like
-  // the other renderX() helpers in this file, instead of remounting.
+  // Read-only rule list for one pillar — used inside the unified Trading
+  // Charter & Mandates card. No add/edit/delete affordances live here; all
+  // rule management happens in the dedicated Manage Rules modal, so this
+  // stays 100% clean, read-only, and distraction-free.
   const renderRulePillarColumn = (pillar: RulePillar) => {
     const meta = RULE_PILLAR_META[pillar];
     const pillarRules = rules.filter(r => r.pillar === pillar);
     return (
       <div className="min-w-0">
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-xs flex-shrink-0">{meta.icon}</span>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 truncate">{RULE_PILLAR_SHORT_LABEL[pillar]}</h4>
-          </div>
-          <button
-            onClick={() => openAddRuleModal(pillar)}
-            title={`Add ${meta.label}`}
-            className="p-0.5 rounded text-zinc-500 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
-          >
-            <Plus className="w-3 h-3" />
-          </button>
+        <div className="flex items-center gap-1.5 mb-3 min-w-0">
+          <meta.Icon className={cn("w-4 h-4 flex-shrink-0", meta.color)} strokeWidth={2} />
+          <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 truncate">{RULE_PILLAR_SHORT_LABEL[pillar]}</h4>
         </div>
 
         {pillarRules.length === 0 ? (
-          <button
-            onClick={() => openAddRuleModal(pillar)}
-            className="w-full text-center py-2.5 px-2 text-[11px] rounded-lg border border-dashed border-white/10 text-zinc-600 hover:text-zinc-400 hover:border-white/20 transition-colors"
-          >
-            + Add rule
-          </button>
+          <p className="text-xs text-zinc-600 italic">No mandates set.</p>
         ) : (
           <div className="divide-y divide-white/5">
             {pillarRules.map(rule => {
               const violations = ruleViolationCounts[rule.id] || 0;
               const severityMeta = RULE_SEVERITY_META[rule.severity];
               return (
-                <div key={rule.id} className="group py-2 first:pt-0 last:pb-0">
-                  <div className="flex items-start justify-between gap-1.5">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <h5 className="text-xs font-bold text-white truncate">{rule.title}</h5>
-                        <span className={cn("text-[9px] px-1 py-0.5 rounded font-semibold uppercase tracking-wide leading-none", severityMeta.badge)}>{severityMeta.label}</span>
-                      </div>
-                      {violations > 0 && (
-                        <span className="inline-flex items-center gap-0.5 text-[9px] mt-1 px-1 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/20 font-semibold">
-                          ⚠️ {violations}x
-                        </span>
-                      )}
+                <div key={rule.id} className="py-2 first:pt-0 last:pb-0">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h5 className="text-xs font-bold text-white truncate">{rule.title}</h5>
+                      <span className={cn("text-[9px] px-1 py-0.5 rounded font-semibold uppercase tracking-wide leading-none", severityMeta.badge)}>{severityMeta.label}</span>
                     </div>
-                    <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => openEditRuleModal(rule)} className="p-0.5 rounded text-zinc-500 hover:text-white">
-                        <Edit2 className="w-3 h-3" />
-                      </button>
-                      <button onClick={() => handleDeleteRule(rule.id)} className="p-0.5 rounded text-zinc-500 hover:text-rose-400">
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
+                    {violations > 0 && (
+                      <span className="inline-flex items-center gap-0.5 text-[9px] mt-1 px-1 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/20 font-semibold">
+                        <AlertTriangle className="w-2.5 h-2.5" strokeWidth={2} /> {violations}x
+                      </span>
+                    )}
                   </div>
                 </div>
               );
@@ -7831,7 +7789,7 @@ function App() {
                     onClick={() => setIsEditingRuleReview(true)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-200 hover:text-white transition-all text-xs font-medium cursor-pointer flex-shrink-0"
                   >
-                    <span>✏️</span> Edit Review
+                    <Edit2 className="w-3.5 h-3.5" strokeWidth={2} /> Edit Review
                   </button>
                 )}
               </div>
@@ -9528,7 +9486,7 @@ function App() {
                         active ? 'bg-white text-black border-white' : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700 hover:text-white'
                       )}
                     >
-                      <span className="text-base leading-none">{meta.icon}</span>
+                      <meta.Icon className={cn("w-4 h-4", !active && meta.color)} strokeWidth={2} />
                       <span className="truncate">{meta.label.replace(' Rules', '')}</span>
                     </button>
                   );
@@ -9578,6 +9536,99 @@ function App() {
       </ModalBackdrop>
     )
   );
+
+  // Manage Rules modal — the ONLY place rules get added, edited, or deleted.
+  // Opened from the "Manage Rules" button on the read-only Trading Charter &
+  // Mandates card; delegates the actual add/edit form to the existing
+  // Add/Edit Rule modal, which layers on top of this one.
+  const renderManageRulesModal = () => (
+    showManageRulesModal && (
+      <ModalBackdrop
+        onClose={() => setShowManageRulesModal(false)}
+        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
+      >
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-3xl w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between flex-shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <ShieldCheck className="w-5 h-5 text-emerald-400 flex-shrink-0" strokeWidth={2} />
+              <h3 className="text-lg font-bold text-white truncate">Manage Rules</h3>
+            </div>
+            <button onClick={() => setShowManageRulesModal(false)} className="p-1 text-zinc-400 hover:text-white">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="p-6 overflow-y-auto">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 divide-y md:divide-y-0 md:divide-x divide-white/5">
+              <div className="min-w-0 pt-6 first:pt-0 md:pt-0 md:pr-6">
+                {renderManageRulePillarSection('risk')}
+              </div>
+              <div className="min-w-0 pt-6 md:pt-0 md:px-6">
+                {renderManageRulePillarSection('execution')}
+              </div>
+              <div className="min-w-0 pt-6 md:pt-0 md:pl-6">
+                {renderManageRulePillarSection('psychology')}
+              </div>
+            </div>
+          </div>
+        </div>
+      </ModalBackdrop>
+    )
+  );
+
+  // One category's editable rule list inside the Manage Rules modal — add,
+  // edit, and delete all live here so the main charter card stays read-only.
+  const renderManageRulePillarSection = (pillar: RulePillar) => {
+    const meta = RULE_PILLAR_META[pillar];
+    const pillarRules = rules.filter(r => r.pillar === pillar);
+    return (
+      <div className="min-w-0">
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <meta.Icon className={cn("w-4 h-4 flex-shrink-0", meta.color)} strokeWidth={2} />
+            <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 truncate">{RULE_PILLAR_SHORT_LABEL[pillar]}</h4>
+          </div>
+          <button
+            onClick={() => openAddRuleModal(pillar)}
+            title={`Add ${meta.label}`}
+            className="p-0.5 rounded text-zinc-500 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {pillarRules.length === 0 ? (
+          <p className="text-xs text-zinc-600 italic">No mandates set.</p>
+        ) : (
+          <div className="divide-y divide-white/5">
+            {pillarRules.map(rule => {
+              const severityMeta = RULE_SEVERITY_META[rule.severity];
+              return (
+                <div key={rule.id} className="group py-2 first:pt-0 last:pb-0">
+                  <div className="flex items-start justify-between gap-1.5">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h5 className="text-xs font-bold text-white truncate">{rule.title}</h5>
+                        <span className={cn("text-[9px] px-1 py-0.5 rounded font-semibold uppercase tracking-wide leading-none", severityMeta.badge)}>{severityMeta.label}</span>
+                      </div>
+                      {rule.description && <p className="text-[11px] text-zinc-500 mt-0.5 line-clamp-2">{rule.description}</p>}
+                    </div>
+                    <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => openEditRuleModal(rule)} className="p-0.5 rounded text-zinc-500 hover:text-white">
+                        <Edit2 className="w-3 h-3" />
+                      </button>
+                      <button onClick={() => handleDeleteRule(rule.id)} className="p-0.5 rounded text-zinc-500 hover:text-rose-400">
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderAddStrategyModal = () => (
     showAddStrategy && (
@@ -10637,6 +10688,7 @@ function App() {
       {renderDisciplinePsychologyReviewModal()}
       {renderRuleAdherenceReviewModal()}
       {renderExpandGallery()}
+      {renderManageRulesModal()}
       {renderAddRuleModal()}
       {renderAddStrategyModal()}
       {renderDeleteStepConfirm()}
