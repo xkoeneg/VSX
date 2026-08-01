@@ -5688,17 +5688,16 @@ function App() {
       });
     }
 
-    // Streak Progress Grid — the last `streakGridWindow` trades in chronological
-    // order, each rendered as a block. A broken-rule trade instantly shows as a
-    // red block, visually resetting the streak right there in the grid; empty
-    // zinc-outlined blocks pad the front when there isn't yet enough history to
-    // fill the selected window.
-    const streakWindowTrades = chronoTrades.slice(-streakGridWindow);
-    const streakPadCount = Math.max(0, streakGridWindow - streakWindowTrades.length);
-    const streakGridBlocks: Array<{ type: 'empty' } | { type: 'trade'; trade: Trade }> = [
-      ...Array.from({ length: streakPadCount }, () => ({ type: 'empty' as const })),
-      ...streakWindowTrades.map(t => ({ type: 'trade' as const, trade: t })),
+    // Streak Progress — milestone tier checkpoints the current streak can
+    // unlock, used by the Level Tier Milestone Progression card below.
+    const streakTiers: Array<{ days: number; label: string }> = [
+      { days: 7, label: 'Novice' },
+      { days: 30, label: 'Consistent' },
+      { days: 60, label: 'Master' },
+      { days: 90, label: 'Elite Fund Manager' },
     ];
+    const activeStreakTier = [...streakTiers].reverse().find(t => disciplineStreak >= t.days);
+    const streakProgressPct = Math.min((disciplineStreak / streakGridWindow) * 100, 100);
 
     // Mini Discipline Calendar — its own month browser (independent of the
     // Performance Calendar page), laid out Monday-first. Each day cell reflects
@@ -5812,55 +5811,58 @@ function App() {
                 <div>
                   <p className="text-[11px] uppercase tracking-wider text-zinc-500">Current Streak</p>
                   <p className="text-lg font-bold text-emerald-400 truncate">
-                    {disciplineStreak} {disciplineStreak === 1 ? 'Trade' : 'Trades'}
+                    {disciplineStreak} {disciplineStreak === 1 ? 'Day' : 'Days'} Clean
                   </p>
                 </div>
                 <div className="w-px h-8 bg-white/10 flex-shrink-0" />
                 <div>
                   <p className="text-[11px] uppercase tracking-wider text-zinc-500">Best Streak</p>
                   <p className="text-lg font-bold text-zinc-300 truncate">
-                    {bestStreak} {bestStreak === 1 ? 'Trade' : 'Trades'}
+                    {bestStreak} {bestStreak === 1 ? 'Day' : 'Days'}
                   </p>
                 </div>
               </div>
 
-              {/* Blocks scale down as the lookback window grows so 60/90 still wrap cleanly */}
-              <div className="flex flex-wrap gap-1.5">
-                {streakGridBlocks.map((block, i) => {
-                  const sizeClass = streakGridWindow === 30 ? 'w-7 h-7' : streakGridWindow === 60 ? 'w-6 h-6' : 'w-5 h-5';
-                  const iconClass = streakGridWindow === 30 ? 'w-4 h-4' : streakGridWindow === 60 ? 'w-3.5 h-3.5' : 'w-3 h-3';
-                  if (block.type === 'empty') {
+              {/* Milestone Progress Bar — glowing emerald fill tracking current streak against the selected target window */}
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-2 text-[11px] text-zinc-500">
+                  <span>Progress to {streakGridWindow}-Day Milestone</span>
+                  <span className="text-emerald-400 font-semibold">{Math.round(streakProgressPct)}%</span>
+                </div>
+                <div className="h-3 w-full bg-zinc-800/80 rounded-full overflow-hidden relative">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.5)] transition-all duration-500"
+                    style={{ width: `${streakProgressPct}%` }}
+                  />
+                </div>
+
+                {/* Tier Milestone Checkpoints */}
+                <div className="flex flex-wrap gap-1.5 mt-3">
+                  {streakTiers.map(tier => {
+                    const unlocked = disciplineStreak >= tier.days;
                     return (
-                      <div
-                        key={`empty-${i}`}
-                        className={cn(sizeClass, 'rounded-md text-sm font-semibold flex items-center justify-center bg-zinc-800/40 border border-zinc-700/50 text-zinc-600')}
-                      />
+                      <span
+                        key={tier.days}
+                        className={cn(
+                          'flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold border transition-colors',
+                          unlocked
+                            ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 shadow-[0_0_8px_rgba(52,211,153,0.25)]'
+                            : 'bg-zinc-800/50 border-zinc-700/50 text-zinc-500'
+                        )}
+                      >
+                        {unlocked ? <Check className="w-3 h-3 flex-shrink-0" /> : <span className="w-3 h-3 flex-shrink-0" />}
+                        {tier.days}D {tier.label}
+                      </span>
                     );
-                  }
-                  const followed = block.trade.rulesFollowed === 'followed';
-                  return (
-                    <div
-                      key={block.trade.id}
-                      title={`${block.trade.date}: ${followed ? 'Rules Followed' : 'Rule Broken'}`}
-                      className={cn(
-                        sizeClass,
-                        'rounded-md text-sm font-semibold flex items-center justify-center border',
-                        followed
-                          ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
-                          : 'bg-rose-500/20 text-rose-400 border-rose-500/40'
-                      )}
-                    >
-                      {followed ? <Check className={iconClass} /> : <X className={iconClass} />}
-                    </div>
-                  );
-                })}
+                  })}
+                </div>
               </div>
             </div>
 
             {/* Subtle stat summary row — pinned to the bottom to match the calendar's legend footer */}
             <div className="flex items-center gap-6 pt-3 mt-3 border-t border-white/5 text-xs text-zinc-400">
-              <span>Total Compliant Trades: <span className="text-zinc-200 font-semibold">{followedTrades.length}</span></span>
-              <span>Win Rate on Compliant Days: <span className="text-zinc-200 font-semibold">{compliantDayWinRate.toFixed(1)}%</span></span>
+              <span>Total Compliant Days: <span className="text-zinc-200 font-semibold">{followedTrades.length}</span></span>
+              <span>Milestone Tier: <span className="text-amber-400 font-semibold">{activeStreakTier ? activeStreakTier.label : 'Unranked'}</span></span>
             </div>
           </div>
 
