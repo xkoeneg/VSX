@@ -5926,7 +5926,7 @@ function App() {
                           )}
                         >
                           {/* Header — date + rule adherence badge */}
-                          <div className="flex items-center justify-between gap-2 mb-3">
+                          <div className="flex items-center justify-between gap-2 mb-1">
                             <span className="text-sm font-semibold text-white truncate">
                               {miniMonthNames[miniMonth]} {cell.day}, {miniYear}
                             </span>
@@ -5940,6 +5940,9 @@ function App() {
                               {anyBroken ? `${brokenCount} Rule${brokenCount !== 1 ? 's' : ''} Broken` : '100% Compliant'}
                             </span>
                           </div>
+                          <p className="text-[11px] text-zinc-500 mb-3">
+                            {cell.trades.length} Trade{cell.trades.length !== 1 ? 's' : ''} logged
+                          </p>
 
                           {/* Daily trades list */}
                           <div className="space-y-2 max-h-56 overflow-y-auto">
