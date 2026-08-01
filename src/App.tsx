@@ -86,6 +86,10 @@ import {
   Swords,
   Smile,
   Palette,
+  Quote,
+  RefreshCw,
+  ListChecks,
+  OctagonAlert,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -2821,6 +2825,46 @@ function App() {
   // Purely a display preference — not persisted to the trading journal
   // schema, so it always starts at a sensible default per session.
   const [pillarsPerRow, setPillarsPerRow] = useState<PillarsPerRow>(3);
+
+  // ---- Playbook: Daily Trading Creed quote card ----
+  const DEFAULT_CREED_QUOTES = [
+    "Discipline is choosing between what you want now and what you want most.",
+    "The market rewards patience and punishes impulse. Wait for A+ setups only.",
+    "Protect your capital first. Profits are a byproduct of survival.",
+    "Plan the trade, trade the plan. No exceptions, no excuses.",
+    "You don't need to trade every day to be a great trader.",
+    "Cut losses fast, let winners run — the oldest rule, still the truest.",
+  ];
+  const [dailyCreed, setDailyCreed] = useState(DEFAULT_CREED_QUOTES[0]);
+  const [isEditingCreed, setIsEditingCreed] = useState(false);
+  const [creedDraft, setCreedDraft] = useState(dailyCreed);
+  const refreshDailyCreed = () => {
+    setDailyCreed(prev => {
+      const others = DEFAULT_CREED_QUOTES.filter(q => q !== prev);
+      return others[Math.floor(Math.random() * others.length)] ?? prev;
+    });
+  };
+
+  // ---- Playbook: Pre-Session Protocol checklist ----
+  const PRE_SESSION_CHECKLIST_ITEMS: { id: string; label: string }[] = [
+    { id: 'htf-levels', label: 'HTF Levels Marked' },
+    { id: 'news-check', label: 'News Event Check' },
+    { id: 'mindset-check', label: 'Mindset Check' },
+    { id: 'max-loss-set', label: 'Max Loss Limit Set' },
+  ];
+  const [preSessionChecklist, setPreSessionChecklist] = useState<Record<string, boolean>>({
+    'htf-levels': false,
+    'news-check': false,
+    'mindset-check': false,
+    'max-loss-set': false,
+  });
+  const togglePreSessionItem = (id: string) => {
+    setPreSessionChecklist(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+  const resetPreSessionChecklist = () => {
+    setPreSessionChecklist({ 'htf-levels': false, 'news-check': false, 'mindset-check': false, 'max-loss-set': false });
+  };
+  const preSessionCompletedCount = Object.values(preSessionChecklist).filter(Boolean).length;
 
   // Modal state
   const [showAddAccount, setShowAddAccount] = useState(false);
@@ -7103,116 +7147,272 @@ function App() {
           </div>
         </div>
 
-        {/* SECTION 1: ACTIVE STRATEGY MODELS — clean image-focused gallery */}
-        <div className="min-w-0 space-y-3">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <h3 className={cn("text-sm font-bold tracking-wide flex items-center gap-1.5", tc.text)}>
-              <Layers className="w-4 h-4 text-emerald-400" strokeWidth={2} />
-              STRATEGY MODELS
-            </h3>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {strategies.length > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => scrollStrategyCarousel('left')}
-                    title="Scroll left"
-                    className={cn("p-1.5 rounded-lg transition-colors", tc.bgSecondary, tc.bgHover, "border", tc.border, tc.textSecondary, theme !== 'light' ? 'hover:text-white' : 'hover:text-zinc-900')}
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => scrollStrategyCarousel('right')}
-                    title="Scroll right"
-                    className={cn("p-1.5 rounded-lg transition-colors", tc.bgSecondary, tc.bgHover, "border", tc.border, tc.textSecondary, theme !== 'light' ? 'hover:text-white' : 'hover:text-zinc-900')}
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-              <button onClick={openAddStrategyModal} className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors flex-shrink-0", tc.btnSecondary)}>
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Strategy</span>
-              </button>
+        {/* TOP ROW: STRATEGY MODELS + DAILY CREED — flexible 3-col grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-w-0">
+
+          {/* SECTION 1: ACTIVE STRATEGY MODELS — clean image-focused gallery */}
+          <div className="min-w-0 space-y-3 lg:col-span-2">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <h3 className={cn("text-sm font-bold tracking-wide flex items-center gap-1.5", tc.text)}>
+                <Layers className="w-4 h-4 text-emerald-400" strokeWidth={2} />
+                STRATEGY MODELS
+              </h3>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {strategies.length > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => scrollStrategyCarousel('left')}
+                      title="Scroll left"
+                      className={cn("p-1.5 rounded-lg transition-colors", tc.bgSecondary, tc.bgHover, "border", tc.border, tc.textSecondary, theme !== 'light' ? 'hover:text-white' : 'hover:text-zinc-900')}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => scrollStrategyCarousel('right')}
+                      title="Scroll right"
+                      className={cn("p-1.5 rounded-lg transition-colors", tc.bgSecondary, tc.bgHover, "border", tc.border, tc.textSecondary, theme !== 'light' ? 'hover:text-white' : 'hover:text-zinc-900')}
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+                <button onClick={openAddStrategyModal} className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors flex-shrink-0", tc.btnSecondary)}>
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Strategy</span>
+                </button>
+              </div>
             </div>
+
+            {strategies.length === 0 ? (
+              <button
+                onClick={openAddStrategyModal}
+                className={cn("w-full flex flex-col items-center justify-center gap-2 py-12 rounded-xl border border-dashed transition-all", tc.border, tc.textMuted, theme !== 'light' ? 'hover:text-zinc-300 hover:border-zinc-500' : 'hover:text-zinc-600 hover:border-zinc-400')}
+              >
+                <Plus className="w-5 h-5" />
+                <span className="text-sm">+ Add Your First A+ Trading Model</span>
+              </button>
+            ) : (
+              <>
+              <div className="overflow-hidden">
+              <div
+                ref={strategyCarouselRef}
+                className="custom-slider-scrollbar flex flex-nowrap overflow-x-auto snap-x snap-mandatory scroll-smooth gap-4 pb-2"
+              >
+                {strategies.map(strategy => (
+                  <button
+                    key={strategy.id}
+                    draggable
+                    onDragStart={(e) => {
+                      setDraggingStrategyId(strategy.id);
+                      e.dataTransfer.effectAllowed = 'move';
+                      e.dataTransfer.setData('text/plain', strategy.id);
+                    }}
+                    onDragEnd={() => { setDraggingStrategyId(null); setDragOverStrategyId(null); }}
+                    onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+                    onDragEnter={() => setDragOverStrategyId(strategy.id)}
+                    onDragLeave={() => setDragOverStrategyId(prev => (prev === strategy.id ? null : prev))}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const draggedId = e.dataTransfer.getData('text/plain');
+                      moveStrategy(draggedId, strategy.id);
+                      setDraggingStrategyId(null);
+                      setDragOverStrategyId(null);
+                    }}
+                    onClick={() => setViewStrategyId(strategy.id)}
+                    title="Drag to reorder — click to view"
+                    className={cn(
+                      "group snap-start w-[calc((100%-2*1rem)/3)] min-w-[calc((100%-2*1rem)/3)] shrink-0 h-full flex flex-col border rounded-xl overflow-hidden cursor-grab active:cursor-grabbing transition-all duration-200 ease-out text-left",
+                      theme !== 'light' ? 'bg-zinc-900/40' : 'bg-white',
+                      dragOverStrategyId === strategy.id
+                        ? "border-sky-400 ring-2 ring-sky-400/60"
+                        : theme !== 'light' ? "border-zinc-800/80 hover:border-zinc-700" : "border-zinc-200 hover:border-zinc-300",
+                      draggingStrategyId === strategy.id && "opacity-40"
+                    )}
+                  >
+                    <div className={cn("aspect-video flex items-center justify-center relative overflow-hidden flex-shrink-0", tc.bgSecondary)}>
+                      {strategy.images[0]?.url ? (
+                        <img
+                          src={strategy.images[0].url}
+                          alt={`${strategy.title} A+ example`}
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 pointer-events-none"
+                        />
+                      ) : (
+                        <div className={cn("flex flex-col items-center gap-1.5", tc.textMuted)}>
+                          <ImageIcon className="w-7 h-7" />
+                          <span className="text-[10px]">No image</span>
+                        </div>
+                      )}
+                      <div className="absolute top-1.5 left-1.5 flex items-center gap-0.5 px-1 py-0.5 rounded bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        <GripVertical className="w-3 h-3" />
+                      </div>
+                    </div>
+                    <div className="p-3.5 min-w-0 flex-1 flex flex-col">
+                      <h4 className={cn("font-semibold truncate tracking-tight text-sm min-w-0", tc.text)}>{strategy.title}</h4>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              </div>
+              {strategies.length > 1 && (
+                <p className={cn("text-[11px] mt-2", tc.textMuted)}>Drag a card to reorder — drop it first to pin it at the top of the gallery.</p>
+              )}
+              </>
+            )}
           </div>
 
-          {strategies.length === 0 ? (
-            <button
-              onClick={openAddStrategyModal}
-              className={cn("w-full flex flex-col items-center justify-center gap-2 py-12 rounded-xl border border-dashed transition-all", tc.border, tc.textMuted, theme !== 'light' ? 'hover:text-zinc-300 hover:border-zinc-500' : 'hover:text-zinc-600 hover:border-zinc-400')}
-            >
-              <Plus className="w-5 h-5" />
-              <span className="text-sm">+ Add Your First A+ Trading Model</span>
-            </button>
-          ) : (
-            <>
-            <div className="overflow-hidden">
-            <div
-              ref={strategyCarouselRef}
-              className="custom-slider-scrollbar flex flex-nowrap overflow-x-auto snap-x snap-mandatory scroll-smooth gap-4 pb-2"
-            >
-              {strategies.map(strategy => (
+          {/* SECTION 1b: DAILY TRADING CREED + PRE-SESSION PROTOCOL — right rail */}
+          <div className="min-w-0 space-y-4 lg:col-span-1">
+
+            {/* Quote Card — dark glassmorphism */}
+            <div className="bg-[#181920] border border-emerald-500/20 rounded-2xl p-6 relative overflow-hidden">
+              <Quote className="absolute -top-2 -right-1 w-20 h-20 text-emerald-500/10" strokeWidth={1.5} />
+              <div className="relative flex items-center justify-between gap-2 mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                    <Quote className="w-4 h-4 text-emerald-400" strokeWidth={2} />
+                  </div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Daily Trading Creed</h3>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => { setCreedDraft(dailyCreed); setIsEditingCreed(true); }}
+                    title="Edit quote"
+                    className="p-1.5 rounded-lg text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={refreshDailyCreed}
+                    title="Refresh quote"
+                    className="p-1.5 rounded-lg text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {isEditingCreed ? (
+                <div className="relative space-y-3">
+                  <textarea
+                    value={creedDraft}
+                    onChange={(e) => setCreedDraft(e.target.value)}
+                    rows={4}
+                    autoFocus
+                    className="w-full bg-zinc-950/60 border border-emerald-500/20 rounded-lg p-3 text-sm italic text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 resize-none"
+                    placeholder="Write today's trading creed..."
+                  />
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingCreed(false)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (creedDraft.trim()) setDailyCreed(creedDraft.trim());
+                        setIsEditingCreed(false);
+                      }}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 transition-colors"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="relative text-[15px] leading-relaxed italic text-white/90 font-medium">
+                  "{dailyCreed}"
+                </p>
+              )}
+            </div>
+
+            {/* Pre-Session Checklist Widget */}
+            <div className={cn(
+              "rounded-2xl p-5 border",
+              theme !== 'light' ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-white border-zinc-200'
+            )}>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                    <ListChecks className="w-4 h-4 text-emerald-400" strokeWidth={2} />
+                  </div>
+                  <h3 className={cn("text-xs font-bold uppercase tracking-wider truncate", tc.text)}>Pre-Session Protocol</h3>
+                </div>
+                <span className={cn(
+                  "text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0",
+                  preSessionCompletedCount === PRE_SESSION_CHECKLIST_ITEMS.length
+                    ? "bg-emerald-500/15 text-emerald-400"
+                    : cn(tc.bgSecondary, tc.textMuted)
+                )}>
+                  {preSessionCompletedCount}/{PRE_SESSION_CHECKLIST_ITEMS.length} Ready
+                </span>
+              </div>
+
+              {/* Progress bar */}
+              <div className={cn("w-full h-1.5 rounded-full overflow-hidden mb-4", tc.bgSecondary)}>
+                <div
+                  className="h-full bg-emerald-500 transition-all duration-300 ease-out rounded-full"
+                  style={{ width: `${(preSessionCompletedCount / PRE_SESSION_CHECKLIST_ITEMS.length) * 100}%` }}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                {PRE_SESSION_CHECKLIST_ITEMS.map(item => {
+                  const checked = !!preSessionChecklist[item.id];
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => togglePreSessionItem(item.id)}
+                      className={cn(
+                        "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors",
+                        checked ? "bg-emerald-500/10" : tc.bgHover
+                      )}
+                    >
+                      <span className={cn(
+                        "flex-shrink-0 w-4 h-4 rounded flex items-center justify-center border transition-colors",
+                        checked ? "bg-emerald-500 border-emerald-500" : cn(tc.border, "bg-transparent")
+                      )}>
+                        {checked && <Check className="w-3 h-3 text-zinc-950" strokeWidth={3} />}
+                      </span>
+                      <span className={cn(
+                        "text-xs font-medium truncate",
+                        checked ? cn(tc.textMuted, "line-through") : tc.text
+                      )}>
+                        {item.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {preSessionCompletedCount === PRE_SESSION_CHECKLIST_ITEMS.length ? (
                 <button
-                  key={strategy.id}
-                  draggable
-                  onDragStart={(e) => {
-                    setDraggingStrategyId(strategy.id);
-                    e.dataTransfer.effectAllowed = 'move';
-                    e.dataTransfer.setData('text/plain', strategy.id);
-                  }}
-                  onDragEnd={() => { setDraggingStrategyId(null); setDragOverStrategyId(null); }}
-                  onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
-                  onDragEnter={() => setDragOverStrategyId(strategy.id)}
-                  onDragLeave={() => setDragOverStrategyId(prev => (prev === strategy.id ? null : prev))}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const draggedId = e.dataTransfer.getData('text/plain');
-                    moveStrategy(draggedId, strategy.id);
-                    setDraggingStrategyId(null);
-                    setDragOverStrategyId(null);
-                  }}
-                  onClick={() => setViewStrategyId(strategy.id)}
-                  title="Drag to reorder — click to view"
-                  className={cn(
-                    "group snap-start w-[calc((100%-4*1rem)/5)] min-w-[calc((100%-4*1rem)/5)] shrink-0 h-full flex flex-col border rounded-xl overflow-hidden cursor-grab active:cursor-grabbing transition-all duration-200 ease-out text-left",
-                    theme !== 'light' ? 'bg-zinc-900/40' : 'bg-white',
-                    dragOverStrategyId === strategy.id
-                      ? "border-sky-400 ring-2 ring-sky-400/60"
-                      : theme !== 'light' ? "border-zinc-800/80 hover:border-zinc-700" : "border-zinc-200 hover:border-zinc-300",
-                    draggingStrategyId === strategy.id && "opacity-40"
-                  )}
+                  type="button"
+                  onClick={resetPreSessionChecklist}
+                  className="w-full mt-3 text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
                 >
-                  <div className={cn("aspect-video flex items-center justify-center relative overflow-hidden flex-shrink-0", tc.bgSecondary)}>
-                    {strategy.images[0]?.url ? (
-                      <img
-                        src={strategy.images[0].url}
-                        alt={`${strategy.title} A+ example`}
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 pointer-events-none"
-                      />
-                    ) : (
-                      <div className={cn("flex flex-col items-center gap-1.5", tc.textMuted)}>
-                        <ImageIcon className="w-7 h-7" />
-                        <span className="text-[10px]">No image</span>
-                      </div>
-                    )}
-                    <div className="absolute top-1.5 left-1.5 flex items-center gap-0.5 px-1 py-0.5 rounded bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                      <GripVertical className="w-3 h-3" />
-                    </div>
-                  </div>
-                  <div className="p-3.5 min-w-0 flex-1 flex flex-col">
-                    <h4 className={cn("font-semibold truncate tracking-tight text-sm min-w-0", tc.text)}>{strategy.title}</h4>
-                  </div>
+                  All set — reset for next session
                 </button>
-              ))}
+              ) : (
+                <p className={cn("text-[11px] mt-3", tc.textMuted)}>Complete all checks before entering a live trade.</p>
+              )}
             </div>
-            </div>
-            {strategies.length > 1 && (
-              <p className={cn("text-[11px] mt-2", tc.textMuted)}>Drag a card to reorder — drop it first to pin it at the top of the gallery.</p>
-            )}
-            </>
-          )}
+          </div>
+        </div>
+
+        {/* EMERGENCY CIRCUIT BREAKER BANNER */}
+        <div className="min-w-0 flex items-center gap-3 rounded-xl px-4 py-3 bg-red-500/[0.07] border border-red-500/25">
+          <OctagonAlert className="w-5 h-5 text-red-400 flex-shrink-0" strokeWidth={2} />
+          <p className="text-xs sm:text-sm font-semibold tracking-wide text-red-400 truncate">
+            MAX 2 LOSSES = IMMEDIATE PLATFORM CLOSURE
+          </p>
         </div>
 
         {/* SECTION 2: TRADING CHARTER & MANDATES — single unified, read-only card */}
