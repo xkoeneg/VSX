@@ -5946,33 +5946,41 @@ function App() {
 
                           {/* Daily trades list */}
                           <div className="space-y-2 max-h-56 overflow-y-auto">
-                            {cell.trades.map(t => (
-                              <div key={t.id} className="bg-white/[0.03] border border-white/5 rounded-lg p-2">
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="text-xs font-semibold text-white truncate">
-                                    {t.symbol}
-                                    {t.session && <span className="text-zinc-500 font-normal"> · {t.session}</span>}
-                                  </span>
-                                  <span className={cn('text-xs font-bold font-mono flex-shrink-0', t.profitLoss >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
-                                    {formatCurrency(t.profitLoss, privacyMode)}
-                                  </span>
-                                </div>
-                                {((t.mistakes && t.mistakes.length > 0) || (t.emotions && t.emotions.length > 0)) && (
-                                  <div className="flex flex-wrap gap-1 mt-1.5">
-                                    {(t.emotions || []).map(e => (
-                                      <span key={`e-${e}`} className="px-1.5 py-0.5 rounded-full bg-violet-500/15 border border-violet-500/25 text-violet-300 text-[10px] font-medium">
-                                        {e}
-                                      </span>
-                                    ))}
-                                    {(t.mistakes || []).map(m => (
-                                      <span key={`m-${m}`} className="px-1.5 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/25 text-rose-300 text-[10px] font-medium">
-                                        {m}
-                                      </span>
-                                    ))}
+                            {cell.trades.map(t => {
+                              const tradeAccount = accounts.find(a => a.id === t.accountId);
+                              return (
+                                <div key={t.id} className="bg-white/[0.03] border border-white/5 rounded-lg p-2">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs font-semibold text-white truncate">
+                                      {t.symbol}
+                                      {t.session && <span className="text-zinc-500 font-normal"> · {t.session}</span>}
+                                    </span>
+                                    <span className={cn('text-xs font-bold font-mono flex-shrink-0', t.profitLoss >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
+                                      {formatCurrency(t.profitLoss, privacyMode)}
+                                    </span>
                                   </div>
-                                )}
-                              </div>
-                            ))}
+                                  {tradeAccount && (
+                                    <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-500/30 text-sky-300 text-[9px] font-semibold truncate max-w-full">
+                                      {tradeAccount.name}
+                                    </span>
+                                  )}
+                                  {((t.mistakes && t.mistakes.length > 0) || (t.emotions && t.emotions.length > 0)) && (
+                                    <div className="flex flex-wrap gap-1 mt-1.5">
+                                      {(t.emotions || []).map(e => (
+                                        <span key={`e-${e}`} className="px-1.5 py-0.5 rounded-full bg-violet-500/15 border border-violet-500/25 text-violet-300 text-[10px] font-medium">
+                                          {e}
+                                        </span>
+                                      ))}
+                                      {(t.mistakes || []).map(m => (
+                                        <span key={`m-${m}`} className="px-1.5 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/25 text-rose-300 text-[10px] font-medium">
+                                          {m}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
 
                           {/* Footer action — jump to this day's trades in Trade History */}
