@@ -6849,7 +6849,7 @@ function App() {
             <>
             <div
               ref={strategyCarouselRef}
-              className="strategy-carousel-scroll flex flex-nowrap overflow-x-auto gap-4 pb-2"
+              className="custom-slider-scrollbar flex flex-nowrap overflow-x-auto gap-4 pb-2"
             >
               {strategies.map(strategy => (
                 <button
@@ -10321,24 +10321,33 @@ function App() {
 
         /* Active Strategy Models carousel — ultra-thin horizontal scrollbar,
            always visible so it reads as a slider rather than clipped content. */
-        .strategy-carousel-scroll {
+        .custom-slider-scrollbar {
           scrollbar-width: thin;
-          scrollbar-color: rgba(255,255,255,0.2) rgba(255,255,255,0.05);
+          scrollbar-color: rgba(255,255,255,0.2) transparent;
         }
-        .strategy-carousel-scroll::-webkit-scrollbar {
+        .custom-slider-scrollbar::-webkit-scrollbar {
           display: block;
           height: 6px;
         }
-        .strategy-carousel-scroll::-webkit-scrollbar-track {
-          background: rgba(255,255,255,0.05);
+        .custom-slider-scrollbar::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.03);
           border-radius: 9999px;
         }
-        .strategy-carousel-scroll::-webkit-scrollbar-thumb {
-          background-color: rgba(255,255,255,0.2);
+        .custom-slider-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
           border-radius: 9999px;
+          transition: background-color 0.15s ease;
         }
-        .strategy-carousel-scroll::-webkit-scrollbar-thumb:hover {
-          background-color: rgba(255,255,255,0.4);
+        .custom-slider-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.4);
+        }
+        .custom-slider-scrollbar::-webkit-scrollbar-thumb:active {
+          background: rgba(255, 255, 255, 0.6);
+        }
+        .custom-slider-scrollbar::-webkit-scrollbar-button {
+          display: none;
+          width: 0;
+          height: 0;
         }
 
         /* ---- Light theme color fixes ----
