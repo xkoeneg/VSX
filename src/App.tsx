@@ -5948,7 +5948,7 @@ function App() {
                             {cell.trades.map(t => {
                               const tradeAccount = accounts.find(a => a.id === t.accountId);
                               return (
-                                <div key={t.id} className="py-3 px-3.5 border-b border-white/10 last:border-0">
+                                <div key={t.id} className="bg-[#1e1f29]/60 border border-white/10 rounded-xl p-3 pb-3 mb-2.5">
                                   <div className="flex items-center justify-between gap-2">
                                     <span className="text-xs font-semibold text-white truncate">
                                       {t.symbol}
