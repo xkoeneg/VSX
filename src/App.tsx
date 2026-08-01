@@ -2570,6 +2570,7 @@ function App() {
   const [isEditingRuleReview, setIsEditingRuleReview] = useState(false);
   const [showAddRule, setShowAddRule] = useState(false);
   const [showAddStrategy, setShowAddStrategy] = useState(false);
+  const [viewStrategyId, setViewStrategyId] = useState<string | null>(null);
   const [newStrategy, setNewStrategy] = useState<{ title: string; market: string; steps: string; imageUrl: string }>({ title: '', market: '', steps: '', imageUrl: '' });
   const [editingStrategyId, setEditingStrategyId] = useState<string | null>(null);
   const strategyImageInputRef = useRef<HTMLInputElement>(null);
@@ -6563,8 +6564,6 @@ function App() {
   };
 
   const renderPlaybook = () => {
-    const criticalRuleCount = rules.filter(r => r.severity === 'critical').length;
-
     return (
       <div className="space-y-6 min-w-0">
         {/* HEADER */}
@@ -6573,215 +6572,179 @@ function App() {
             <h2 className={cn("text-2xl font-bold truncate", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>Rules &amp; Strategy Playbook</h2>
             <p className="text-zinc-500 text-sm truncate">Your Trading Bible — Core execution mandates and active strategy models.</p>
           </div>
-          <button onClick={() => openAddRuleModal('risk')} className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors flex-shrink-0">
-            <Plus className="w-4 h-4" />
-            <span>Add Rule</span>
+        </div>
+
+        {/* SECTION 1: ACTIVE STRATEGY MODELS — compact gallery row */}
+        <div className="min-w-0 space-y-3">
+          <h3 className={cn("text-sm font-bold tracking-wide", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>⚔️ ACTIVE STRATEGY MODELS</h3>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Card #1 — always the compact Add Strategy action card */}
+            <button
+              onClick={openAddStrategyModal}
+              className="h-[170px] flex flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-zinc-700 text-zinc-500 hover:text-zinc-300 hover:border-zinc-500 transition-all flex-shrink-0"
+            >
+              <span className="w-8 h-8 rounded-full border border-dashed border-zinc-700 flex items-center justify-center">
+                <Plus className="w-4 h-4" />
+              </span>
+              <span className="text-xs font-medium">+ Add Strategy</span>
+            </button>
+
+            {strategies.map(strategy => (
+              <button
+                key={strategy.id}
+                onClick={() => setViewStrategyId(strategy.id)}
+                className="group h-[170px] flex flex-col rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-zinc-700 overflow-hidden text-left transition-colors min-w-0"
+              >
+                {/* Top half — chart thumbnail */}
+                <div className="h-[85px] w-full flex-shrink-0 bg-zinc-950 border-b border-zinc-800 flex items-center justify-center overflow-hidden">
+                  {strategy.imageUrl ? (
+                    <img src={strategy.imageUrl} alt={`${strategy.title} A+ example`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                  ) : (
+                    <ImageIcon className="w-5 h-5 text-zinc-700" />
+                  )}
+                </div>
+                {/* Bottom half — title, market badge, view details */}
+                <div className="flex-1 min-h-0 px-3 py-2 flex flex-col justify-between gap-1 min-w-0">
+                  <div className="flex items-start justify-between gap-1.5 min-w-0">
+                    <h4 className="text-xs font-bold text-white truncate leading-tight">{strategy.title}</h4>
+                    {strategy.market && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20 flex-shrink-0 whitespace-nowrap">{strategy.market}</span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-zinc-500 group-hover:text-zinc-300 transition-colors">View Details →</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* SECTION 2: CORE TRADING RULES BIBLE — unified, full-width, 3-column */}
+        <div className="min-w-0 space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <h3 className={cn("text-sm font-bold tracking-wide", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>📜 CORE TRADING RULES BIBLE</h3>
+            <button onClick={() => openAddRuleModal('risk')} className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs transition-colors flex-shrink-0">
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Rule</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+            {/* Column 1: Risk & Capital Rules */}
+            <div className="min-w-0 rounded-xl border border-white/10 bg-[#181920] shadow-lg p-4">
+              {renderRulePillarColumn('risk')}
+            </div>
+
+            {/* Column 2: Execution & Psychology Rules */}
+            <div className="min-w-0 rounded-xl border border-white/10 bg-[#181920] shadow-lg p-4 space-y-4">
+              {renderRulePillarColumn('execution')}
+              <div className="border-t border-white/5 pt-4">
+                {renderRulePillarColumn('psychology')}
+              </div>
+            </div>
+
+            {/* Column 3: Quick Reference Parameters */}
+            <div className="min-w-0 rounded-xl border border-white/10 bg-[#181920] shadow-lg p-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-3">⚡ Quick Reference</h4>
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-6 h-6 rounded-md bg-rose-500/10 flex items-center justify-center flex-shrink-0">
+                    <DollarSign className="w-3 h-3 text-rose-400" />
+                  </span>
+                  <div className="min-w-0 leading-tight">
+                    <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">Max Daily Risk</p>
+                    <p className="text-xs font-bold text-white truncate">$100.00 / 2 Losses Max</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <span className="w-6 h-6 rounded-md bg-sky-500/10 flex items-center justify-center flex-shrink-0">
+                    <Clock className="w-3 h-3 text-sky-400" />
+                  </span>
+                  <div className="min-w-0 leading-tight">
+                    <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">Trading Hours</p>
+                    <p className="text-xs font-bold text-white truncate">09:30 AM - 11:30 AM EST</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <span className="w-6 h-6 rounded-md bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                    <AlertCircle className="w-3 h-3 text-amber-400" />
+                  </span>
+                  <div className="min-w-0 leading-tight">
+                    <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">Violation Penalty</p>
+                    <p className="text-xs font-bold text-white truncate">Immediate session shutdown</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Compact rule list for one pillar — used inside the 3-column Rules Bible.
+  // Zero vertical filler: header row + a tight divided list, nothing else.
+  // Called directly (not as a JSX component) so it re-renders in place like
+  // the other renderX() helpers in this file, instead of remounting.
+  const renderRulePillarColumn = (pillar: RulePillar) => {
+    const meta = RULE_PILLAR_META[pillar];
+    const pillarRules = rules.filter(r => r.pillar === pillar);
+    return (
+      <div className="min-w-0">
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-xs flex-shrink-0">{meta.icon}</span>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 truncate">{RULE_PILLAR_SHORT_LABEL[pillar]}</h4>
+          </div>
+          <button
+            onClick={() => openAddRuleModal(pillar)}
+            title={`Add ${meta.label}`}
+            className="p-0.5 rounded text-zinc-500 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
+          >
+            <Plus className="w-3 h-3" />
           </button>
         </div>
 
-        {/* TRADING CHARTER / MANIFESTO HERO */}
-        <div className="bg-[#181920] border border-white/10 p-5 rounded-xl shadow-lg flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-start gap-3 min-w-0">
-            <span className="text-2xl leading-none flex-shrink-0">🛡️</span>
-            <p className="text-sm sm:text-[15px] text-zinc-300 leading-relaxed">
-              <span className="font-bold text-white">CAPITAL PRESERVATION IS PRIORITY #1.</span>{' '}
-              A single broken rule invalidates the entire session.
-            </p>
-          </div>
-          <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20 flex-shrink-0 self-start lg:self-auto">
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-            {criticalRuleCount} Critical Rule{criticalRuleCount === 1 ? '' : 's'} Active
-          </span>
-        </div>
-
-        {/* SECTION 1: CORE RULES BIBLE — asymmetric 2-column split */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* LEFT: Core Mandates document */}
-          <div className="lg:col-span-8 min-w-0 rounded-xl border border-white/10 bg-[#181920] shadow-lg overflow-hidden">
-            <div className="px-5 py-4 border-b border-white/10">
-              <h3 className="text-sm font-bold text-white tracking-wide">📜 CORE TRADING MANDATES</h3>
-            </div>
-            <div className="p-5 space-y-6">
-              {RULE_PILLARS.map(pillar => {
-                const meta = RULE_PILLAR_META[pillar];
-                const pillarRules = rules.filter(r => r.pillar === pillar);
-                return (
-                  <div key={pillar} className="min-w-0">
-                    <div className="flex items-center justify-between gap-2 mb-3">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-sm flex-shrink-0">{meta.icon}</span>
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 truncate">{RULE_PILLAR_SHORT_LABEL[pillar]}</h4>
+        {pillarRules.length === 0 ? (
+          <button
+            onClick={() => openAddRuleModal(pillar)}
+            className="w-full text-center py-2.5 px-2 text-[11px] rounded-lg border border-dashed border-white/10 text-zinc-600 hover:text-zinc-400 hover:border-white/20 transition-colors"
+          >
+            + Add rule
+          </button>
+        ) : (
+          <div className="divide-y divide-white/5">
+            {pillarRules.map(rule => {
+              const violations = ruleViolationCounts[rule.id] || 0;
+              const severityMeta = RULE_SEVERITY_META[rule.severity];
+              return (
+                <div key={rule.id} className="group py-2 first:pt-0 last:pb-0">
+                  <div className="flex items-start justify-between gap-1.5">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h5 className="text-xs font-bold text-white truncate">{rule.title}</h5>
+                        <span className={cn("text-[9px] px-1 py-0.5 rounded font-semibold uppercase tracking-wide leading-none", severityMeta.badge)}>{severityMeta.label}</span>
                       </div>
-                      <button
-                        onClick={() => openAddRuleModal(pillar)}
-                        title={`Add ${meta.label}`}
-                        className="p-1 rounded text-zinc-500 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
+                      {violations > 0 && (
+                        <span className="inline-flex items-center gap-0.5 text-[9px] mt-1 px-1 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/20 font-semibold">
+                          ⚠️ {violations}x
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => openEditRuleModal(rule)} className="p-0.5 rounded text-zinc-500 hover:text-white">
+                        <Edit2 className="w-3 h-3" />
+                      </button>
+                      <button onClick={() => handleDeleteRule(rule.id)} className="p-0.5 rounded text-zinc-500 hover:text-rose-400">
+                        <Trash2 className="w-3 h-3" />
                       </button>
                     </div>
-
-                    {pillarRules.length === 0 ? (
-                      <button
-                        onClick={() => openAddRuleModal(pillar)}
-                        className="w-full text-center py-4 px-2 text-xs rounded-lg border border-dashed border-white/10 text-zinc-600 hover:text-zinc-400 hover:border-white/20 transition-colors"
-                      >
-                        + Add your first rule
-                      </button>
-                    ) : (
-                      <div className="divide-y divide-white/5">
-                        {pillarRules.map(rule => {
-                          const violations = ruleViolationCounts[rule.id] || 0;
-                          const severityMeta = RULE_SEVERITY_META[rule.severity];
-                          return (
-                            <div key={rule.id} className="group py-3 first:pt-0 last:pb-0">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
-                                  <h5 className="text-sm font-bold text-white">{rule.title}</h5>
-                                  <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide", severityMeta.badge)}>{severityMeta.label}</span>
-                                  {rule.category && (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-zinc-400 truncate max-w-[8rem]">{rule.category}</span>
-                                  )}
-                                  {violations > 0 && (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/20 font-semibold flex items-center gap-0.5">
-                                      ⚠️ Violated {violations}x
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button onClick={() => openEditRuleModal(rule)} className="p-1 rounded text-zinc-500 hover:text-white">
-                                    <Edit2 className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button onClick={() => handleDeleteRule(rule.id)} className="p-1 rounded text-zinc-500 hover:text-rose-400">
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              </div>
-                              {rule.description && (
-                                <p className="text-xs text-zinc-500 mt-1">Rationale: {rule.description}</p>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
           </div>
-
-          {/* RIGHT: Quick Reference Parameters */}
-          <div className="lg:col-span-4 min-w-0 space-y-3">
-            <h3 className="text-sm font-bold text-white tracking-wide px-1">⚡ QUICK REFERENCE PARAMETERS</h3>
-
-            <div className="rounded-xl border border-white/10 bg-[#181920] shadow-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="w-7 h-7 rounded-md bg-rose-500/10 flex items-center justify-center flex-shrink-0">
-                  <DollarSign className="w-3.5 h-3.5 text-rose-400" />
-                </span>
-                <span className="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">Max Daily Risk</span>
-              </div>
-              <p className="text-base font-bold text-white">$100.00 / 2 Losses Max</p>
-            </div>
-
-            <div className="rounded-xl border border-white/10 bg-[#181920] shadow-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="w-7 h-7 rounded-md bg-sky-500/10 flex items-center justify-center flex-shrink-0">
-                  <Clock className="w-3.5 h-3.5 text-sky-400" />
-                </span>
-                <span className="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">Trading Window</span>
-              </div>
-              <p className="text-base font-bold text-white">09:30 AM - 11:30 AM EST</p>
-            </div>
-
-            <div className="rounded-xl border border-white/10 bg-[#181920] shadow-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="w-7 h-7 rounded-md bg-amber-500/10 flex items-center justify-center flex-shrink-0">
-                  <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-                </span>
-                <span className="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">Violation Penalty</span>
-              </div>
-              <p className="text-base font-bold text-white">Immediate platform shutdown for the session</p>
-            </div>
-          </div>
-        </div>
-
-        {/* SECTION 2: ACTIVE STRATEGY MODELS */}
-        <div className="min-w-0 space-y-4">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <h3 className={cn("text-lg font-bold truncate", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>⚔️ Active Strategy Models</h3>
-            <button onClick={openAddStrategyModal} className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors flex-shrink-0">
-              <Plus className="w-4 h-4" />
-              <span>Add Strategy Model</span>
-            </button>
-          </div>
-
-          {strategies.length === 0 ? (
-            <button
-              onClick={openAddStrategyModal}
-              className="w-full flex flex-col items-center justify-center gap-2 py-14 rounded-xl border border-dashed border-zinc-700 text-zinc-500 hover:text-zinc-300 hover:border-zinc-500 transition-all"
-            >
-              <Plus className="w-5 h-5" />
-              <span className="text-sm">+ Add Your First A+ Trading Model</span>
-            </button>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {strategies.map(strategy => {
-                const steps = strategy.steps.split('\n').map(s => s.trim()).filter(Boolean);
-                return (
-                  <div key={strategy.id} className="group rounded-xl border border-zinc-800 bg-zinc-900/50 overflow-hidden flex flex-col min-w-0">
-                    <div
-                      className={cn(
-                        "aspect-video w-full bg-zinc-950 border-b border-zinc-800 flex items-center justify-center overflow-hidden relative",
-                        strategy.imageUrl && "cursor-pointer"
-                      )}
-                      onClick={() => strategy.imageUrl && setLightboxImage(strategy.imageUrl)}
-                    >
-                      {strategy.imageUrl ? (
-                        <img src={strategy.imageUrl} alt={`${strategy.title} A+ example`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                      ) : (
-                        <div className="flex flex-col items-center gap-1.5 text-zinc-700">
-                          <ImageIcon className="w-6 h-6" />
-                          <span className="text-[11px]">No A+ example yet</span>
-                        </div>
-                      )}
-                      <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); openEditStrategyModal(strategy); }}
-                          className="p-1.5 rounded-lg bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-white"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleDeleteStrategy(strategy.id); }}
-                          className="p-1.5 rounded-lg bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-rose-400"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="p-4 flex-1 flex flex-col gap-2.5 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <h4 className="text-sm font-bold text-white truncate">{strategy.title}</h4>
-                        {strategy.market && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20 flex-shrink-0 whitespace-nowrap">{strategy.market}</span>
-                        )}
-                      </div>
-                      {steps.length > 0 ? (
-                        <ol className="text-xs text-zinc-400 space-y-1 list-decimal list-inside">
-                          {steps.map((step, i) => <li key={i}>{step}</li>)}
-                        </ol>
-                      ) : (
-                        <p className="text-xs text-zinc-600 italic">No entry rules added yet.</p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        )}
       </div>
     );
   };
@@ -9370,6 +9333,73 @@ function App() {
     )
   );
 
+  const renderStrategyDetailModal = () => {
+    const strategy = strategies.find(s => s.id === viewStrategyId) || null;
+    if (!strategy) return null;
+    const steps = strategy.steps.split('\n').map(s => s.trim()).filter(Boolean);
+    return (
+      <ModalBackdrop
+        onClose={() => setViewStrategyId(null)}
+        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
+      >
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-md w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div
+            className={cn("aspect-video w-full bg-zinc-950 border-b border-zinc-800 flex items-center justify-center overflow-hidden", strategy.imageUrl && "cursor-pointer")}
+            onClick={() => strategy.imageUrl && setLightboxImage(strategy.imageUrl)}
+          >
+            {strategy.imageUrl ? (
+              <img src={strategy.imageUrl} alt={`${strategy.title} A+ example`} className="w-full h-full object-cover" />
+            ) : (
+              <div className="flex flex-col items-center gap-1.5 text-zinc-700">
+                <ImageIcon className="w-6 h-6" />
+                <span className="text-xs">No A+ example yet</span>
+              </div>
+            )}
+          </div>
+          <div className="px-6 py-4 border-b border-zinc-800 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="text-lg font-bold text-white truncate">{strategy.title}</h3>
+              {strategy.market && (
+                <span className="inline-block mt-1 text-[10px] px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20">{strategy.market}</span>
+              )}
+            </div>
+            <button onClick={() => setViewStrategyId(null)} className="p-1 text-zinc-400 hover:text-white flex-shrink-0">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="p-6 space-y-4">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-zinc-500 font-semibold mb-2">Entry Rules</p>
+              {steps.length > 0 ? (
+                <ol className="text-sm text-zinc-300 space-y-1.5 list-decimal list-inside">
+                  {steps.map((step, i) => <li key={i}>{step}</li>)}
+                </ol>
+              ) : (
+                <p className="text-sm text-zinc-600 italic">No entry rules added yet.</p>
+              )}
+            </div>
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                onClick={() => { const s = strategy; setViewStrategyId(null); openEditStrategyModal(s); }}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+                Edit
+              </button>
+              <button
+                onClick={() => { handleDeleteStrategy(strategy.id); setViewStrategyId(null); }}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-lg text-sm transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      </ModalBackdrop>
+    );
+  };
+
   const renderAddNoticeModal = () => (
     showAddNotice && (
       <ModalBackdrop
@@ -9933,6 +9963,7 @@ function App() {
       {renderExpandGallery()}
       {renderAddRuleModal()}
       {renderAddStrategyModal()}
+      {renderStrategyDetailModal()}
       {renderAddNoticeModal()}
       {renderAddScenarioModal()}
       {renderAddWikiModal()}
