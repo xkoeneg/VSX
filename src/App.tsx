@@ -152,11 +152,18 @@ interface Trade {
 }
 
 type RuleSeverity = 'critical' | 'warning' | 'guide';
-type RulePillar = 'risk' | 'execution' | 'psychology';
+// 'risk' | 'execution' | 'psychology' are the 3 built-in pillars, but the
+// user can also add their own custom pillars (see CustomPillar below) —
+// a custom pillar's `id` is just another valid RulePillar value.
+type RulePillar = string;
 type RuleAccentColor = 'emerald' | 'amber' | 'crimson' | 'indigo' | 'cyan';
 type RuleIconKind = 'emoji' | 'icon';
 type RuleBulletStyle = 'bullet' | 'number' | 'icon';
 type RuleTextSize = 'normal' | 'large';
+// A rule-list item is either a real rule or a visual divider used to break
+// a pillar's rule list into labeled sections. Defaults to 'rule' when
+// absent so every rule saved before this feature still renders correctly.
+type RuleItemType = 'rule' | 'divider';
 
 interface Rule {
   id: string;
@@ -172,6 +179,20 @@ interface Rule {
   color?: RuleAccentColor;
   bulletStyle?: RuleBulletStyle;
   textSize?: RuleTextSize;
+  // Divider support — when itemType is 'divider' this entry renders as a
+  // labeled section break inside its pillar's rule list instead of a rule.
+  itemType?: RuleItemType;
+  dividerLabel?: string;
+}
+
+// A user-defined pillar (in addition to the 3 built-in: risk, execution,
+// psychology) — e.g. "Capital & Execution" as mentioned in the product ask.
+interface CustomPillar {
+  id: string;
+  label: string; // full label, e.g. "Capital & Execution Rules"
+  shortLabel: string; // shorter label used in compact headers
+  icon: string; // key into RULE_ICON_MAP
+  color: RuleAccentColor;
 }
 
 interface StrategyStep {
@@ -382,10 +403,67 @@ const RULE_PILLAR_DEFAULT_ICON: Record<RulePillar, string> = {
   psychology: 'Brain',
 };
 
+// Matches RULE_ACCENT_PALETTE — used for the top accent border of a pillar
+// column, which needs a "border-t-*" class rather than the "bg-*"/"text-*"
+// classes the palette itself provides.
+const RULE_ACCENT_BORDER_TOP: Record<RuleAccentColor, string> = {
+  emerald: 'border-t-emerald-500',
+  amber: 'border-t-amber-500',
+  crimson: 'border-t-rose-500',
+  indigo: 'border-t-indigo-500',
+  cyan: 'border-t-cyan-500',
+};
+
+// ---- Custom pillars: dynamic resolvers ----
+// The 3 built-in pillars (risk/execution/psychology) have static metadata
+// above. Custom, user-created pillars store their own label/icon/color on
+// the CustomPillar object itself, so every place that used to do a direct
+// RULE_PILLAR_META[pillar] lookup now goes through these resolvers instead,
+// falling back to the custom pillar list (and finally to a generic
+// "Custom Rules" shape if somehow neither is found).
+const getAllPillarIds = (customPillars: CustomPillar[]): RulePillar[] => [
+  ...RULE_PILLARS,
+  ...customPillars.map(p => p.id),
+];
+
+const getPillarMeta = (pillar: RulePillar, customPillars: CustomPillar[]): { label: string; Icon: LucideIcon; color: string; iconBg: string; accent: string } => {
+  if (RULE_PILLAR_META[pillar]) return RULE_PILLAR_META[pillar];
+  const cp = customPillars.find(p => p.id === pillar);
+  if (cp) {
+    const accent = getRuleAccent(cp.color);
+    return {
+      label: cp.label,
+      Icon: RULE_ICON_MAP[cp.icon] || Layers,
+      color: accent.text,
+      iconBg: accent.bg,
+      accent: RULE_ACCENT_BORDER_TOP[cp.color] || 'border-t-indigo-500',
+    };
+  }
+  return { label: 'Custom Rules', Icon: Layers, color: 'text-zinc-400', iconBg: 'bg-zinc-500/10', accent: 'border-t-zinc-500' };
+};
+
+const getPillarShortLabel = (pillar: RulePillar, customPillars: CustomPillar[]): string => {
+  if (RULE_PILLAR_SHORT_LABEL[pillar]) return RULE_PILLAR_SHORT_LABEL[pillar];
+  const cp = customPillars.find(p => p.id === pillar);
+  return cp?.shortLabel || cp?.label || 'Custom';
+};
+
+const getPillarDefaultColor = (pillar: RulePillar, customPillars: CustomPillar[]): RuleAccentColor => {
+  if (RULE_PILLAR_DEFAULT_COLOR[pillar]) return RULE_PILLAR_DEFAULT_COLOR[pillar];
+  const cp = customPillars.find(p => p.id === pillar);
+  return cp?.color || 'indigo';
+};
+
+const getPillarDefaultIcon = (pillar: RulePillar, customPillars: CustomPillar[]): string => {
+  if (RULE_PILLAR_DEFAULT_ICON[pillar]) return RULE_PILLAR_DEFAULT_ICON[pillar];
+  const cp = customPillars.find(p => p.id === pillar);
+  return cp?.icon || 'Layers';
+};
+
 // Icon glyph options for the "Icons" tab of the rule icon picker.
 const RULE_ICON_MAP: Record<string, LucideIcon> = {
   Shield, Zap, Brain, Target, Flame, AlertTriangle, CheckCircle2,
-  Star, Flag, Bookmark, Lock, Crosshair, Rocket, Bell, Award, Gem, Anchor, Compass, Swords,
+  Star, Flag, Bookmark, Lock, Crosshair, Rocket, Bell, Award, Gem, Anchor, Compass, Swords, Layers,
 };
 const RULE_ICON_OPTIONS: string[] = Object.keys(RULE_ICON_MAP);
 
@@ -408,8 +486,8 @@ const RULE_TEXT_SIZES: { id: RuleTextSize; label: string }[] = [
 
 // Resolves the icon component for a rule, falling back to the pillar default
 // when the rule predates this feature or has no icon set.
-const getRuleIconComponent = (rule: Pick<Rule, 'iconValue' | 'pillar'>): LucideIcon =>
-  RULE_ICON_MAP[rule.iconValue || ''] || RULE_ICON_MAP[RULE_PILLAR_DEFAULT_ICON[rule.pillar]];
+const getRuleIconComponent = (rule: Pick<Rule, 'iconValue' | 'pillar'>, customPillars: CustomPillar[] = []): LucideIcon =>
+  RULE_ICON_MAP[rule.iconValue || ''] || RULE_ICON_MAP[getPillarDefaultIcon(rule.pillar, customPillars)] || Layers;
 
 // Loosely matches a Discipline Tracker "mistake" tag against a Rule title,
 // so the Playbook can passively count violations without any manual
@@ -572,8 +650,29 @@ const normalizeRule = (r: any): Rule => ({
   title: normalizeStringField(r?.title),
   description: normalizeStringField(r?.description),
   severity: RULE_SEVERITIES.includes(r?.severity) ? r.severity : 'warning',
-  pillar: RULE_PILLARS.includes(r?.pillar) ? r.pillar : guessRulePillar(r),
+  // Custom pillar ids aren't known here (they live in separate, dynamic
+  // state), so any non-empty string is accepted as-is; only a missing/empty
+  // pillar triggers the best-effort keyword guess.
+  pillar: typeof r?.pillar === 'string' && r.pillar.trim() ? r.pillar : guessRulePillar(r),
+  iconKind: r?.iconKind === 'emoji' || r?.iconKind === 'icon' ? r.iconKind : undefined,
+  iconValue: typeof r?.iconValue === 'string' ? r.iconValue : undefined,
+  color: RULE_ACCENT_PALETTE.some(c => c.id === r?.color) ? r.color : undefined,
+  bulletStyle: r?.bulletStyle === 'bullet' || r?.bulletStyle === 'number' || r?.bulletStyle === 'icon' ? r.bulletStyle : undefined,
+  textSize: r?.textSize === 'normal' || r?.textSize === 'large' ? r.textSize : undefined,
+  itemType: r?.itemType === 'divider' ? 'divider' : 'rule',
+  dividerLabel: typeof r?.dividerLabel === 'string' ? r.dividerLabel : undefined,
 });
+
+const normalizeCustomPillar = (p: any): CustomPillar => {
+  const label = normalizeStringField(p?.label, 'Custom Rules');
+  return {
+    id: typeof p?.id === 'string' && p.id ? p.id : generateId(),
+    label,
+    shortLabel: normalizeStringField(p?.shortLabel, label),
+    icon: typeof p?.icon === 'string' && RULE_ICON_OPTIONS.includes(p.icon) ? p.icon : 'Layers',
+    color: RULE_ACCENT_PALETTE.some(c => c.id === p?.color) ? p.color : 'indigo',
+  };
+};
 
 const normalizeStrategyStep = (s: any): StrategyStep => {
   // Two legacy shapes to account for: steps that predate the visual builder
@@ -693,6 +792,7 @@ interface StoredData {
   mistakesList: Mistake[];
   emotionsList: EmotionTag[];
   customSymbols: string[];
+  customPillars: CustomPillar[];
 }
 
 // Single entry point: throw any raw parsed JSON (old backup, new backup,
@@ -717,6 +817,7 @@ const migrateStoredData = (raw: any): StoredData => {
       ? data.emotionsList.map((item: any) => normalizeNamedItem(item, 'purple'))
       : EMOTION_OPTIONS.map(name => ({ id: generateId(), name, color: 'purple' as TagColor })),
     customSymbols: Array.isArray(data.customSymbols) ? data.customSymbols.filter((s: any) => typeof s === 'string') : [],
+    customPillars: Array.isArray(data.customPillars) ? data.customPillars.map(normalizeCustomPillar) : [],
   };
 };
 
@@ -2698,6 +2799,7 @@ function App() {
     EMOTION_OPTIONS.map(name => ({ id: generateId(), name, color: 'purple' as TagColor }))
   );
   const [customSymbols, setCustomSymbols] = useState<string[]>([]);
+  const [customPillars, setCustomPillars] = useState<CustomPillar[]>([]);
 
   // Modal state
   const [showAddAccount, setShowAddAccount] = useState(false);
@@ -2928,6 +3030,7 @@ function App() {
         setMistakesList(migrated.mistakesList);
         setEmotionsList(migrated.emotionsList);
         setCustomSymbols(migrated.customSymbols);
+        setCustomPillars(migrated.customPillars);
         // Write the migrated (current-schema, versioned) shape straight
         // back to localStorage so the migration only has to run once.
         localStorage.setItem('tradingJournal', JSON.stringify(migrated));
@@ -2939,13 +3042,13 @@ function App() {
 
   // Save to localStorage
   useEffect(() => {
-    const data: StoredData = { version: DATA_SCHEMA_VERSION, accounts, trades, rules, strategies, notices, noticeScenarios, wikiEntries, setupTypes, confluences, mistakesList, emotionsList, customSymbols };
+    const data: StoredData = { version: DATA_SCHEMA_VERSION, accounts, trades, rules, strategies, notices, noticeScenarios, wikiEntries, setupTypes, confluences, mistakesList, emotionsList, customSymbols, customPillars };
     try {
       localStorage.setItem('tradingJournal', JSON.stringify(data));
     } catch (e) {
       console.error('Failed to save data:', e);
     }
-  }, [accounts, trades, rules, strategies, notices, noticeScenarios, wikiEntries, setupTypes, confluences, mistakesList, emotionsList, customSymbols]);
+  }, [accounts, trades, rules, strategies, notices, noticeScenarios, wikiEntries, setupTypes, confluences, mistakesList, emotionsList, customSymbols, customPillars]);
 
   // ---- Life Discipline Hub persistence ----
   // Kept in its own localStorage key, deliberately separate from the trading
@@ -3280,6 +3383,7 @@ function App() {
   const ruleViolationCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const rule of rules) {
+      if (rule.itemType === 'divider') continue;
       let count = 0;
       for (const trade of trades) {
         if ((trade.mistakes || []).some(tag => tagMatchesRuleTitle(tag, rule.title))) count++;
@@ -3631,11 +3735,12 @@ function App() {
 
   const handleSaveRule = () => {
     if (!newRule.title) return;
+    const allPillarIds = getAllPillarIds(customPillars);
     const severity: RuleSeverity = RULE_SEVERITIES.includes(newRule.severity as RuleSeverity) ? (newRule.severity as RuleSeverity) : 'warning';
-    const pillar: RulePillar = RULE_PILLARS.includes(newRule.pillar as RulePillar) ? (newRule.pillar as RulePillar) : 'risk';
+    const pillar: RulePillar = allPillarIds.includes(newRule.pillar as string) ? (newRule.pillar as RulePillar) : 'risk';
     const iconKind: RuleIconKind = newRule.iconKind === 'emoji' ? 'emoji' : 'icon';
-    const iconValue = newRule.iconValue || RULE_PILLAR_DEFAULT_ICON[pillar];
-    const color: RuleAccentColor = RULE_ACCENT_PALETTE.some(c => c.id === newRule.color) ? (newRule.color as RuleAccentColor) : RULE_PILLAR_DEFAULT_COLOR[pillar];
+    const iconValue = newRule.iconValue || getPillarDefaultIcon(pillar, customPillars);
+    const color: RuleAccentColor = RULE_ACCENT_PALETTE.some(c => c.id === newRule.color) ? (newRule.color as RuleAccentColor) : getPillarDefaultColor(pillar, customPillars);
     const bulletStyle: RuleBulletStyle = RULE_BULLET_STYLES.some(b => b.id === newRule.bulletStyle) ? (newRule.bulletStyle as RuleBulletStyle) : 'bullet';
     const textSize: RuleTextSize = newRule.textSize === 'large' ? 'large' : 'normal';
     if (editingRuleId) {
@@ -3654,7 +3759,7 @@ function App() {
 
   const openAddRuleModal = (pillar: RulePillar = 'risk') => {
     setEditingRuleId(null);
-    setNewRule({ category: '', title: '', description: '', severity: 'warning', pillar, iconKind: 'icon', iconValue: RULE_PILLAR_DEFAULT_ICON[pillar], color: RULE_PILLAR_DEFAULT_COLOR[pillar], bulletStyle: 'bullet', textSize: 'normal' });
+    setNewRule({ category: '', title: '', description: '', severity: 'warning', pillar, iconKind: 'icon', iconValue: getPillarDefaultIcon(pillar, customPillars), color: getPillarDefaultColor(pillar, customPillars), bulletStyle: 'bullet', textSize: 'normal' });
     setShowAddRule(true);
     setShowRuleIconPicker(false);
   };
@@ -3674,6 +3779,67 @@ function App() {
   };
 
   const handleDeleteRule = (id: string) => setRules(rules.filter(r => r.id !== id));
+
+  // ---- Dividers ----
+  // A divider is just a Rule entry with itemType: 'divider' — it lives in
+  // the same `rules` array (so it naturally keeps its position within a
+  // pillar's list) but only its id/pillar/dividerLabel matter.
+  const handleAddDivider = (pillar: RulePillar) => {
+    setRules(prev => [...prev, {
+      id: generateId(),
+      category: '',
+      title: '',
+      description: '',
+      severity: 'guide',
+      pillar,
+      itemType: 'divider',
+      dividerLabel: 'Section',
+    }]);
+  };
+
+  const handleUpdateDividerLabel = (id: string, label: string) => {
+    setRules(prev => prev.map(r => (r.id === id ? { ...r, dividerLabel: label } : r)));
+  };
+
+  // ---- Custom pillars ----
+  // Lets the user add extra rule "columns" beyond the 3 built-in ones
+  // (Risk & Capital, Execution, Psychology) — e.g. a "Capital & Execution"
+  // pillar, or anything else they want to track separately.
+  const [showAddPillarModal, setShowAddPillarModal] = useState(false);
+  const [newPillar, setNewPillar] = useState<Partial<CustomPillar>>({ label: '', icon: 'Layers', color: 'indigo' });
+  const [pillarPendingDelete, setPillarPendingDelete] = useState<string | null>(null);
+
+  const openAddPillarModal = () => {
+    setNewPillar({ label: '', icon: 'Layers', color: 'indigo' });
+    setShowAddPillarModal(true);
+  };
+
+  const closeAddPillarModal = () => {
+    setShowAddPillarModal(false);
+    setNewPillar({ label: '', icon: 'Layers', color: 'indigo' });
+  };
+
+  const handleAddPillar = () => {
+    const label = (newPillar.label || '').trim();
+    if (!label) return;
+    const id = `custom_${generateId()}`;
+    setCustomPillars(prev => [...prev, {
+      id,
+      label,
+      shortLabel: label,
+      icon: (newPillar.icon && RULE_ICON_OPTIONS.includes(newPillar.icon)) ? newPillar.icon : 'Layers',
+      color: (RULE_ACCENT_PALETTE.some(c => c.id === newPillar.color) ? newPillar.color : 'indigo') as RuleAccentColor,
+    }]);
+    closeAddPillarModal();
+  };
+
+  // Deleting a custom pillar also removes every rule/divider filed under it
+  // (there's nowhere else for them to live once the column is gone).
+  const handleDeletePillar = (id: string) => {
+    setCustomPillars(prev => prev.filter(p => p.id !== id));
+    setRules(prev => prev.filter(r => r.pillar !== id));
+    setPillarPendingDelete(null);
+  };
 
   // The main cover now supports multiple images — every file picked (the
   // input allows multi-select) gets appended as its own entry rather than
@@ -4122,6 +4288,7 @@ function App() {
       mistakesList,
       emotionsList,
       customSymbols,
+      customPillars,
     };
 
     const jsonString = JSON.stringify(backupData, null, 2);
@@ -4188,6 +4355,7 @@ function App() {
         setMistakesList(migrated.mistakesList);
         setEmotionsList(migrated.emotionsList);
         setCustomSymbols(migrated.customSymbols);
+        setCustomPillars(migrated.customPillars);
         localStorage.setItem('tradingJournal', JSON.stringify(migrated));
         alert('Backup restored successfully!');
       } catch {
@@ -7040,25 +7208,30 @@ function App() {
                 <h3 className={cn("text-sm font-bold uppercase tracking-wide truncate", tc.text)}>Trading Rules</h3>
               </div>
             </div>
-            <button
-              onClick={() => setShowManageRulesModal(true)}
-              className={cn("inline-flex items-center px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors flex-shrink-0", tc.btnSecondary)}
-            >
-              <SlidersHorizontal className="w-4 h-4 mr-2" strokeWidth={2} />
-              Manage Rules
-            </button>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={openAddPillarModal}
+                className={cn("inline-flex items-center px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors", tc.btnSecondary)}
+              >
+                <Plus className="w-4 h-4 mr-2" strokeWidth={2} />
+                Add Pillar
+              </button>
+              <button
+                onClick={() => setShowManageRulesModal(true)}
+                className={cn("inline-flex items-center px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors", tc.btnSecondary)}
+              >
+                <SlidersHorizontal className="w-4 h-4 mr-2" strokeWidth={2} />
+                Manage Rules
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="min-w-0">
-              {renderRulePillarColumn('risk')}
-            </div>
-            <div className="min-w-0">
-              {renderRulePillarColumn('execution')}
-            </div>
-            <div className="min-w-0">
-              {renderRulePillarColumn('psychology')}
-            </div>
+          <div className="grid gap-8" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+            {getAllPillarIds(customPillars).map(pillar => (
+              <div className="min-w-0" key={pillar}>
+                {renderRulePillarColumn(pillar)}
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -7068,28 +7241,41 @@ function App() {
   // Read-only rule list for one pillar — used inside the unified Trading
   // Rules card. No add/edit/delete affordances live here; all rule
   // management happens in the dedicated Manage Rules modal, so this stays
-  // 100% clean, read-only, and distraction-free. Notion-style: no divider
-  // lines between rules, generous spacing, per-rule icon/color accents and
-  // configurable bullet style + text size.
+  // 100% clean, read-only, and distraction-free. Notion-style: generous
+  // spacing, per-rule icon/color accents, configurable bullet style + text
+  // size, and optional labeled section dividers between groups of rules.
   const renderRulePillarColumn = (pillar: RulePillar) => {
-    const meta = RULE_PILLAR_META[pillar];
+    const meta = getPillarMeta(pillar, customPillars);
     const pillarRules = rules.filter(r => r.pillar === pillar);
+    let ruleNumber = 0; // numbering counter that skips dividers
     return (
       <div className="min-w-0">
         <div className="flex items-center gap-1.5 mb-4 min-w-0">
           <meta.Icon className={cn("w-4 h-4 flex-shrink-0", meta.color)} strokeWidth={2} />
-          <h4 className={cn("text-xs font-bold uppercase tracking-wider truncate", tc.textSecondary)}>{RULE_PILLAR_SHORT_LABEL[pillar]}</h4>
+          <h4 className={cn("text-xs font-bold uppercase tracking-wider truncate", tc.textSecondary)}>{getPillarShortLabel(pillar, customPillars)}</h4>
         </div>
 
         {pillarRules.length === 0 ? (
           <p className={cn("text-xs italic", tc.textMuted)}>No mandates set.</p>
         ) : (
           <div className="space-y-4">
-            {pillarRules.map((rule, index) => {
+            {pillarRules.map((rule) => {
+              if (rule.itemType === 'divider') {
+                return (
+                  <div key={rule.id} className="flex items-center gap-2 py-0.5">
+                    <span className={cn("flex-1 h-px", theme !== 'light' ? 'bg-zinc-800' : 'bg-zinc-200')} />
+                    {rule.dividerLabel && (
+                      <span className={cn("text-[9px] font-bold uppercase tracking-wider flex-shrink-0", tc.textMuted)}>{rule.dividerLabel}</span>
+                    )}
+                    <span className={cn("flex-1 h-px", theme !== 'light' ? 'bg-zinc-800' : 'bg-zinc-200')} />
+                  </div>
+                );
+              }
+              const index = ruleNumber++;
               const violations = ruleViolationCounts[rule.id] || 0;
               const severityMeta = RULE_SEVERITY_META[rule.severity];
               const accent = getRuleAccent(rule.color);
-              const RuleIcon = getRuleIconComponent(rule);
+              const RuleIcon = getRuleIconComponent(rule, customPillars);
               const bulletStyle = rule.bulletStyle || 'bullet';
               const large = rule.textSize === 'large';
               return (
@@ -9601,8 +9787,8 @@ function App() {
             <div>
               <label className="block text-sm text-zinc-400 mb-2">Pillar</label>
               <div className="grid grid-cols-3 gap-2">
-                {RULE_PILLARS.map(pillar => {
-                  const meta = RULE_PILLAR_META[pillar];
+                {getAllPillarIds(customPillars).map(pillar => {
+                  const meta = getPillarMeta(pillar, customPillars);
                   const active = (newRule.pillar || 'risk') === pillar;
                   return (
                     <button
@@ -9846,17 +10032,20 @@ function App() {
             </button>
           </div>
           <div className="p-6 overflow-y-auto">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="min-w-0">
-                {renderManageRulePillarSection('risk')}
-              </div>
-              <div className="min-w-0">
-                {renderManageRulePillarSection('execution')}
-              </div>
-              <div className="min-w-0">
-                {renderManageRulePillarSection('psychology')}
-              </div>
+            <div className="grid gap-8" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+              {getAllPillarIds(customPillars).map(pillar => (
+                <div className="min-w-0" key={pillar}>
+                  {renderManageRulePillarSection(pillar)}
+                </div>
+              ))}
             </div>
+            <button
+              onClick={openAddPillarModal}
+              className="w-full mt-6 flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-dashed border-zinc-700 text-xs font-semibold text-zinc-500 hover:text-white hover:border-zinc-500 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add Pillar
+            </button>
           </div>
         </div>
       </ModalBackdrop>
@@ -9865,25 +10054,46 @@ function App() {
 
   // One category's editable rule list inside the Manage Rules modal — add,
   // edit, and delete all live here so the main Trading Rules card stays
-  // read-only. Notion-style: no divider lines, generous spacing, per-rule
-  // icon/color accents.
+  // read-only. Notion-style: generous spacing, per-rule icon/color accents,
+  // and support for inline-editable labeled dividers to split a pillar's
+  // rules into sections. Custom (non-built-in) pillars also get a delete
+  // affordance on the header.
   const renderManageRulePillarSection = (pillar: RulePillar) => {
-    const meta = RULE_PILLAR_META[pillar];
+    const meta = getPillarMeta(pillar, customPillars);
     const pillarRules = rules.filter(r => r.pillar === pillar);
+    const isCustom = !RULE_PILLARS.includes(pillar);
     return (
       <div className="min-w-0">
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-1.5 min-w-0">
             <meta.Icon className={cn("w-4 h-4 flex-shrink-0", meta.color)} strokeWidth={2} />
-            <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 truncate">{RULE_PILLAR_SHORT_LABEL[pillar]}</h4>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 truncate">{getPillarShortLabel(pillar, customPillars)}</h4>
           </div>
-          <button
-            onClick={() => openAddRuleModal(pillar)}
-            title={`Add ${meta.label}`}
-            className="p-0.5 rounded text-zinc-500 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
-          >
-            <Plus className="w-3.5 h-3.5" />
-          </button>
+          <div className="flex items-center gap-0.5 flex-shrink-0">
+            <button
+              onClick={() => handleAddDivider(pillar)}
+              title="Add divider"
+              className="p-0.5 rounded text-zinc-500 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => openAddRuleModal(pillar)}
+              title={`Add ${meta.label}`}
+              className="p-0.5 rounded text-zinc-500 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+            {isCustom && (
+              <button
+                onClick={() => setPillarPendingDelete(pillar)}
+                title="Delete pillar"
+                className="p-0.5 rounded text-zinc-500 hover:text-rose-400 hover:bg-white/10 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
 
         {pillarRules.length === 0 ? (
@@ -9891,9 +10101,30 @@ function App() {
         ) : (
           <div className="space-y-3">
             {pillarRules.map(rule => {
+              if (rule.itemType === 'divider') {
+                return (
+                  <div key={rule.id} className="group flex items-center gap-2 py-0.5">
+                    <span className="flex-1 h-px bg-zinc-800" />
+                    <input
+                      type="text"
+                      value={rule.dividerLabel || ''}
+                      onChange={(e) => handleUpdateDividerLabel(rule.id, e.target.value)}
+                      placeholder="Section label"
+                      className="w-24 bg-transparent text-center text-[9px] font-bold uppercase tracking-wider text-zinc-500 placeholder-zinc-700 focus:outline-none focus:text-white"
+                    />
+                    <span className="flex-1 h-px bg-zinc-800" />
+                    <button
+                      onClick={() => handleDeleteRule(rule.id)}
+                      className="p-0.5 rounded text-zinc-600 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                );
+              }
               const severityMeta = RULE_SEVERITY_META[rule.severity];
               const accent = getRuleAccent(rule.color);
-              const RuleIcon = getRuleIconComponent(rule);
+              const RuleIcon = getRuleIconComponent(rule, customPillars);
               return (
                 <div key={rule.id} className="group flex items-start gap-2.5">
                   <span className={cn("inline-flex items-center justify-center w-6 h-6 rounded-md flex-shrink-0 mt-0.5", accent.bg)}>
@@ -10470,6 +10701,139 @@ function App() {
     )
   );
 
+  // Add Pillar modal — lets the user create an extra rule "column" beyond
+  // the 3 built-in ones (Risk & Capital, Execution, Psychology), e.g. a
+  // "Capital & Execution" pillar. Just a label + icon + accent color; the
+  // pillar immediately shows up as its own column on the Trading Rules card
+  // and inside Manage Rules.
+  const renderAddPillarModal = () => (
+    showAddPillarModal && (
+      <ModalBackdrop
+        onClose={closeAddPillarModal}
+        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-start justify-center overflow-y-auto p-4 py-8"
+      >
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+          <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
+            <h3 className="text-lg font-bold text-white truncate">Add Pillar</h3>
+            <button onClick={closeAddPillarModal} className="p-1 text-zinc-400 hover:text-white">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="p-6 space-y-4">
+            <div>
+              <label className="block text-sm text-zinc-400 mb-2">Name</label>
+              <input
+                type="text"
+                value={newPillar.label || ''}
+                onChange={(e) => setNewPillar(prev => ({ ...prev, label: e.target.value }))}
+                placeholder="Capital & Execution"
+                autoFocus
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-zinc-400 mb-2">Color</label>
+              <div className="flex items-center gap-2 flex-wrap">
+                {RULE_ACCENT_PALETTE.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setNewPillar(prev => ({ ...prev, color: c.id }))}
+                    title={c.label}
+                    className={cn(
+                      "w-7 h-7 rounded-full flex-shrink-0 transition-transform",
+                      c.dot,
+                      (newPillar.color || 'indigo') === c.id && cn("ring-2 ring-offset-2 ring-offset-zinc-900 scale-110", c.ring)
+                    )}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm text-zinc-400 mb-2">Icon</label>
+              <div className="grid grid-cols-7 gap-1.5">
+                {RULE_ICON_OPTIONS.map(iconName => {
+                  const Icon = RULE_ICON_MAP[iconName];
+                  const active = (newPillar.icon || 'Layers') === iconName;
+                  const accent = getRuleAccent(newPillar.color);
+                  return (
+                    <button
+                      key={iconName}
+                      type="button"
+                      onClick={() => setNewPillar(prev => ({ ...prev, icon: iconName }))}
+                      title={iconName}
+                      className={cn(
+                        "flex items-center justify-center w-8 h-8 rounded-lg transition-colors",
+                        active ? accent.bg : 'hover:bg-zinc-800'
+                      )}
+                    >
+                      <Icon className={cn("w-4 h-4", active ? accent.text : 'text-zinc-500')} strokeWidth={2} />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleAddPillar}
+              disabled={!(newPillar.label || '').trim()}
+              className="w-full py-2.5 bg-white hover:bg-zinc-200 disabled:opacity-40 disabled:hover:bg-white text-black rounded-lg text-sm font-medium transition-colors"
+            >
+              Add Pillar
+            </button>
+          </div>
+        </div>
+      </ModalBackdrop>
+    )
+  );
+
+  // Confirms deleting a custom pillar — also warns that every rule/divider
+  // filed under it will be removed, since there's nowhere else for them to
+  // live once the column is gone. Built-in pillars (risk/execution/
+  // psychology) never reach this — no delete affordance is shown for them.
+  const renderDeletePillarConfirm = () => {
+    if (!pillarPendingDelete) return null;
+    const pillar = customPillars.find(p => p.id === pillarPendingDelete);
+    const ruleCount = rules.filter(r => r.pillar === pillarPendingDelete).length;
+    return (
+      <ModalBackdrop
+        onClose={() => setPillarPendingDelete(null)}
+        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
+      >
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-full bg-rose-500/15 flex items-center justify-center flex-shrink-0">
+              <Trash2 className="w-5 h-5 text-rose-400" />
+            </div>
+            <h3 className="text-lg font-bold text-white truncate">Delete "{pillar?.label || 'this pillar'}"?</h3>
+          </div>
+          <p className="text-sm text-zinc-400 mb-6">
+            This permanently deletes the pillar{ruleCount > 0 ? ` and all ${ruleCount} rule${ruleCount > 1 ? 's' : ''}/divider${ruleCount > 1 ? 's' : ''} filed under it` : ''}. This cannot be undone.
+          </p>
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setPillarPendingDelete(null)}
+              className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => pillarPendingDelete && handleDeletePillar(pillarPendingDelete)}
+              className="px-4 py-2 bg-rose-500/90 hover:bg-rose-500 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </ModalBackdrop>
+    );
+  };
+
   // Reusable trade delete confirmation modal — covers BOTH triggers:
   //  1) Individual delete (single trade, via tradePendingDelete)
   //  2) Bulk delete (Select Mode "Delete Selected (X)", via showDeleteSelectedConfirm)
@@ -10989,6 +11353,8 @@ function App() {
       {renderExpandGallery()}
       {renderManageRulesModal()}
       {renderAddRuleModal()}
+      {renderAddPillarModal()}
+      {renderDeletePillarConfirm()}
       {renderAddStrategyModal()}
       {renderDeleteStepConfirm()}
       {renderStrategyDetailModal()}
