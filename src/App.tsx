@@ -6593,20 +6593,19 @@ function App() {
               <span className="text-sm">+ Add Your First A+ Trading Model</span>
             </button>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {strategies.map(strategy => (
                 <button
                   key={strategy.id}
                   onClick={() => setViewStrategyId(strategy.id)}
-                  className="group h-44 w-full flex flex-col rounded-xl overflow-hidden border border-white/10 text-left flex-shrink-0 bg-[#181920]"
+                  className="group h-full flex flex-col border border-zinc-800/70 hover:border-zinc-600 rounded-xl overflow-hidden cursor-pointer bg-[#16181e] transition-all duration-200 ease-out min-w-0 shadow-[0_10px_30px_rgba(0,0,0,0.8)] hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(0,0,0,0.9)] text-left"
                 >
-                  {/* Upper canvas — ~75% of card height, image or clean placeholder */}
-                  <div className="flex-1 min-h-0 bg-zinc-900 flex items-center justify-center relative overflow-hidden">
+                  <div className="aspect-video bg-zinc-800 flex items-center justify-center relative overflow-hidden flex-shrink-0">
                     {strategy.imageUrl ? (
                       <img
                         src={strategy.imageUrl}
                         alt={`${strategy.title} A+ example`}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                     ) : (
                       <div className="flex flex-col items-center gap-1.5 text-zinc-600">
@@ -6615,9 +6614,8 @@ function App() {
                       </div>
                     )}
                   </div>
-                  {/* Bottom bar — slim, name only */}
-                  <div className="flex-shrink-0 py-2.5 px-3.5 bg-[#181920] border-t border-white/5">
-                    <h4 className="text-sm font-bold text-white text-left truncate leading-none">{strategy.title}</h4>
+                  <div className="p-3.5 min-w-0 flex-1 flex flex-col">
+                    <h4 className="font-semibold truncate tracking-tight text-sm min-w-0 text-white">{strategy.title}</h4>
                   </div>
                 </button>
               ))}
