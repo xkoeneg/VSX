@@ -2586,6 +2586,12 @@ function App() {
     return { year: now.getFullYear(), month: now.getMonth() };
   });
 
+  // Discipline Tracker — Mini Discipline Calendar day popover: the date string
+  // (YYYY-MM-DD) of the currently open day flyout, or null when closed.
+  const [openDisciplineDay, setOpenDisciplineDay] = useState<string | null>(null);
+  const disciplineDayPopoverRef = useRef<HTMLDivElement>(null);
+  useClickOutside(disciplineDayPopoverRef, useCallback(() => setOpenDisciplineDay(null), []), openDisciplineDay !== null);
+
   // Form state
   const [newAccount, setNewAccount] = useState<Partial<Account>>({
     name: '',
@@ -2941,7 +2947,8 @@ function App() {
         (t.setupTypes || []).some(s => s.toLowerCase().includes(q)) ||
         (t.confluences || []).some(c => c.toLowerCase().includes(q)) ||
         (t.mistakes || []).some(m => m.toLowerCase().includes(q)) ||
-        (t.notes || '').toLowerCase().includes(q)
+        (t.notes || '').toLowerCase().includes(q) ||
+        t.date.toLowerCase().includes(q)
       );
     }
     if (dbAccountFilter !== 'all') result = result.filter(t => t.accountId === dbAccountFilter);
@@ -5702,11 +5709,11 @@ function App() {
     const miniFirstDayJs = new Date(miniYear, miniMonth, 1).getDay(); // 0 = Sun
     const miniFirstDay = (miniFirstDayJs + 6) % 7; // 0 = Mon ... 6 = Sun
     const miniDaysInMonth = new Date(miniYear, miniMonth + 1, 0).getDate();
-    const miniCalendarDays: Array<{ day: number | null; trades: Trade[] }> = [];
-    for (let i = 0; i < miniFirstDay; i++) miniCalendarDays.push({ day: null, trades: [] });
+    const miniCalendarDays: Array<{ day: number | null; date: string | null; trades: Trade[] }> = [];
+    for (let i = 0; i < miniFirstDay; i++) miniCalendarDays.push({ day: null, date: null, trades: [] });
     for (let d = 1; d <= miniDaysInMonth; d++) {
       const dateStr = `${miniYear}-${String(miniMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      miniCalendarDays.push({ day: d, trades: filteredTrades.filter(t => t.date === dateStr) });
+      miniCalendarDays.push({ day: d, date: dateStr, trades: filteredTrades.filter(t => t.date === dateStr) });
     }
 
     // Win Rate on Compliant Days — the win rate of trades logged on days where
@@ -5879,7 +5886,8 @@ function App() {
                   </div>
                 ))}
                 {miniCalendarDays.map((cell, i) => {
-                  if (cell.day === null) return <div key={`empty-${i}`} className="h-9" />;
+                  if (cell.day === null || cell.date === null) return <div key={`empty-${i}`} className="h-9" />;
+                  const cellDate = cell.date;
                   const hasTrades = cell.trades.length > 0;
                   const followedCount = cell.trades.filter(t => t.rulesFollowed === 'followed').length;
                   const brokenCount = cell.trades.length - followedCount;
@@ -5888,20 +5896,97 @@ function App() {
                   const tooltip = hasTrades
                     ? `${miniMonthNames[miniMonth].slice(0, 3)} ${cell.day}: ${cell.trades.length} Trade${cell.trades.length !== 1 ? 's' : ''}${anyBroken ? `, ${brokenCount} Rule${brokenCount !== 1 ? 's' : ''} Broken` : ', All Rules Followed'}`
                     : `${miniMonthNames[miniMonth].slice(0, 3)} ${cell.day}: No Trades`;
+                  const isOpen = openDisciplineDay === cellDate;
+                  const alignRight = i % 7 >= 4; // Fri/Sat/Sun columns — flip the flyout so it doesn't overflow the card's right edge
                   return (
-                    <div
-                      key={i}
-                      title={tooltip}
-                      className={cn(
-                        'h-9 flex flex-col items-center justify-center gap-0.5 rounded-md border transition-colors cursor-default',
-                        allFollowed && 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
-                        anyBroken && 'bg-rose-500/10 border-rose-500/30 text-rose-300',
-                        !hasTrades && 'border-white/5 bg-white/[0.02] hover:bg-white/5 text-zinc-500'
-                      )}
-                    >
-                      <span className="text-xs font-medium">{cell.day}</span>
-                      {hasTrades && (
-                        <span className={cn('w-1 h-1 rounded-full', anyBroken ? 'bg-rose-400' : 'bg-emerald-400')} />
+                    <div key={i} className="relative">
+                      <div
+                        title={tooltip}
+                        onClick={() => hasTrades && setOpenDisciplineDay(prev => prev === cellDate ? null : cellDate)}
+                        className={cn(
+                          'h-9 flex flex-col items-center justify-center gap-0.5 rounded-md border transition-colors',
+                          hasTrades ? 'cursor-pointer hover:scale-105 transition-transform' : 'cursor-default',
+                          allFollowed && 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
+                          anyBroken && 'bg-rose-500/10 border-rose-500/30 text-rose-300',
+                          !hasTrades && 'border-white/5 bg-white/[0.02] hover:bg-white/5 text-zinc-500'
+                        )}
+                      >
+                        <span className="text-xs font-medium">{cell.day}</span>
+                        {hasTrades && (
+                          <span className={cn('w-1 h-1 rounded-full', anyBroken ? 'bg-rose-400' : 'bg-emerald-400')} />
+                        )}
+                      </div>
+
+                      {isOpen && (
+                        <div
+                          ref={disciplineDayPopoverRef}
+                          className={cn(
+                            'absolute z-50 top-full mt-1.5 w-72 max-w-[calc(100vw-2rem)] bg-[#181920] border border-white/15 rounded-xl p-3.5 shadow-2xl',
+                            alignRight ? 'right-0' : 'left-0'
+                          )}
+                        >
+                          {/* Header — date + rule adherence badge */}
+                          <div className="flex items-center justify-between gap-2 mb-3">
+                            <span className="text-sm font-semibold text-white truncate">
+                              {miniMonthNames[miniMonth]} {cell.day}, {miniYear}
+                            </span>
+                            <span
+                              className={cn(
+                                'flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap flex-shrink-0',
+                                anyBroken ? 'bg-rose-500/15 border border-rose-500/30 text-rose-300' : 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300'
+                              )}
+                            >
+                              <span className={cn('w-1.5 h-1.5 rounded-full', anyBroken ? 'bg-rose-400' : 'bg-emerald-400')} />
+                              {anyBroken ? `${brokenCount} Rule${brokenCount !== 1 ? 's' : ''} Broken` : '100% Compliant'}
+                            </span>
+                          </div>
+
+                          {/* Daily trades list */}
+                          <div className="space-y-2 max-h-56 overflow-y-auto">
+                            {cell.trades.map(t => (
+                              <div key={t.id} className="bg-white/[0.03] border border-white/5 rounded-lg p-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-xs font-semibold text-white truncate">
+                                    {t.symbol}
+                                    {t.session && <span className="text-zinc-500 font-normal"> · {t.session}</span>}
+                                  </span>
+                                  <span className={cn('text-xs font-bold font-mono flex-shrink-0', t.profitLoss >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
+                                    {formatCurrency(t.profitLoss, privacyMode)}
+                                  </span>
+                                </div>
+                                {((t.mistakes && t.mistakes.length > 0) || (t.emotions && t.emotions.length > 0)) && (
+                                  <div className="flex flex-wrap gap-1 mt-1.5">
+                                    {(t.emotions || []).map(e => (
+                                      <span key={`e-${e}`} className="px-1.5 py-0.5 rounded-full bg-violet-500/15 border border-violet-500/25 text-violet-300 text-[10px] font-medium">
+                                        {e}
+                                      </span>
+                                    ))}
+                                    {(t.mistakes || []).map(m => (
+                                      <span key={`m-${m}`} className="px-1.5 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/25 text-rose-300 text-[10px] font-medium">
+                                        {m}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Footer action — jump to this day's trades in Trade History */}
+                          <button
+                            onClick={() => {
+                              setView('trades');
+                              setTradeSubView('database');
+                              setDbSearch(cellDate);
+                              setDbPage(0);
+                              setOpenDisciplineDay(null);
+                            }}
+                            className="w-full flex items-center justify-center gap-1.5 mt-3 pt-3 border-t border-white/5 text-xs font-medium text-zinc-400 hover:text-white transition-colors"
+                          >
+                            View in Trade History
+                            <ArrowUpRight className="w-3 h-3" />
+                          </button>
+                        </div>
                       )}
                     </div>
                   );
