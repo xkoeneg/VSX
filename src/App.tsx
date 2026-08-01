@@ -5712,6 +5712,18 @@ function App() {
     ];
     const activeStreakTier = [...streakTiers].reverse().find(t => disciplineStreak >= t.days);
 
+    // Streak Progress pill grid — column count and gap scale with the selected
+    // window so 30/60/90 each lay out as a clean, evenly-divided grid (3, 5,
+    // and 6 full rows respectively) that stretches to fill the card with no
+    // leftover empty space and no overflow.
+    const streakPillGridConfig: Record<30 | 60 | 90, { cols: number; gap: string }> = {
+      30: { cols: 10, gap: 'gap-2' },
+      60: { cols: 12, gap: 'gap-1.5' },
+      90: { cols: 15, gap: 'gap-1' },
+    };
+    const { cols: streakPillCols, gap: streakPillGap } = streakPillGridConfig[streakGridWindow];
+    const streakPillRows = Math.ceil(streakGridWindow / streakPillCols);
+
     // Mini Discipline Calendar — its own month browser (independent of the
     // Performance Calendar page), laid out Monday-first. Each day cell reflects
     // whether every trade logged that day followed the rules, any trade broke a
@@ -5795,9 +5807,9 @@ function App() {
         {/* Discipline Analytics — Streak Progress Grid + Mini Discipline Calendar, asymmetric 60/40 split, equal height */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-stretch mb-6">
           {/* Streak Progress Grid — 60% width so the block grid has room to breathe */}
-          <div className="lg:col-span-3 bg-[#121318] border border-white/10 rounded-xl p-5 min-w-0 h-full flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+          <div className="lg:col-span-3 bg-[#121318] border border-white/10 rounded-xl p-5 min-w-0 h-full flex flex-col">
+            <div className="flex-1 min-h-0 flex flex-col">
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-4 flex-shrink-0">
                 <h3 className="text-sm font-semibold text-white flex items-center gap-2 truncate">
                   <Flame className="w-4 h-4 text-amber-400 flex-shrink-0" />
                   STREAK PROGRESS
@@ -5820,7 +5832,7 @@ function App() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 mb-4">
+              <div className="flex items-center gap-4 mb-4 flex-shrink-0">
                 <div>
                   <p className="text-[11px] uppercase tracking-wider text-zinc-500">Current Streak</p>
                   <p className="text-lg font-bold text-emerald-400 truncate">
@@ -5837,12 +5849,21 @@ function App() {
               </div>
 
               {/* GitHub-style contribution pills — one per trading day within the
-                  selected 30/60/90 window. Green pills fill in from the left for
-                  each consecutive compliant trading day in the current streak;
-                  the rest stay muted dark as the remaining target days. If the
+                  selected 30/60/90 window, laid out as a fixed-row CSS grid that
+                  stretches to fill the card's remaining width and height exactly
+                  (10x3 / 12x5 / 15x6), so there's never empty space below or a
+                  need to scroll. Green pills fill in from the left for each
+                  consecutive compliant trading day in the current streak; the
+                  rest stay muted dark as the remaining target days. If the
                   streak breaks, the fill simply resets back to 0 and starts
                   filling fresh green pills from the left again — never red. */}
-              <div className="flex flex-wrap gap-1.5">
+              <div
+                className={cn('grid flex-1 min-h-0', streakPillGap)}
+                style={{
+                  gridTemplateColumns: `repeat(${streakPillCols}, 1fr)`,
+                  gridTemplateRows: `repeat(${streakPillRows}, 1fr)`,
+                }}
+              >
                 {Array.from({ length: streakGridWindow }, (_, i) => {
                   const filled = i < disciplineStreak;
                   return (
@@ -5850,7 +5871,7 @@ function App() {
                       key={i}
                       title={filled ? `Day ${i + 1}: Compliant Trading Day` : `Day ${i + 1}: Target`}
                       className={cn(
-                        'w-5 h-5 rounded-md border transition-colors',
+                        'w-full h-full rounded-md border transition-colors',
                         filled
                           ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50'
                           : 'bg-zinc-800/40 border-zinc-700/40'
@@ -5862,7 +5883,7 @@ function App() {
             </div>
 
             {/* Subtle stat summary row — pinned to the bottom to match the calendar's legend footer */}
-            <div className="flex items-center gap-6 pt-3 mt-3 border-t border-white/5 text-xs text-zinc-400">
+            <div className="flex items-center gap-6 pt-3 mt-3 border-t border-white/5 text-xs text-zinc-400 flex-shrink-0">
               <span>Total Compliant Days: <span className="text-zinc-200 font-semibold">{totalCompliantDays}</span></span>
               <span>Milestone Tier: <span className="text-amber-400 font-semibold">{activeStreakTier ? activeStreakTier.label : 'Unranked'}</span></span>
             </div>
