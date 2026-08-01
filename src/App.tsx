@@ -2535,6 +2535,12 @@ function App() {
   const [detailRulesFollowedDraft, setDetailRulesFollowedDraft] = useState<'followed' | 'broken'>('followed');
   const [showDisciplineReview, setShowDisciplineReview] = useState<string | null>(null);
   const [disciplineReviewDraft, setDisciplineReviewDraft] = useState<{ emotions: string[]; mistakes: string[]; notes: string }>({ emotions: [], mistakes: [], notes: '' });
+  // 2-pane split-view modal opened from Rule Adherence Log items — left pane is
+  // a static, read-only trade preview; right pane toggles between a read-only
+  // psychology summary and the editable review form, sharing the same
+  // disciplineReviewDraft state as the Pending Review "+ Review" flow above.
+  const [showRuleReviewModal, setShowRuleReviewModal] = useState<string | null>(null);
+  const [isEditingRuleReview, setIsEditingRuleReview] = useState(false);
   const [showAddRule, setShowAddRule] = useState(false);
   const [showAddNotice, setShowAddNotice] = useState(false);
   const [activeNoticeId, setActiveNoticeId] = useState<string | null>(null);
@@ -2839,8 +2845,9 @@ function App() {
 
   // Populate Discipline & Psychology Review draft when opened
   useEffect(() => {
-    if (showDisciplineReview) {
-      const t = trades.find(tr => tr.id === showDisciplineReview);
+    const reviewTradeId = showDisciplineReview || showRuleReviewModal;
+    if (reviewTradeId) {
+      const t = trades.find(tr => tr.id === reviewTradeId);
       if (t) {
         setDisciplineReviewDraft({
           emotions: t.emotions || [],
@@ -2849,7 +2856,7 @@ function App() {
         });
       }
     }
-  }, [showDisciplineReview]);
+  }, [showDisciplineReview, showRuleReviewModal]);
 
   // Update highest balance
   useEffect(() => {
@@ -3280,13 +3287,41 @@ function App() {
 
   // Saves the Discipline & Psychology Review — updates only emotions, mistakes, and
   // notes on the target trade, leaving every technical field (symbol, P&L, date, etc.) untouched.
+  // When saved from the Rule Adherence Log's split-view modal, the modal stays open and
+  // the right pane just drops back to read-only mode; from the standalone review modal
+  // (Pending Review's "+ Review" button), saving closes the modal as before.
   const handleSaveDisciplineReview = () => {
-    if (!showDisciplineReview) return;
-    setTrades(prev => prev.map(t => t.id === showDisciplineReview
+    const targetId = showRuleReviewModal || showDisciplineReview;
+    if (!targetId) return;
+    setTrades(prev => prev.map(t => t.id === targetId
       ? { ...t, emotions: disciplineReviewDraft.emotions, mistakes: disciplineReviewDraft.mistakes, notes: disciplineReviewDraft.notes }
       : t
     ));
-    setShowDisciplineReview(null);
+    if (showRuleReviewModal) {
+      setIsEditingRuleReview(false);
+    } else {
+      setShowDisciplineReview(null);
+    }
+  };
+
+  // Discards any in-progress edits in the split-view modal's right pane and
+  // reverts to the trade's last-saved emotions/mistakes/notes before dropping
+  // back to read-only mode. The left pane (trade preview) is never touched.
+  const handleCancelRuleReviewEdit = () => {
+    const t = trades.find(tr => tr.id === showRuleReviewModal);
+    if (t) {
+      setDisciplineReviewDraft({
+        emotions: t.emotions || [],
+        mistakes: t.mistakes || [],
+        notes: t.notes || '',
+      });
+    }
+    setIsEditingRuleReview(false);
+  };
+
+  const closeRuleReviewModal = () => {
+    setShowRuleReviewModal(null);
+    setIsEditingRuleReview(false);
   };
 
   // Trade multi-select helpers
@@ -6376,7 +6411,7 @@ function App() {
                 {followedTrades.map(trade => {
                   const account = accounts.find(a => a.id === trade.accountId);
                   return (
-                    <div key={trade.id} onClick={() => setShowDisciplineReview(trade.id)} className="p-3 bg-zinc-800/30 rounded-lg hover:bg-zinc-800/50 cursor-pointer transition-colors min-w-0">
+                    <div key={trade.id} onClick={() => { setShowRuleReviewModal(trade.id); setIsEditingRuleReview(false); }} className="p-3 bg-zinc-800/30 rounded-lg hover:bg-zinc-800/50 cursor-pointer transition-colors min-w-0">
                       <div className="flex items-start justify-between gap-3 min-w-0">
                         <div className="flex items-center gap-2 min-w-0 flex-1">
                           <TrackingBadge value={trade.trackingNumber} size="sm" />
@@ -6417,7 +6452,7 @@ function App() {
                 {brokenTrades.map(trade => {
                   const account = accounts.find(a => a.id === trade.accountId);
                   return (
-                    <div key={trade.id} onClick={() => setShowDisciplineReview(trade.id)} className="p-3 bg-zinc-800/30 rounded-lg hover:bg-zinc-800/50 cursor-pointer transition-colors min-w-0">
+                    <div key={trade.id} onClick={() => { setShowRuleReviewModal(trade.id); setIsEditingRuleReview(false); }} className="p-3 bg-zinc-800/30 rounded-lg hover:bg-zinc-800/50 cursor-pointer transition-colors min-w-0">
                       <div className="flex items-start justify-between gap-3 min-w-0">
                         <div className="flex items-center gap-2 min-w-0 flex-1">
                           <TrackingBadge value={trade.trackingNumber} size="sm" />
@@ -7213,6 +7248,250 @@ function App() {
                 <Save className="w-4 h-4" />
                 Save Review
               </button>
+            </div>
+          </div>
+        </div>
+      </ModalBackdrop>
+    );
+  };
+
+  // 2-Pane Split-View modal opened from Rule Adherence Log items. Left column is a
+  // static, read-only Trade Preview (chart, P&L, entry/exit, duration) that never
+  // changes regardless of the right column's state. Right column defaults to a
+  // read-only Psychology Review summary with an "Edit Review" toggle that swaps
+  // ONLY that column into the editable emotions/mistakes/notes form — the left
+  // column's JSX never depends on isEditingRuleReview, so it stays mounted and
+  // untouched (no scroll reset, no re-render) while the right column toggles.
+  const renderRuleAdherenceReviewModal = () => {
+    const trade = trades.find(t => t.id === showRuleReviewModal);
+    if (!trade) return null;
+    const account = accounts.find(a => a.id === trade.accountId);
+
+    const execTf = trade.timeframes.find(tf => tf.name === 'Execution/Result');
+    const executionImage = execTf?.images?.[0];
+    const tradeStartDisplay = formatTimeDisplay(trade.startTime);
+    const tradeEndDisplay = formatTimeDisplay(trade.endTime);
+    const tradeDurationMinutes = calculateTradeDurationMinutes(trade.startTime, trade.endTime);
+    const tradeDurationLabel = formatTradeDuration(tradeDurationMinutes);
+
+    return (
+      <ModalBackdrop
+        onClose={closeRuleReviewModal}
+        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
+      >
+        <div className="relative max-w-5xl w-full" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={closeRuleReviewModal}
+            className="absolute top-3 right-3 z-10 p-1.5 rounded-full bg-zinc-800/90 border border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors"
+            aria-label="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+
+          <div className="max-w-5xl w-full grid grid-cols-1 md:grid-cols-2 gap-6 bg-[#121318] p-6 rounded-2xl border border-white/10 max-h-[85vh] overflow-y-auto">
+            {/* ================= LEFT COLUMN — Trade Preview (static) ================= */}
+            <div className="min-w-0 flex flex-col gap-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  {trade.trackingNumber && <TrackingBadge value={trade.trackingNumber} size="sm" />}
+                  <h3 className="text-lg font-bold text-white truncate">{trade.symbol}</h3>
+                </div>
+                <p className="text-xs text-zinc-500 truncate mt-0.5">
+                  {account?.name} · {formatDate(trade.date)}
+                  {trade.session && <span> · {trade.session}</span>}
+                </p>
+              </div>
+
+              <div className="relative bg-zinc-800/50 rounded-xl overflow-hidden border border-zinc-800 aspect-video flex items-center justify-center flex-shrink-0">
+                {executionImage ? (
+                  <img
+                    src={executionImage.url}
+                    alt="Execution"
+                    className="w-full h-full object-cover cursor-pointer"
+                    onClick={() => setLightboxImage(executionImage.url)}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center gap-1.5 text-zinc-600">
+                    <ImageIcon className="w-7 h-7" />
+                    <span className="text-xs">No chart image</span>
+                  </div>
+                )}
+              </div>
+
+              <div className={cn('w-full flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl border flex-shrink-0', trade.profitLoss >= 0 ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20')}>
+                <span className="text-xs text-zinc-400">P&amp;L</span>
+                <span className={cn('text-xl font-bold', trade.profitLoss >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
+                  {formatCurrency(trade.profitLoss, privacyMode)}
+                </span>
+              </div>
+
+              {(tradeStartDisplay || tradeEndDisplay) && (
+                <div className="flex flex-wrap items-center gap-2 bg-zinc-800/30 border border-zinc-800 rounded-xl px-3 py-2.5 flex-shrink-0">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Clock className="w-3.5 h-3.5 text-zinc-500 flex-shrink-0" />
+                    <span className="text-xs text-zinc-300 whitespace-nowrap">
+                      <span className="text-zinc-500">Start</span>{' '}
+                      <span className="text-white font-medium">{tradeStartDisplay || '—'}</span>
+                      <span className="text-zinc-600 mx-1.5">→</span>
+                      <span className="text-zinc-500">End</span>{' '}
+                      <span className="text-white font-medium">{tradeEndDisplay || '—'}</span>
+                    </span>
+                  </div>
+                  {tradeDurationLabel && (
+                    <span className="ml-auto px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-sky-500/15 text-sky-400 border border-sky-500/30 whitespace-nowrap">
+                      {tradeDurationLabel}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <div className="grid grid-cols-3 gap-2.5">
+                <div className="bg-zinc-800/50 rounded-lg p-2.5 min-w-0">
+                  <p className="text-[10px] text-zinc-500 mb-0.5 truncate">Entry</p>
+                  <p className="text-xs text-white font-medium truncate">{formatPriceInput(trade.entryPrice)}</p>
+                </div>
+                <div className="bg-zinc-800/50 rounded-lg p-2.5 min-w-0">
+                  <p className="text-[10px] text-zinc-500 mb-0.5 truncate">Stop Loss</p>
+                  <p className="text-xs text-white font-medium truncate">{formatPriceInput(trade.stopLoss)}</p>
+                </div>
+                <div className="bg-zinc-800/50 rounded-lg p-2.5 min-w-0">
+                  <p className="text-[10px] text-zinc-500 mb-0.5 truncate">Take Profit</p>
+                  <p className="text-xs text-white font-medium truncate">{formatPriceInput(trade.takeProfit)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* ================= RIGHT COLUMN — Psychology Review (toggles) ================= */}
+            <div className="min-w-0 flex flex-col gap-4 md:border-l md:border-white/10 md:pl-6">
+              <div className="flex items-center justify-between gap-3 flex-shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+                    <Brain className="w-4 h-4 text-violet-400" />
+                  </div>
+                  <h3 className="text-sm font-bold text-white truncate">Psychology Review</h3>
+                </div>
+                {!isEditingRuleReview && (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingRuleReview(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-200 hover:text-white transition-all text-xs font-medium cursor-pointer flex-shrink-0"
+                  >
+                    <span>✏️</span> Edit Review
+                  </button>
+                )}
+              </div>
+
+              {trade.rulesFollowed === 'followed' ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium w-fit flex-shrink-0">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Rule Followed
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-medium w-fit flex-shrink-0">
+                  <XCircle className="w-3.5 h-3.5" /> Rule Broken
+                </span>
+              )}
+
+              {isEditingRuleReview ? (
+                <>
+                  <div>
+                    <TagSelectDropdown
+                      label="Emotions Tracker"
+                      options={emotionsList}
+                      selected={disciplineReviewDraft.emotions}
+                      onChange={(selected) => setDisciplineReviewDraft(prev => ({ ...prev, emotions: selected }))}
+                      onAddNew={(name) => setEmotionsList(prev => [...prev, { id: generateId(), name, color: 'purple' }])}
+                      onDeleteOption={handleDeleteEmotion}
+                      onColorChange={handleChangeEmotionColor}
+                      placeholder="Select Emotions..."
+                      colorScheme="rose"
+                    />
+                  </div>
+
+                  <div>
+                    <TagSelectDropdown
+                      label="Mistakes Analysis"
+                      options={mistakesList}
+                      selected={disciplineReviewDraft.mistakes}
+                      onChange={(selected) => setDisciplineReviewDraft(prev => ({ ...prev, mistakes: selected }))}
+                      onAddNew={(name) => setMistakesList(prev => [...prev, { id: generateId(), name, color: 'red' }])}
+                      onDeleteOption={handleDeleteMistakeType}
+                      onColorChange={handleChangeMistakeColor}
+                      placeholder="Select Mistakes..."
+                      colorScheme="rose"
+                    />
+                  </div>
+
+                  <div className="flex-1 min-h-0 flex flex-col">
+                    <label className="block text-xs text-zinc-400 mb-2">Performance Evaluation Summary</label>
+                    <textarea
+                      value={disciplineReviewDraft.notes}
+                      onChange={(e) => setDisciplineReviewDraft(prev => ({ ...prev, notes: e.target.value }))}
+                      placeholder="What was going through your mind? Any psychological patterns or session observations worth remembering..."
+                      rows={5}
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-violet-600 placeholder-zinc-600 resize-none"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-1 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleCancelRuleReviewEdit}
+                      className="px-4 py-2.5 text-sm text-zinc-400 hover:text-white transition-colors"
+                    >
+                      Cancel Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveDisciplineReview}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-violet-500 hover:bg-violet-400 text-white rounded-lg text-sm font-medium transition-colors"
+                    >
+                      <Save className="w-4 h-4" />
+                      Save Review
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <p className="text-xs text-zinc-400 mb-2">Emotions Tracker</p>
+                    {(trade.emotions || []).length === 0 ? (
+                      <p className="text-xs text-zinc-600">No emotions logged</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {(trade.emotions || []).map(e => (
+                          <span key={e} className={cn('px-2.5 py-1 rounded-full text-xs font-medium', getTagColorStyle(colorForEmotion(e)).chip)}>
+                            {e}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-zinc-400 mb-2">Mistakes Analysis</p>
+                    {(trade.mistakes || []).length === 0 ? (
+                      <p className="text-xs text-zinc-600">No mistakes logged</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {(trade.mistakes || []).map(m => (
+                          <span key={m} className={cn('px-2.5 py-1 rounded-full text-xs font-medium', getTagColorStyle(colorForMistake(m)).chip)}>
+                            {m}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-h-0 flex flex-col">
+                    <p className="text-xs text-zinc-400 mb-2">Performance Evaluation Summary</p>
+                    <div className="flex-1 min-h-[6.5rem] bg-zinc-900/60 border border-zinc-800 rounded-lg px-3 py-2.5 text-sm whitespace-pre-wrap">
+                      {trade.notes
+                        ? <span className="text-zinc-300">{trade.notes}</span>
+                        : <span className="text-zinc-600">No performance notes logged yet.</span>}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -9404,6 +9683,7 @@ function App() {
       {renderEditTradeModal()}
       {renderTradeDetailModal()}
       {renderDisciplinePsychologyReviewModal()}
+      {renderRuleAdherenceReviewModal()}
       {renderExpandGallery()}
       {renderAddRuleModal()}
       {renderAddNoticeModal()}
