@@ -6598,18 +6598,25 @@ function App() {
                 <button
                   key={strategy.id}
                   onClick={() => setViewStrategyId(strategy.id)}
-                  className="group relative h-44 w-full rounded-xl overflow-hidden border border-white/10 text-left flex-shrink-0"
+                  className="group h-44 w-full flex flex-col rounded-xl overflow-hidden border border-white/10 text-left flex-shrink-0 bg-[#181920]"
                 >
-                  {strategy.imageUrl ? (
-                    <img
-                      src={strategy.imageUrl}
-                      alt={`${strategy.title} A+ example`}
-                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div className="absolute inset-0 w-full h-full bg-[#181920]" />
-                  )}
-                  <div className="absolute bottom-0 inset-x-0 p-3 bg-[#181920]/90 border-t border-white/5 backdrop-blur-sm rounded-b-xl">
+                  {/* Upper canvas — ~75% of card height, image or clean placeholder */}
+                  <div className="flex-1 min-h-0 bg-zinc-900 flex items-center justify-center relative overflow-hidden">
+                    {strategy.imageUrl ? (
+                      <img
+                        src={strategy.imageUrl}
+                        alt={`${strategy.title} A+ example`}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center gap-1.5 text-zinc-600">
+                        <ImageIcon className="w-7 h-7" />
+                        <span className="text-[10px]">No image</span>
+                      </div>
+                    )}
+                  </div>
+                  {/* Bottom bar — slim, name only */}
+                  <div className="flex-shrink-0 py-2.5 px-3.5 bg-[#181920] border-t border-white/5">
                     <h4 className="text-sm font-bold text-white text-left truncate leading-none">{strategy.title}</h4>
                   </div>
                 </button>
