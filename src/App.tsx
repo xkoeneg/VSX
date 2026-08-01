@@ -5761,78 +5761,84 @@ function App() {
           {renderStatCard('Avg Loss (Broken)', brokenTrades.length > 0 ? formatCurrency(brokenTrades.reduce((s, t) => s + t.profitLoss, 0) / brokenTrades.length, privacyMode) : '$0.00', <AlertCircle className="w-4 h-4" />, 'text-rose-400')}
         </div>
 
-        {/* Discipline Analytics — Streak Progress Grid + Mini Discipline Calendar, side by side */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start mb-6">
+        {/* Discipline Analytics — Streak Progress Grid + Mini Discipline Calendar, side by side, equal height */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch mb-6">
           {/* Streak Progress Grid */}
-          <div className="bg-[#121318] border border-white/10 rounded-xl p-5 min-w-0 h-auto">
-            <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
-              <h3 className="text-sm font-semibold text-white flex items-center gap-2 truncate">
-                <Flame className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                STREAK PROGRESS
-              </h3>
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                {([30, 60, 90] as const).map(w => (
-                  <button
-                    key={w}
-                    onClick={() => setStreakGridWindow(w)}
-                    className={cn(
-                      'px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors',
-                      streakGridWindow === w
-                        ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
-                        : 'bg-zinc-800/60 border-zinc-700/60 text-zinc-500 hover:text-zinc-300 hover:border-zinc-600'
-                    )}
-                  >
-                    {w}
-                  </button>
-                ))}
+          <div className="bg-[#121318] border border-white/10 rounded-xl p-5 min-w-0 h-full flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+                <h3 className="text-sm font-semibold text-white flex items-center gap-2 truncate">
+                  <Flame className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                  STREAK PROGRESS
+                </h3>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {([30, 60, 90] as const).map(w => (
+                    <button
+                      key={w}
+                      onClick={() => setStreakGridWindow(w)}
+                      className={cn(
+                        'px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors',
+                        streakGridWindow === w
+                          ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
+                          : 'bg-zinc-800/60 border-zinc-700/60 text-zinc-500 hover:text-zinc-300 hover:border-zinc-600'
+                      )}
+                    >
+                      {w}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <div className="flex items-center gap-4 mb-4">
-              <div>
-                <p className="text-[11px] uppercase tracking-wider text-zinc-500">Current Streak</p>
-                <p className="text-lg font-bold text-emerald-400 truncate">
-                  {disciplineStreak} {disciplineStreak === 1 ? 'Trade' : 'Trades'}
-                </p>
+              <div className="flex items-center gap-4 mb-4">
+                <div>
+                  <p className="text-[11px] uppercase tracking-wider text-zinc-500">Current Streak</p>
+                  <p className="text-lg font-bold text-emerald-400 truncate">
+                    {disciplineStreak} {disciplineStreak === 1 ? 'Trade' : 'Trades'}
+                  </p>
+                </div>
+                <div className="w-px h-8 bg-white/10 flex-shrink-0" />
+                <div>
+                  <p className="text-[11px] uppercase tracking-wider text-zinc-500">Best Streak</p>
+                  <p className="text-lg font-bold text-zinc-300 truncate">
+                    {bestStreak} {bestStreak === 1 ? 'Trade' : 'Trades'}
+                  </p>
+                </div>
               </div>
-              <div className="w-px h-8 bg-white/10 flex-shrink-0" />
-              <div>
-                <p className="text-[11px] uppercase tracking-wider text-zinc-500">Best Streak</p>
-                <p className="text-lg font-bold text-zinc-300 truncate">
-                  {bestStreak} {bestStreak === 1 ? 'Trade' : 'Trades'}
-                </p>
-              </div>
-            </div>
 
-            <div className="flex flex-wrap gap-1.5">
-              {streakGridBlocks.map((block, i) => {
-                if (block.type === 'empty') {
+              {/* Blocks scale down as the lookback window grows so 60/90 still wrap cleanly */}
+              <div className="flex flex-wrap gap-1.5">
+                {streakGridBlocks.map((block, i) => {
+                  const sizeClass = streakGridWindow === 30 ? 'w-7 h-7' : streakGridWindow === 60 ? 'w-6 h-6' : 'w-5 h-5';
+                  const iconClass = streakGridWindow === 30 ? 'w-4 h-4' : streakGridWindow === 60 ? 'w-3.5 h-3.5' : 'w-3 h-3';
+                  if (block.type === 'empty') {
+                    return (
+                      <div
+                        key={`empty-${i}`}
+                        className={cn(sizeClass, 'rounded-md text-sm font-semibold flex items-center justify-center bg-zinc-800/40 border border-zinc-700/50 text-zinc-600')}
+                      />
+                    );
+                  }
+                  const followed = block.trade.rulesFollowed === 'followed';
                   return (
                     <div
-                      key={`empty-${i}`}
-                      className="w-8 h-8 rounded-lg text-sm font-semibold flex items-center justify-center bg-zinc-800/40 border border-zinc-700/50 text-zinc-600"
-                    />
+                      key={block.trade.id}
+                      title={`${block.trade.date}: ${followed ? 'Rules Followed' : 'Rule Broken'}`}
+                      className={cn(
+                        sizeClass,
+                        'rounded-md text-sm font-semibold flex items-center justify-center border',
+                        followed
+                          ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                          : 'bg-rose-500/20 text-rose-400 border-rose-500/40'
+                      )}
+                    >
+                      {followed ? <Check className={iconClass} /> : <X className={iconClass} />}
+                    </div>
                   );
-                }
-                const followed = block.trade.rulesFollowed === 'followed';
-                return (
-                  <div
-                    key={block.trade.id}
-                    title={`${block.trade.date}: ${followed ? 'Rules Followed' : 'Rule Broken'}`}
-                    className={cn(
-                      'w-8 h-8 rounded-lg text-sm font-semibold flex items-center justify-center border',
-                      followed
-                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
-                        : 'bg-rose-500/20 text-rose-400 border-rose-500/40'
-                    )}
-                  >
-                    {followed ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
-                  </div>
-                );
-              })}
+                })}
+              </div>
             </div>
 
-            {/* Subtle stat summary row */}
+            {/* Subtle stat summary row — pinned to the bottom to match the calendar's legend footer */}
             <div className="flex items-center gap-6 pt-3 mt-3 border-t border-white/5 text-xs text-zinc-400">
               <span>Total Compliant Trades: <span className="text-zinc-200 font-semibold">{followedTrades.length}</span></span>
               <span>Win Rate on Compliant Days: <span className="text-zinc-200 font-semibold">{compliantDayWinRate.toFixed(1)}%</span></span>
@@ -5840,65 +5846,83 @@ function App() {
           </div>
 
           {/* Mini Discipline Calendar */}
-          <div className="bg-[#121318] border border-white/10 rounded-xl p-5 min-w-0 h-auto">
-            <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
-              <h3 className="text-sm font-semibold text-white flex items-center gap-2 truncate">
-                <Shield className="w-4 h-4 text-zinc-400 flex-shrink-0" />
-                MINI DISCIPLINE CALENDAR
-              </h3>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <button
-                  onClick={() => setDisciplineCalendarMonth(prev => prev.month === 0 ? { year: prev.year - 1, month: 11 } : { ...prev, month: prev.month - 1 })}
-                  className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-md transition-colors"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
-                <span className="text-xs font-medium text-zinc-300 whitespace-nowrap min-w-[92px] text-center">
-                  {miniMonthNames[miniMonth]} {miniYear}
-                </span>
-                <button
-                  onClick={() => setDisciplineCalendarMonth(prev => prev.month === 11 ? { year: prev.year + 1, month: 0 } : { ...prev, month: prev.month + 1 })}
-                  className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-md transition-colors"
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
+          <div className="bg-[#121318] border border-white/10 rounded-xl p-5 min-w-0 h-full flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+                <h3 className="text-sm font-semibold text-white flex items-center gap-2 truncate">
+                  <Shield className="w-4 h-4 text-zinc-400 flex-shrink-0" />
+                  MINI DISCIPLINE CALENDAR
+                </h3>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => setDisciplineCalendarMonth(prev => prev.month === 0 ? { year: prev.year - 1, month: 11 } : { ...prev, month: prev.month - 1 })}
+                    className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-md transition-colors"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="text-xs font-medium text-zinc-300 whitespace-nowrap min-w-[92px] text-center">
+                    {miniMonthNames[miniMonth]} {miniYear}
+                  </span>
+                  <button
+                    onClick={() => setDisciplineCalendarMonth(prev => prev.month === 11 ? { year: prev.year + 1, month: 0 } : { ...prev, month: prev.month + 1 })}
+                    className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-md transition-colors"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-7 gap-1.5">
+                {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+                  <div key={`${d}-${i}`} className="text-center text-[10px] text-zinc-500 font-medium py-1">
+                    {d}
+                  </div>
+                ))}
+                {miniCalendarDays.map((cell, i) => {
+                  if (cell.day === null) return <div key={`empty-${i}`} />;
+                  const hasTrades = cell.trades.length > 0;
+                  const followedCount = cell.trades.filter(t => t.rulesFollowed === 'followed').length;
+                  const brokenCount = cell.trades.length - followedCount;
+                  const anyBroken = hasTrades && brokenCount > 0;
+                  const allFollowed = hasTrades && brokenCount === 0;
+                  const tooltip = hasTrades
+                    ? `${miniMonthNames[miniMonth].slice(0, 3)} ${cell.day}: ${cell.trades.length} Trade${cell.trades.length !== 1 ? 's' : ''}${anyBroken ? `, ${brokenCount} Rule${brokenCount !== 1 ? 's' : ''} Broken` : ', All Rules Followed'}`
+                    : `${miniMonthNames[miniMonth].slice(0, 3)} ${cell.day}: No Trades`;
+                  return (
+                    <div
+                      key={i}
+                      title={tooltip}
+                      className={cn(
+                        'w-full aspect-square flex flex-col items-center justify-center gap-1 rounded-lg border transition-colors cursor-default',
+                        allFollowed && 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
+                        anyBroken && 'bg-rose-500/10 border-rose-500/30 text-rose-300',
+                        !hasTrades && 'border-white/5 bg-white/[0.02] hover:bg-white/5 text-zinc-500'
+                      )}
+                    >
+                      <span className="text-sm font-medium">{cell.day}</span>
+                      {hasTrades && (
+                        <span className={cn('w-1.5 h-1.5 rounded-full', anyBroken ? 'bg-rose-400' : 'bg-emerald-400')} />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
-            <div className="grid grid-cols-7 gap-1.5 max-w-md mx-auto">
-              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
-                <div key={`${d}-${i}`} className="w-8 h-8 flex items-center justify-center text-[10px] text-zinc-500 font-medium">
-                  {d}
-                </div>
-              ))}
-              {miniCalendarDays.map((cell, i) => {
-                if (cell.day === null) return <div key={`empty-${i}`} className="w-8 h-8" />;
-                const hasTrades = cell.trades.length > 0;
-                const followedCount = cell.trades.filter(t => t.rulesFollowed === 'followed').length;
-                const brokenCount = cell.trades.length - followedCount;
-                const anyBroken = hasTrades && brokenCount > 0;
-                const allFollowed = hasTrades && brokenCount === 0;
-                const tooltip = hasTrades
-                  ? `${miniMonthNames[miniMonth].slice(0, 3)} ${cell.day}: ${cell.trades.length} Trade${cell.trades.length !== 1 ? 's' : ''}${anyBroken ? `, ${brokenCount} Rule${brokenCount !== 1 ? 's' : ''} Broken` : ', All Rules Followed'}`
-                  : `${miniMonthNames[miniMonth].slice(0, 3)} ${cell.day}: No Trades`;
-                return (
-                  <div
-                    key={i}
-                    title={tooltip}
-                    className={cn(
-                      'w-8 h-8 rounded-lg flex flex-col items-center justify-center gap-0.5 text-xs font-medium border transition-colors cursor-default',
-                      allFollowed && 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
-                      anyBroken && 'bg-rose-500/10 border-rose-500/30 text-rose-300',
-                      !hasTrades && 'bg-transparent border-transparent text-zinc-500'
-                    )}
-                  >
-                    <span>{cell.day}</span>
-                    {hasTrades && (
-                      <span className={cn('w-1 h-1 rounded-full', anyBroken ? 'bg-rose-400' : 'bg-emerald-400')} />
-                    )}
-                  </div>
-                );
-              })}
+            {/* Legend footer — aligned horizontally with the Streak card's bottom stat row */}
+            <div className="flex items-center justify-between pt-3 mt-auto border-t border-white/5 text-xs text-zinc-400">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />
+                100% Followed
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-rose-400 flex-shrink-0" />
+                Rule Broken
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-zinc-600 flex-shrink-0" />
+                No Trades
+              </span>
             </div>
           </div>
         </div>
