@@ -72,6 +72,20 @@ import {
   ShieldCheck,
   Zap,
   AlertTriangle,
+  Star,
+  Flag,
+  Bookmark,
+  Lock,
+  Crosshair,
+  Rocket,
+  Bell,
+  Award,
+  Gem,
+  Anchor,
+  Compass,
+  Swords,
+  Smile,
+  Palette,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -139,6 +153,10 @@ interface Trade {
 
 type RuleSeverity = 'critical' | 'warning' | 'guide';
 type RulePillar = 'risk' | 'execution' | 'psychology';
+type RuleAccentColor = 'emerald' | 'amber' | 'crimson' | 'indigo' | 'cyan';
+type RuleIconKind = 'emoji' | 'icon';
+type RuleBulletStyle = 'bullet' | 'number' | 'icon';
+type RuleTextSize = 'normal' | 'large';
 
 interface Rule {
   id: string;
@@ -147,6 +165,13 @@ interface Rule {
   description: string;
   severity: RuleSeverity;
   pillar: RulePillar;
+  // Notion-style rich customization — all optional so existing rules saved
+  // before this feature still render fine via pillar-based fallbacks.
+  iconKind?: RuleIconKind; // 'emoji' (raw emoji char) or 'icon' (key into RULE_ICON_MAP)
+  iconValue?: string;
+  color?: RuleAccentColor;
+  bulletStyle?: RuleBulletStyle;
+  textSize?: RuleTextSize;
 }
 
 interface StrategyStep {
@@ -322,6 +347,69 @@ const RULE_SEVERITY_META: Record<RuleSeverity, { label: string; dot: string; bad
   warning: { label: 'Warning', dot: 'bg-amber-400', badge: 'bg-amber-400/15 text-amber-400 border border-amber-400/20' },
   guide: { label: 'Guide', dot: 'bg-sky-400', badge: 'bg-sky-400/15 text-sky-400 border border-sky-400/20' },
 };
+
+// ---- Rules Playbook: Notion-style icon & color customization ----
+interface RuleAccentStyle {
+  id: RuleAccentColor;
+  label: string;
+  dot: string; // solid swatch used in the color picker
+  text: string; // icon/accent text color
+  bg: string; // icon badge background
+  ring: string; // selected-swatch ring color
+}
+
+const RULE_ACCENT_PALETTE: RuleAccentStyle[] = [
+  { id: 'emerald', label: 'Emerald', dot: 'bg-emerald-500', text: 'text-emerald-400', bg: 'bg-emerald-500/10', ring: 'ring-emerald-400' },
+  { id: 'amber', label: 'Amber', dot: 'bg-amber-500', text: 'text-amber-400', bg: 'bg-amber-500/10', ring: 'ring-amber-400' },
+  { id: 'crimson', label: 'Crimson', dot: 'bg-rose-500', text: 'text-rose-400', bg: 'bg-rose-500/10', ring: 'ring-rose-400' },
+  { id: 'indigo', label: 'Indigo', dot: 'bg-indigo-500', text: 'text-indigo-400', bg: 'bg-indigo-500/10', ring: 'ring-indigo-400' },
+  { id: 'cyan', label: 'Cyan', dot: 'bg-cyan-500', text: 'text-cyan-400', bg: 'bg-cyan-500/10', ring: 'ring-cyan-400' },
+];
+
+const getRuleAccent = (color?: string): RuleAccentStyle =>
+  RULE_ACCENT_PALETTE.find(c => c.id === color) || RULE_ACCENT_PALETTE[0];
+
+// Sensible per-pillar defaults so rules created before this feature (or with
+// no explicit customization) still get a coherent icon + color out of the box.
+const RULE_PILLAR_DEFAULT_COLOR: Record<RulePillar, RuleAccentColor> = {
+  risk: 'indigo',
+  execution: 'amber',
+  psychology: 'crimson',
+};
+const RULE_PILLAR_DEFAULT_ICON: Record<RulePillar, string> = {
+  risk: 'Shield',
+  execution: 'Zap',
+  psychology: 'Brain',
+};
+
+// Icon glyph options for the "Icons" tab of the rule icon picker.
+const RULE_ICON_MAP: Record<string, LucideIcon> = {
+  Shield, Zap, Brain, Target, Flame, AlertTriangle, CheckCircle2,
+  Star, Flag, Bookmark, Lock, Crosshair, Rocket, Bell, Award, Gem, Anchor, Compass, Swords,
+};
+const RULE_ICON_OPTIONS: string[] = Object.keys(RULE_ICON_MAP);
+
+// Emoji options for the "Emoji" tab of the rule icon picker.
+const RULE_EMOJI_OPTIONS: string[] = [
+  '🎯', '⚡', '🧠', '🛡️', '💰', '📈', '📉', '🔥', '⏰', '✅',
+  '🚫', '⚠️', '💎', '🚀', '🔒', '🎲', '📊', '🧘', '🏆', '📌',
+];
+
+const RULE_BULLET_STYLES: { id: RuleBulletStyle; label: string }[] = [
+  { id: 'bullet', label: 'Bulleted' },
+  { id: 'number', label: 'Numbered' },
+  { id: 'icon', label: 'Icon Badge' },
+];
+
+const RULE_TEXT_SIZES: { id: RuleTextSize; label: string }[] = [
+  { id: 'normal', label: 'Normal' },
+  { id: 'large', label: 'Large' },
+];
+
+// Resolves the icon component for a rule, falling back to the pillar default
+// when the rule predates this feature or has no icon set.
+const getRuleIconComponent = (rule: Pick<Rule, 'iconValue' | 'pillar'>): LucideIcon =>
+  RULE_ICON_MAP[rule.iconValue || ''] || RULE_ICON_MAP[RULE_PILLAR_DEFAULT_ICON[rule.pillar]];
 
 // Loosely matches a Discipline Tracker "mistake" tag against a Rule title,
 // so the Playbook can passively count violations without any manual
@@ -2799,8 +2887,10 @@ function App() {
     riskAmount: '',
   });
 
-  const [newRule, setNewRule] = useState<Partial<Rule>>({ category: '', title: '', description: '', severity: 'warning', pillar: 'risk' });
+  const [newRule, setNewRule] = useState<Partial<Rule>>({ category: '', title: '', description: '', severity: 'warning', pillar: 'risk', iconKind: 'icon', iconValue: RULE_PILLAR_DEFAULT_ICON.risk, color: RULE_PILLAR_DEFAULT_COLOR.risk, bulletStyle: 'bullet', textSize: 'normal' });
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
+  const [showRuleIconPicker, setShowRuleIconPicker] = useState(false);
+  const [ruleIconPickerTab, setRuleIconPickerTab] = useState<'emoji' | 'icons' | 'color'>('emoji');
   const [newNotice, setNewNotice] = useState<{ title: string; imageUrl: string }>({ title: '', imageUrl: '' });
   const [newNoticeNote, setNewNoticeNote] = useState('');
   const [newWiki, setNewWiki] = useState<Partial<WikiEntry>>({ title: '', content: '', category: '' });
@@ -3543,35 +3633,44 @@ function App() {
     if (!newRule.title) return;
     const severity: RuleSeverity = RULE_SEVERITIES.includes(newRule.severity as RuleSeverity) ? (newRule.severity as RuleSeverity) : 'warning';
     const pillar: RulePillar = RULE_PILLARS.includes(newRule.pillar as RulePillar) ? (newRule.pillar as RulePillar) : 'risk';
+    const iconKind: RuleIconKind = newRule.iconKind === 'emoji' ? 'emoji' : 'icon';
+    const iconValue = newRule.iconValue || RULE_PILLAR_DEFAULT_ICON[pillar];
+    const color: RuleAccentColor = RULE_ACCENT_PALETTE.some(c => c.id === newRule.color) ? (newRule.color as RuleAccentColor) : RULE_PILLAR_DEFAULT_COLOR[pillar];
+    const bulletStyle: RuleBulletStyle = RULE_BULLET_STYLES.some(b => b.id === newRule.bulletStyle) ? (newRule.bulletStyle as RuleBulletStyle) : 'bullet';
+    const textSize: RuleTextSize = newRule.textSize === 'large' ? 'large' : 'normal';
     if (editingRuleId) {
       setRules(prev => prev.map(r => r.id === editingRuleId
-        ? { ...r, category: newRule.category || '', title: newRule.title!, description: newRule.description || '', severity, pillar }
+        ? { ...r, category: newRule.category || '', title: newRule.title!, description: newRule.description || '', severity, pillar, iconKind, iconValue, color, bulletStyle, textSize }
         : r
       ));
     } else {
-      setRules(prev => [...prev, { id: generateId(), category: newRule.category || '', title: newRule.title!, description: newRule.description || '', severity, pillar }]);
+      setRules(prev => [...prev, { id: generateId(), category: newRule.category || '', title: newRule.title!, description: newRule.description || '', severity, pillar, iconKind, iconValue, color, bulletStyle, textSize }]);
     }
-    setNewRule({ category: '', title: '', description: '', severity: 'warning', pillar: 'risk' });
+    setNewRule({ category: '', title: '', description: '', severity: 'warning', pillar: 'risk', iconKind: 'icon', iconValue: RULE_PILLAR_DEFAULT_ICON.risk, color: RULE_PILLAR_DEFAULT_COLOR.risk, bulletStyle: 'bullet', textSize: 'normal' });
     setEditingRuleId(null);
     setShowAddRule(false);
+    setShowRuleIconPicker(false);
   };
 
   const openAddRuleModal = (pillar: RulePillar = 'risk') => {
     setEditingRuleId(null);
-    setNewRule({ category: '', title: '', description: '', severity: 'warning', pillar });
+    setNewRule({ category: '', title: '', description: '', severity: 'warning', pillar, iconKind: 'icon', iconValue: RULE_PILLAR_DEFAULT_ICON[pillar], color: RULE_PILLAR_DEFAULT_COLOR[pillar], bulletStyle: 'bullet', textSize: 'normal' });
     setShowAddRule(true);
+    setShowRuleIconPicker(false);
   };
 
   const openEditRuleModal = (rule: Rule) => {
     setEditingRuleId(rule.id);
     setNewRule({ ...rule });
     setShowAddRule(true);
+    setShowRuleIconPicker(false);
   };
 
   const closeRuleModal = () => {
     setShowAddRule(false);
     setEditingRuleId(null);
-    setNewRule({ category: '', title: '', description: '', severity: 'warning', pillar: 'risk' });
+    setNewRule({ category: '', title: '', description: '', severity: 'warning', pillar: 'risk', iconKind: 'icon', iconValue: RULE_PILLAR_DEFAULT_ICON.risk, color: RULE_PILLAR_DEFAULT_COLOR.risk, bulletStyle: 'bullet', textSize: 'normal' });
+    setShowRuleIconPicker(false);
   };
 
   const handleDeleteRule = (id: string) => setRules(rules.filter(r => r.id !== id));
@@ -6950,14 +7049,14 @@ function App() {
             </button>
           </div>
 
-          <div className={cn("grid grid-cols-1 md:grid-cols-3 gap-6 divide-y md:divide-y-0 md:divide-x", theme !== 'light' ? 'divide-zinc-800/80' : 'divide-zinc-200')}>
-            <div className="min-w-0 pt-6 first:pt-0 md:pt-0 md:pr-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="min-w-0">
               {renderRulePillarColumn('risk')}
             </div>
-            <div className="min-w-0 pt-6 md:pt-0 md:px-6">
+            <div className="min-w-0">
               {renderRulePillarColumn('execution')}
             </div>
-            <div className="min-w-0 pt-6 md:pt-0 md:pl-6">
+            <div className="min-w-0">
               {renderRulePillarColumn('psychology')}
             </div>
           </div>
@@ -6967,15 +7066,17 @@ function App() {
   };
 
   // Read-only rule list for one pillar — used inside the unified Trading
-  // Charter & Mandates card. No add/edit/delete affordances live here; all
-  // rule management happens in the dedicated Manage Rules modal, so this
-  // stays 100% clean, read-only, and distraction-free.
+  // Rules card. No add/edit/delete affordances live here; all rule
+  // management happens in the dedicated Manage Rules modal, so this stays
+  // 100% clean, read-only, and distraction-free. Notion-style: no divider
+  // lines between rules, generous spacing, per-rule icon/color accents and
+  // configurable bullet style + text size.
   const renderRulePillarColumn = (pillar: RulePillar) => {
     const meta = RULE_PILLAR_META[pillar];
     const pillarRules = rules.filter(r => r.pillar === pillar);
     return (
       <div className="min-w-0">
-        <div className="flex items-center gap-1.5 mb-3 min-w-0">
+        <div className="flex items-center gap-1.5 mb-4 min-w-0">
           <meta.Icon className={cn("w-4 h-4 flex-shrink-0", meta.color)} strokeWidth={2} />
           <h4 className={cn("text-xs font-bold uppercase tracking-wider truncate", tc.textSecondary)}>{RULE_PILLAR_SHORT_LABEL[pillar]}</h4>
         </div>
@@ -6983,19 +7084,41 @@ function App() {
         {pillarRules.length === 0 ? (
           <p className={cn("text-xs italic", tc.textMuted)}>No mandates set.</p>
         ) : (
-          <div className={cn("divide-y", theme !== 'light' ? 'divide-white/5' : 'divide-zinc-200')}>
-            {pillarRules.map(rule => {
+          <div className="space-y-4">
+            {pillarRules.map((rule, index) => {
               const violations = ruleViolationCounts[rule.id] || 0;
               const severityMeta = RULE_SEVERITY_META[rule.severity];
+              const accent = getRuleAccent(rule.color);
+              const RuleIcon = getRuleIconComponent(rule);
+              const bulletStyle = rule.bulletStyle || 'bullet';
+              const large = rule.textSize === 'large';
               return (
-                <div key={rule.id} className="py-2 first:pt-0 last:pb-0">
-                  <div className="min-w-0">
+                <div key={rule.id} className="flex items-start gap-2.5 min-w-0">
+                  {/* Bullet / number / icon-badge prefix */}
+                  {bulletStyle === 'icon' ? (
+                    <span className={cn("inline-flex items-center justify-center w-6 h-6 rounded-md flex-shrink-0 mt-0.5", accent.bg)}>
+                      {rule.iconKind === 'emoji' && rule.iconValue
+                        ? <span className="text-[13px] leading-none">{rule.iconValue}</span>
+                        : <RuleIcon className={cn("w-3.5 h-3.5", accent.text)} strokeWidth={2.5} />}
+                    </span>
+                  ) : bulletStyle === 'number' ? (
+                    <span className={cn("flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold flex-shrink-0 mt-0.5", accent.bg, accent.text)}>
+                      {index + 1}
+                    </span>
+                  ) : (
+                    <span className={cn("mt-2 w-1.5 h-1.5 rounded-full flex-shrink-0", accent.dot)} />
+                  )}
+
+                  <div className="min-w-0 flex-1 leading-relaxed">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <h5 className={cn("text-xs font-bold truncate", tc.text)}>{rule.title}</h5>
-                      <span className={cn("text-[9px] px-1 py-0.5 rounded font-semibold uppercase tracking-wide leading-none", severityMeta.badge)}>{severityMeta.label}</span>
+                      <h5 className={cn("font-bold truncate", tc.text, large ? "text-base" : "text-sm")}>{rule.title}</h5>
+                      <span className={cn("text-[9px] px-1 py-0.5 rounded font-semibold uppercase tracking-wide leading-none flex-shrink-0", severityMeta.badge)}>{severityMeta.label}</span>
                     </div>
+                    {rule.description && (
+                      <p className={cn("mt-0.5 leading-relaxed", tc.textMuted, large ? "text-sm" : "text-xs")}>{rule.description}</p>
+                    )}
                     {violations > 0 && (
-                      <span className="inline-flex items-center gap-0.5 text-[9px] mt-1 px-1 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/20 font-semibold">
+                      <span className="inline-flex items-center gap-0.5 text-[9px] mt-1.5 px-1 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/20 font-semibold">
                         <AlertTriangle className="w-2.5 h-2.5" strokeWidth={2} /> {violations}x
                       </span>
                     )}
@@ -9467,14 +9590,14 @@ function App() {
         onClose={closeRuleModal}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
       >
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-          <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-md w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between flex-shrink-0">
             <h3 className="text-lg font-bold text-white truncate">{editingRuleId ? 'Edit Trading Rule' : 'Add Trading Rule'}</h3>
             <button onClick={closeRuleModal} className="p-1 text-zinc-400 hover:text-white">
               <X className="w-5 h-5" />
             </button>
           </div>
-          <div className="p-6 space-y-4">
+          <div className="p-6 space-y-4 overflow-y-auto">
             <div>
               <label className="block text-sm text-zinc-400 mb-2">Pillar</label>
               <div className="grid grid-cols-3 gap-2">
@@ -9523,6 +9646,121 @@ function App() {
               </div>
             </div>
 
+            {/* Notion-style icon & color picker */}
+            <div className="relative">
+              <label className="block text-sm text-zinc-400 mb-2">Icon &amp; Color</label>
+              {(() => {
+                const accent = getRuleAccent(newRule.color);
+                const RuleIcon = getRuleIconComponent({ iconValue: newRule.iconValue, pillar: (newRule.pillar || 'risk') as RulePillar });
+                return (
+                  <button
+                    type="button"
+                    onClick={() => setShowRuleIconPicker(v => !v)}
+                    className="w-full flex items-center gap-2.5 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-left hover:bg-zinc-750 hover:border-zinc-600 transition-colors"
+                  >
+                    <span className={cn("inline-flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0", accent.bg)}>
+                      {newRule.iconKind === 'emoji' && newRule.iconValue
+                        ? <span className="text-base leading-none">{newRule.iconValue}</span>
+                        : <RuleIcon className={cn("w-4 h-4", accent.text)} strokeWidth={2.5} />}
+                    </span>
+                    <span className="text-sm text-white flex-1">Customize icon &amp; accent color</span>
+                    <ChevronDown className={cn("w-4 h-4 text-zinc-500 transition-transform flex-shrink-0", showRuleIconPicker && "rotate-180")} />
+                  </button>
+                );
+              })()}
+
+              {showRuleIconPicker && (
+                <div className="relative mt-2 bg-zinc-800 border border-zinc-700 rounded-lg p-3 space-y-3" onClick={(e) => e.stopPropagation()}>
+                  {/* Tabs */}
+                  <div className="flex items-center gap-1 bg-zinc-900/60 rounded-lg p-1">
+                    {([
+                      { id: 'emoji' as const, label: 'Emoji', Icon: Smile },
+                      { id: 'icons' as const, label: 'Icons', Icon: Star },
+                      { id: 'color' as const, label: 'Custom Color', Icon: Palette },
+                    ]).map(tab => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setRuleIconPickerTab(tab.id)}
+                        className={cn(
+                          "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[11px] font-medium transition-colors",
+                          ruleIconPickerTab === tab.id ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'
+                        )}
+                      >
+                        <tab.Icon className="w-3.5 h-3.5" />
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {ruleIconPickerTab === 'emoji' && (
+                    <div className="grid grid-cols-8 gap-1.5">
+                      {RULE_EMOJI_OPTIONS.map(emoji => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => setNewRule(prev => ({ ...prev, iconKind: 'emoji', iconValue: emoji }))}
+                          className={cn(
+                            "w-8 h-8 flex items-center justify-center rounded-md text-base transition-colors",
+                            newRule.iconKind === 'emoji' && newRule.iconValue === emoji ? 'bg-zinc-600' : 'hover:bg-zinc-700'
+                          )}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {ruleIconPickerTab === 'icons' && (
+                    <div className="grid grid-cols-8 gap-1.5">
+                      {RULE_ICON_OPTIONS.map(iconName => {
+                        const IconComp = RULE_ICON_MAP[iconName];
+                        const active = newRule.iconKind !== 'emoji' && newRule.iconValue === iconName;
+                        return (
+                          <button
+                            key={iconName}
+                            type="button"
+                            title={iconName}
+                            onClick={() => setNewRule(prev => ({ ...prev, iconKind: 'icon', iconValue: iconName }))}
+                            className={cn(
+                              "w-8 h-8 flex items-center justify-center rounded-md transition-colors",
+                              active ? 'bg-zinc-600 text-white' : 'text-zinc-400 hover:bg-zinc-700 hover:text-white'
+                            )}
+                          >
+                            <IconComp className="w-4 h-4" strokeWidth={2} />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {ruleIconPickerTab === 'color' && (
+                    <div className="flex flex-wrap gap-2.5">
+                      {RULE_ACCENT_PALETTE.map(c => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => setNewRule(prev => ({ ...prev, color: c.id }))}
+                          title={c.label}
+                          className={cn(
+                            "flex flex-col items-center gap-1.5 transition-transform",
+                            newRule.color === c.id && "scale-105"
+                          )}
+                        >
+                          <span className={cn(
+                            "w-7 h-7 rounded-full",
+                            c.dot,
+                            newRule.color === c.id && cn("ring-2 ring-offset-2 ring-offset-zinc-800", c.ring)
+                          )} />
+                          <span className="text-[10px] text-zinc-400">{c.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div>
               <label className="block text-sm text-zinc-400 mb-2">Rule Title</label>
               <input type="text" value={newRule.title || ''} onChange={(e) => setNewRule(prev => ({ ...prev, title: e.target.value }))} placeholder="Never Move Stop Loss" className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600" />
@@ -9535,6 +9773,51 @@ function App() {
               <label className="block text-sm text-zinc-400 mb-2">Category <span className="text-zinc-600">(optional label)</span></label>
               <input type="text" value={newRule.category || ''} onChange={(e) => setNewRule(prev => ({ ...prev, category: e.target.value }))} placeholder="e.g. Prop Firm Rule" className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600" />
             </div>
+
+            {/* Bullet type + text size customization */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm text-zinc-400 mb-2">List Style</label>
+                <div className="flex flex-col gap-1.5">
+                  {RULE_BULLET_STYLES.map(b => (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => setNewRule(prev => ({ ...prev, bulletStyle: b.id }))}
+                      className={cn(
+                        "flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors text-left",
+                        (newRule.bulletStyle || 'bullet') === b.id ? 'bg-white text-black border-white' : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700 hover:text-white'
+                      )}
+                    >
+                      {b.id === 'bullet' && '•'}
+                      {b.id === 'number' && '1.'}
+                      {b.id === 'icon' && <Star className="w-3 h-3" />}
+                      {b.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm text-zinc-400 mb-2">Text Size</label>
+                <div className="flex flex-col gap-1.5">
+                  {RULE_TEXT_SIZES.map(s => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setNewRule(prev => ({ ...prev, textSize: s.id }))}
+                      className={cn(
+                        "flex items-center gap-2 px-2.5 py-1.5 rounded-lg border font-medium transition-colors text-left",
+                        s.id === 'large' ? 'text-sm' : 'text-xs',
+                        (newRule.textSize || 'normal') === s.id ? 'bg-white text-black border-white' : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700 hover:text-white'
+                      )}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             <button type="button" onClick={handleSaveRule} className="w-full py-2.5 bg-white hover:bg-zinc-200 text-black rounded-lg text-sm font-medium transition-colors">{editingRuleId ? 'Save Changes' : 'Add Rule'}</button>
           </div>
         </div>
@@ -9543,9 +9826,9 @@ function App() {
   );
 
   // Manage Rules modal — the ONLY place rules get added, edited, or deleted.
-  // Opened from the "Manage Rules" button on the read-only Trading Charter &
-  // Mandates card; delegates the actual add/edit form to the existing
-  // Add/Edit Rule modal, which layers on top of this one.
+  // Opened from the "Manage Rules" button on the read-only Trading Rules
+  // card; delegates the actual add/edit form to the existing Add/Edit Rule
+  // modal, which layers on top of this one.
   const renderManageRulesModal = () => (
     showManageRulesModal && (
       <ModalBackdrop
@@ -9563,14 +9846,14 @@ function App() {
             </button>
           </div>
           <div className="p-6 overflow-y-auto">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 divide-y md:divide-y-0 md:divide-x divide-white/5">
-              <div className="min-w-0 pt-6 first:pt-0 md:pt-0 md:pr-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="min-w-0">
                 {renderManageRulePillarSection('risk')}
               </div>
-              <div className="min-w-0 pt-6 md:pt-0 md:px-6">
+              <div className="min-w-0">
                 {renderManageRulePillarSection('execution')}
               </div>
-              <div className="min-w-0 pt-6 md:pt-0 md:pl-6">
+              <div className="min-w-0">
                 {renderManageRulePillarSection('psychology')}
               </div>
             </div>
@@ -9581,7 +9864,9 @@ function App() {
   );
 
   // One category's editable rule list inside the Manage Rules modal — add,
-  // edit, and delete all live here so the main charter card stays read-only.
+  // edit, and delete all live here so the main Trading Rules card stays
+  // read-only. Notion-style: no divider lines, generous spacing, per-rule
+  // icon/color accents.
   const renderManageRulePillarSection = (pillar: RulePillar) => {
     const meta = RULE_PILLAR_META[pillar];
     const pillarRules = rules.filter(r => r.pillar === pillar);
@@ -9604,26 +9889,35 @@ function App() {
         {pillarRules.length === 0 ? (
           <p className="text-xs text-zinc-600 italic">No mandates set.</p>
         ) : (
-          <div className="divide-y divide-white/5">
+          <div className="space-y-3">
             {pillarRules.map(rule => {
               const severityMeta = RULE_SEVERITY_META[rule.severity];
+              const accent = getRuleAccent(rule.color);
+              const RuleIcon = getRuleIconComponent(rule);
               return (
-                <div key={rule.id} className="group py-2 first:pt-0 last:pb-0">
-                  <div className="flex items-start justify-between gap-1.5">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <h5 className="text-xs font-bold text-white truncate">{rule.title}</h5>
-                        <span className={cn("text-[9px] px-1 py-0.5 rounded font-semibold uppercase tracking-wide leading-none", severityMeta.badge)}>{severityMeta.label}</span>
+                <div key={rule.id} className="group flex items-start gap-2.5">
+                  <span className={cn("inline-flex items-center justify-center w-6 h-6 rounded-md flex-shrink-0 mt-0.5", accent.bg)}>
+                    {rule.iconKind === 'emoji' && rule.iconValue
+                      ? <span className="text-[13px] leading-none">{rule.iconValue}</span>
+                      : <RuleIcon className={cn("w-3.5 h-3.5", accent.text)} strokeWidth={2.5} />}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-1.5">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h5 className="text-sm font-bold text-white truncate">{rule.title}</h5>
+                          <span className={cn("text-[9px] px-1 py-0.5 rounded font-semibold uppercase tracking-wide leading-none", severityMeta.badge)}>{severityMeta.label}</span>
+                        </div>
+                        {rule.description && <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed line-clamp-2">{rule.description}</p>}
                       </div>
-                      {rule.description && <p className="text-[11px] text-zinc-500 mt-0.5 line-clamp-2">{rule.description}</p>}
-                    </div>
-                    <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => openEditRuleModal(rule)} className="p-0.5 rounded text-zinc-500 hover:text-white">
-                        <Edit2 className="w-3 h-3" />
-                      </button>
-                      <button onClick={() => handleDeleteRule(rule.id)} className="p-0.5 rounded text-zinc-500 hover:text-rose-400">
-                        <Trash2 className="w-3 h-3" />
-                      </button>
+                      <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => openEditRuleModal(rule)} className="p-0.5 rounded text-zinc-500 hover:text-white">
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                        <button onClick={() => handleDeleteRule(rule.id)} className="p-0.5 rounded text-zinc-500 hover:text-rose-400">
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
