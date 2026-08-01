@@ -89,7 +89,7 @@ import {
   Quote,
   RefreshCw,
   ListChecks,
-  OctagonAlert,
+  AlertOctagon,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -7409,7 +7409,7 @@ function App() {
 
         {/* EMERGENCY CIRCUIT BREAKER BANNER */}
         <div className="min-w-0 flex items-center gap-3 rounded-xl px-4 py-3 bg-red-500/[0.07] border border-red-500/25">
-          <OctagonAlert className="w-5 h-5 text-red-400 flex-shrink-0" strokeWidth={2} />
+          <AlertOctagon className="w-5 h-5 text-red-400 flex-shrink-0" strokeWidth={2} />
           <p className="text-xs sm:text-sm font-semibold tracking-wide text-red-400 truncate">
             MAX 2 LOSSES = IMMEDIATE PLATFORM CLOSURE
           </p>
