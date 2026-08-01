@@ -5926,7 +5926,7 @@ function App() {
                   return (
                     <div
                       key={trade.id}
-                      onClick={() => setShowDisciplineReview(trade.id)}
+                      onClick={() => { setShowTradeDetail(trade.id); setShowExpandGallery(false); }}
                       className="p-2.5 bg-zinc-800/30 border border-zinc-700/40 rounded-lg hover:bg-zinc-800/50 hover:border-zinc-600/50 cursor-pointer transition-colors min-w-0"
                     >
                       {/* Top row: trade #, symbol, PnL */}
