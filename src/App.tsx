@@ -6810,17 +6810,17 @@ function App() {
         {/* HEADER */}
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="min-w-0">
-            <h2 className={cn("text-2xl font-bold truncate", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>Rules &amp; Strategy Playbook</h2>
-            <p className="text-zinc-500 text-sm truncate">Your Trading Bible — Core execution mandates and active strategy models.</p>
+            <h2 className={cn("text-2xl font-bold truncate", tc.text)}>Rules &amp; Strategy Playbook</h2>
+            <p className={cn("text-sm truncate", tc.textMuted)}>Your Trading Bible — Core execution mandates and active strategy models.</p>
           </div>
         </div>
 
         {/* SECTION 1: ACTIVE STRATEGY MODELS — clean image-focused gallery */}
         <div className="min-w-0 space-y-3">
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <h3 className={cn("text-sm font-bold tracking-wide flex items-center gap-1.5", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>
+            <h3 className={cn("text-sm font-bold tracking-wide flex items-center gap-1.5", tc.text)}>
               <Layers className="w-4 h-4 text-emerald-400" strokeWidth={2} />
-              ACTIVE STRATEGY MODELS
+              STRATEGY MODELS
             </h3>
             <div className="flex items-center gap-2 flex-shrink-0">
               {strategies.length > 0 && (
@@ -6829,7 +6829,7 @@ function App() {
                     type="button"
                     onClick={() => scrollStrategyCarousel('left')}
                     title="Scroll left"
-                    className="bg-[#181920] border border-white/10 hover:bg-white/5 p-1.5 rounded-lg text-zinc-400 hover:text-white transition-colors"
+                    className={cn("p-1.5 rounded-lg transition-colors", tc.bgSecondary, tc.bgHover, "border", tc.border, tc.textSecondary, theme !== 'light' ? 'hover:text-white' : 'hover:text-zinc-900')}
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
@@ -6837,13 +6837,13 @@ function App() {
                     type="button"
                     onClick={() => scrollStrategyCarousel('right')}
                     title="Scroll right"
-                    className="bg-[#181920] border border-white/10 hover:bg-white/5 p-1.5 rounded-lg text-zinc-400 hover:text-white transition-colors"
+                    className={cn("p-1.5 rounded-lg transition-colors", tc.bgSecondary, tc.bgHover, "border", tc.border, tc.textSecondary, theme !== 'light' ? 'hover:text-white' : 'hover:text-zinc-900')}
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
               )}
-              <button onClick={openAddStrategyModal} className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs transition-colors flex-shrink-0">
+              <button onClick={openAddStrategyModal} className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors flex-shrink-0", tc.btnSecondary)}>
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Strategy</span>
               </button>
@@ -6853,7 +6853,7 @@ function App() {
           {strategies.length === 0 ? (
             <button
               onClick={openAddStrategyModal}
-              className="w-full flex flex-col items-center justify-center gap-2 py-12 rounded-xl border border-dashed border-zinc-700 text-zinc-500 hover:text-zinc-300 hover:border-zinc-500 transition-all"
+              className={cn("w-full flex flex-col items-center justify-center gap-2 py-12 rounded-xl border border-dashed transition-all", tc.border, tc.textMuted, theme !== 'light' ? 'hover:text-zinc-300 hover:border-zinc-500' : 'hover:text-zinc-600 hover:border-zinc-400')}
             >
               <Plus className="w-5 h-5" />
               <span className="text-sm">+ Add Your First A+ Trading Model</span>
@@ -6888,12 +6888,15 @@ function App() {
                   onClick={() => setViewStrategyId(strategy.id)}
                   title="Drag to reorder — click to view"
                   className={cn(
-                    "group snap-start w-[calc((100%-4*1rem)/5)] min-w-[calc((100%-4*1rem)/5)] shrink-0 h-full flex flex-col border rounded-xl overflow-hidden cursor-grab active:cursor-grabbing bg-[#16181e] transition-all duration-200 ease-out text-left",
-                    dragOverStrategyId === strategy.id ? "border-sky-400 ring-2 ring-sky-400/60" : "border-zinc-800/70 hover:border-zinc-600",
+                    "group snap-start w-[calc((100%-4*1rem)/5)] min-w-[calc((100%-4*1rem)/5)] shrink-0 h-full flex flex-col border rounded-xl overflow-hidden cursor-grab active:cursor-grabbing transition-all duration-200 ease-out text-left",
+                    theme !== 'light' ? 'bg-zinc-900/40' : 'bg-white',
+                    dragOverStrategyId === strategy.id
+                      ? "border-sky-400 ring-2 ring-sky-400/60"
+                      : theme !== 'light' ? "border-zinc-800/80 hover:border-zinc-700" : "border-zinc-200 hover:border-zinc-300",
                     draggingStrategyId === strategy.id && "opacity-40"
                   )}
                 >
-                  <div className="aspect-video bg-zinc-800 flex items-center justify-center relative overflow-hidden flex-shrink-0">
+                  <div className={cn("aspect-video flex items-center justify-center relative overflow-hidden flex-shrink-0", tc.bgSecondary)}>
                     {strategy.images[0]?.url ? (
                       <img
                         src={strategy.images[0].url}
@@ -6901,7 +6904,7 @@ function App() {
                         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 pointer-events-none"
                       />
                     ) : (
-                      <div className="flex flex-col items-center gap-1.5 text-zinc-600">
+                      <div className={cn("flex flex-col items-center gap-1.5", tc.textMuted)}>
                         <ImageIcon className="w-7 h-7" />
                         <span className="text-[10px]">No image</span>
                       </div>
@@ -6911,41 +6914,43 @@ function App() {
                     </div>
                   </div>
                   <div className="p-3.5 min-w-0 flex-1 flex flex-col">
-                    <h4 className="font-semibold truncate tracking-tight text-sm min-w-0 text-white">{strategy.title}</h4>
+                    <h4 className={cn("font-semibold truncate tracking-tight text-sm min-w-0", tc.text)}>{strategy.title}</h4>
                   </div>
                 </button>
               ))}
             </div>
             </div>
             {strategies.length > 1 && (
-              <p className="text-[11px] text-zinc-600 mt-2">Drag a card to reorder — drop it first to pin it at the top of the gallery.</p>
+              <p className={cn("text-[11px] mt-2", tc.textMuted)}>Drag a card to reorder — drop it first to pin it at the top of the gallery.</p>
             )}
             </>
           )}
         </div>
 
         {/* SECTION 2: TRADING CHARTER & MANDATES — single unified, read-only card */}
-        <div className="min-w-0 bg-[#181920] border border-white/10 rounded-2xl p-6 shadow-xl">
+        <div className={cn(
+          "min-w-0 rounded-2xl p-6 shadow-xl border",
+          theme !== 'light' ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-white border-zinc-200'
+        )}>
           <div className="flex items-center justify-between flex-wrap gap-4 mb-6">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
                 <ShieldCheck className="w-5 h-5 text-emerald-400" strokeWidth={2} />
               </div>
               <div className="min-w-0">
-                <h3 className={cn("text-sm font-bold uppercase tracking-wide truncate", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>Trading Charter &amp; Mandates</h3>
-                <p className="text-xs text-zinc-500 truncate">Your core risk, execution &amp; psychology rules — read-only here, editable in Manage Rules.</p>
+                <h3 className={cn("text-sm font-bold uppercase tracking-wide truncate", tc.text)}>Trading Rules</h3>
               </div>
             </div>
             <button
               onClick={() => setShowManageRulesModal(true)}
-              className="inline-flex items-center px-3.5 py-2 bg-white hover:bg-zinc-200 text-black rounded-lg text-xs font-semibold transition-colors flex-shrink-0"
+              className={cn("inline-flex items-center px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors flex-shrink-0", tc.btnSecondary)}
             >
               <SlidersHorizontal className="w-4 h-4 mr-2" strokeWidth={2} />
               Manage Rules
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 divide-y md:divide-y-0 md:divide-x divide-white/5">
+          <div className={cn("grid grid-cols-1 md:grid-cols-3 gap-6 divide-y md:divide-y-0 md:divide-x", theme !== 'light' ? 'divide-zinc-800/80' : 'divide-zinc-200')}>
             <div className="min-w-0 pt-6 first:pt-0 md:pt-0 md:pr-6">
               {renderRulePillarColumn('risk')}
             </div>
@@ -6972,13 +6977,13 @@ function App() {
       <div className="min-w-0">
         <div className="flex items-center gap-1.5 mb-3 min-w-0">
           <meta.Icon className={cn("w-4 h-4 flex-shrink-0", meta.color)} strokeWidth={2} />
-          <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 truncate">{RULE_PILLAR_SHORT_LABEL[pillar]}</h4>
+          <h4 className={cn("text-xs font-bold uppercase tracking-wider truncate", tc.textSecondary)}>{RULE_PILLAR_SHORT_LABEL[pillar]}</h4>
         </div>
 
         {pillarRules.length === 0 ? (
-          <p className="text-xs text-zinc-600 italic">No mandates set.</p>
+          <p className={cn("text-xs italic", tc.textMuted)}>No mandates set.</p>
         ) : (
-          <div className="divide-y divide-white/5">
+          <div className={cn("divide-y", theme !== 'light' ? 'divide-white/5' : 'divide-zinc-200')}>
             {pillarRules.map(rule => {
               const violations = ruleViolationCounts[rule.id] || 0;
               const severityMeta = RULE_SEVERITY_META[rule.severity];
@@ -6986,7 +6991,7 @@ function App() {
                 <div key={rule.id} className="py-2 first:pt-0 last:pb-0">
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <h5 className="text-xs font-bold text-white truncate">{rule.title}</h5>
+                      <h5 className={cn("text-xs font-bold truncate", tc.text)}>{rule.title}</h5>
                       <span className={cn("text-[9px] px-1 py-0.5 rounded font-semibold uppercase tracking-wide leading-none", severityMeta.badge)}>{severityMeta.label}</span>
                     </div>
                     {violations > 0 && (
