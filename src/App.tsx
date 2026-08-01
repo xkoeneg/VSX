@@ -5887,28 +5887,52 @@ function App() {
                 </span>
               </div>
             ) : (
-              <div className="space-y-1.5 overflow-y-auto max-h-[280px] pr-0.5">
-                {pendingReviewTrades.map(trade => (
-                  <div
-                    key={trade.id}
-                    onClick={() => setShowDisciplineReview(trade.id)}
-                    className="p-2 bg-zinc-800/30 rounded-lg hover:bg-zinc-800/50 cursor-pointer transition-colors min-w-0"
-                  >
-                    <div className="flex items-center justify-between gap-2 min-w-0">
-                      <span className="text-xs font-semibold text-white truncate">{trade.symbol}</span>
-                      <span className={cn('text-xs font-mono font-medium flex-shrink-0', trade.profitLoss >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
-                        {formatCurrency(trade.profitLoss, privacyMode)}
-                      </span>
-                    </div>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setShowDisciplineReview(trade.id); }}
-                      className="mt-1.5 w-full flex items-center justify-center gap-1 px-2 py-1 rounded-md bg-violet-500/15 border border-violet-500/30 text-violet-300 text-[10px] font-medium hover:bg-violet-500/25 transition-colors"
+              <div
+                className="overflow-y-auto space-y-2.5 max-h-[290px] pr-1 overscroll-contain"
+                onWheel={(e) => e.stopPropagation()}
+              >
+                {pendingReviewTrades.map(trade => {
+                  const account = accounts.find(a => a.id === trade.accountId);
+                  const timeLabel = formatTimeDisplay(trade.startTime);
+                  return (
+                    <div
+                      key={trade.id}
+                      onClick={() => setShowDisciplineReview(trade.id)}
+                      className="p-2.5 bg-zinc-800/30 border border-zinc-700/40 rounded-lg hover:bg-zinc-800/50 hover:border-zinc-600/50 cursor-pointer transition-colors min-w-0"
                     >
-                      <Plus className="w-2.5 h-2.5" />
-                      Review
-                    </button>
-                  </div>
-                ))}
+                      {/* Top row: trade #, symbol, PnL */}
+                      <div className="flex items-center justify-between gap-2 min-w-0">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <TrackingBadge value={String(getDisplayTradeNumber(trade))} size="sm" />
+                          <span className="text-xs font-semibold text-white truncate">{trade.symbol}</span>
+                        </div>
+                        <span className={cn('text-xs font-mono font-semibold flex-shrink-0', trade.profitLoss > 0 ? 'text-emerald-400' : trade.profitLoss < 0 ? 'text-rose-400' : 'text-zinc-400')}>
+                          {formatCurrency(trade.profitLoss, privacyMode)}
+                        </span>
+                      </div>
+
+                      {/* Account name */}
+                      <p className="text-[11px] text-zinc-400 truncate mt-1">{formatAccountName(account) || account?.name || '—'}</p>
+
+                      {/* Session + date/time row */}
+                      <div className="flex items-center gap-1.5 mt-1.5 min-w-0">
+                        {trade.session && <SessionBadge value={trade.session} size="sm" />}
+                        <span className="text-[10px] text-zinc-500 font-mono truncate">
+                          {formatDate(trade.date)}
+                          {timeLabel && <span className="text-zinc-600"> · {timeLabel}</span>}
+                        </span>
+                      </div>
+
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setShowDisciplineReview(trade.id); }}
+                        className="mt-2 w-full flex items-center justify-center gap-1 px-2 py-1 rounded-md bg-violet-500/15 border border-violet-500/30 text-violet-300 text-[10px] font-medium hover:bg-violet-500/25 transition-colors"
+                      >
+                        <Plus className="w-2.5 h-2.5" />
+                        Review
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
