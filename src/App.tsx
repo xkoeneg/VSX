@@ -7332,7 +7332,7 @@ function App() {
 
         {/* HORIZONTAL PRE-SESSION PROTOCOL STRIP — full width, sits above Trading Rules */}
         <div className={cn(
-          "relative overflow-hidden min-w-0 border rounded-2xl px-5 py-4 shadow-md space-y-3 transition-colors duration-300",
+          "relative overflow-hidden min-w-0 border rounded-2xl px-5 py-4 shadow-md space-y-3 transition-colors duration-300 select-none",
           theme !== 'light'
             ? 'bg-gradient-to-br from-zinc-900 via-zinc-900/90 to-zinc-900/60 border-zinc-800'
             : 'bg-gradient-to-br from-white via-zinc-50 to-zinc-100 border-zinc-200'
@@ -7371,16 +7371,16 @@ function App() {
                     key={item.id}
                     type="button"
                     onClick={() => togglePreSessionItem(item.id)}
-                    className="flex items-center gap-2.5 group"
+                    className="flex items-center gap-2.5 group cursor-pointer select-none"
                   >
                     <span className={cn(
-                      "flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center border-2 transition-colors",
+                      "flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center border-2 transition-colors cursor-pointer select-none",
                       checked ? "bg-emerald-500 border-emerald-500" : cn("bg-transparent", tc.borderSecondary, theme !== 'light' ? 'group-hover:border-zinc-400' : 'group-hover:border-zinc-500')
                     )}>
                       {checked && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3.5} />}
                     </span>
                     <span className={cn(
-                      "text-xs font-medium whitespace-nowrap transition-colors",
+                      "text-xs font-medium whitespace-nowrap transition-colors cursor-pointer select-none",
                       checked ? cn(tc.textMuted, "line-through") : cn(tc.textSecondary, theme !== 'light' ? 'group-hover:text-white' : 'group-hover:text-zinc-900')
                     )}>
                       {item.label}
