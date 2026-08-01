@@ -6140,11 +6140,11 @@ function App() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="bg-zinc-800/20 border border-zinc-800/60 rounded-xl p-4 min-w-0">
               <h4 className="text-sm font-semibold text-violet-400 mb-3 flex items-center gap-1.5">
                 <Brain className="w-4 h-4 flex-shrink-0" />
-                <span className="truncate">Top Emotions This Week</span>
+                <span className="truncate">Top Emotions & State Breakdown</span>
               </h4>
               {topEmotions.length === 0 ? (
                 <p className="text-sm text-zinc-500 py-1">No emotions logged this week</p>
@@ -6167,7 +6167,7 @@ function App() {
                               style={{ width: `${(count / maxEmotionCount) * 100}%` }}
                             />
                           </div>
-                          <span className="text-xs text-zinc-500 font-mono flex-shrink-0">{winRate.toFixed(0)}% WR</span>
+                          <span className="text-xs text-zinc-500 font-mono flex-shrink-0">{count}x · {winRate.toFixed(0)}% WR</span>
                         </div>
                       </div>
                     );
@@ -6176,7 +6176,7 @@ function App() {
               )}
             </div>
 
-            <div className="md:pl-6 md:border-l md:border-zinc-800/70">
+            <div className="bg-zinc-800/20 border border-zinc-800/60 rounded-xl p-4 min-w-0">
               <h4 className="text-sm font-semibold text-rose-400 mb-3 flex items-center gap-1.5">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 <span className="truncate">Top Mistakes Committed</span>
