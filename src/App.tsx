@@ -5709,6 +5709,20 @@ function App() {
       miniCalendarDays.push({ day: d, trades: filteredTrades.filter(t => t.date === dateStr) });
     }
 
+    // Win Rate on Compliant Days — the win rate of trades logged on days where
+    // every single trade that day followed the rules (a "clean" day), across
+    // all filtered history (not limited to the mini-calendar's visible month).
+    const tradesByDate: Record<string, Trade[]> = {};
+    filteredTrades.forEach(t => {
+      (tradesByDate[t.date] = tradesByDate[t.date] || []).push(t);
+    });
+    const compliantDayTrades: Trade[] = Object.values(tradesByDate)
+      .filter(dayTrades => dayTrades.every(t => t.rulesFollowed === 'followed'))
+      .flat();
+    const compliantDayWinRate = compliantDayTrades.length > 0
+      ? (compliantDayTrades.filter(t => t.profitLoss > 0).length / compliantDayTrades.length) * 100
+      : 0;
+
     // Small pill row shown under a trade's P&L in the log: every logged emotion
     // (violet) then every mistake (red) — all of them, not just the first couple,
     // wrapping onto as many lines as needed since each trade row now has the
@@ -5748,21 +5762,21 @@ function App() {
         </div>
 
         {/* Discipline Analytics — Streak Progress Grid + Mini Discipline Calendar, side by side */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start mb-6">
           {/* Streak Progress Grid */}
-          <div className="bg-[#121318] border border-white/10 rounded-xl p-3.5 min-w-0">
-            <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-              <h3 className="text-xs font-semibold text-white flex items-center gap-1.5 truncate">
-                <Flame className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+          <div className="bg-[#121318] border border-white/10 rounded-xl p-5 min-w-0 h-auto">
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+              <h3 className="text-sm font-semibold text-white flex items-center gap-2 truncate">
+                <Flame className="w-4 h-4 text-amber-400 flex-shrink-0" />
                 STREAK PROGRESS
               </h3>
-              <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex items-center gap-1.5 flex-shrink-0">
                 {([30, 60, 90] as const).map(w => (
                   <button
                     key={w}
                     onClick={() => setStreakGridWindow(w)}
                     className={cn(
-                      'px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-colors',
+                      'px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors',
                       streakGridWindow === w
                         ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
                         : 'bg-zinc-800/60 border-zinc-700/60 text-zinc-500 hover:text-zinc-300 hover:border-zinc-600'
@@ -5774,29 +5788,29 @@ function App() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3 mb-3">
+            <div className="flex items-center gap-4 mb-4">
               <div>
-                <p className="text-[9px] uppercase tracking-wider text-zinc-500">Current Streak</p>
-                <p className="text-xs font-bold text-emerald-400 truncate">
+                <p className="text-[11px] uppercase tracking-wider text-zinc-500">Current Streak</p>
+                <p className="text-lg font-bold text-emerald-400 truncate">
                   {disciplineStreak} {disciplineStreak === 1 ? 'Trade' : 'Trades'}
                 </p>
               </div>
-              <div className="w-px h-6 bg-white/10 flex-shrink-0" />
+              <div className="w-px h-8 bg-white/10 flex-shrink-0" />
               <div>
-                <p className="text-[9px] uppercase tracking-wider text-zinc-500">Best Streak</p>
-                <p className="text-xs font-bold text-zinc-300 truncate">
+                <p className="text-[11px] uppercase tracking-wider text-zinc-500">Best Streak</p>
+                <p className="text-lg font-bold text-zinc-300 truncate">
                   {bestStreak} {bestStreak === 1 ? 'Trade' : 'Trades'}
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-1.5">
               {streakGridBlocks.map((block, i) => {
                 if (block.type === 'empty') {
                   return (
                     <div
                       key={`empty-${i}`}
-                      className="w-4 h-4 rounded text-[9px] flex items-center justify-center font-bold bg-zinc-800/40 border border-zinc-700/50 text-zinc-600"
+                      className="w-8 h-8 rounded-lg text-sm font-semibold flex items-center justify-center bg-zinc-800/40 border border-zinc-700/50 text-zinc-600"
                     />
                   );
                 }
@@ -5806,53 +5820,59 @@ function App() {
                     key={block.trade.id}
                     title={`${block.trade.date}: ${followed ? 'Rules Followed' : 'Rule Broken'}`}
                     className={cn(
-                      'w-4 h-4 rounded text-[9px] flex items-center justify-center font-bold border',
+                      'w-8 h-8 rounded-lg text-sm font-semibold flex items-center justify-center border',
                       followed
                         ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
                         : 'bg-rose-500/20 text-rose-400 border-rose-500/40'
                     )}
                   >
-                    {followed ? <Check className="w-2.5 h-2.5" /> : <X className="w-2.5 h-2.5" />}
+                    {followed ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
                   </div>
                 );
               })}
             </div>
+
+            {/* Subtle stat summary row */}
+            <div className="flex items-center gap-6 pt-3 mt-3 border-t border-white/5 text-xs text-zinc-400">
+              <span>Total Compliant Trades: <span className="text-zinc-200 font-semibold">{followedTrades.length}</span></span>
+              <span>Win Rate on Compliant Days: <span className="text-zinc-200 font-semibold">{compliantDayWinRate.toFixed(1)}%</span></span>
+            </div>
           </div>
 
           {/* Mini Discipline Calendar */}
-          <div className="bg-[#121318] border border-white/10 rounded-xl p-3.5 min-w-0">
-            <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-              <h3 className="text-xs font-semibold text-white flex items-center gap-1.5 truncate">
-                <Shield className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
+          <div className="bg-[#121318] border border-white/10 rounded-xl p-5 min-w-0 h-auto">
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+              <h3 className="text-sm font-semibold text-white flex items-center gap-2 truncate">
+                <Shield className="w-4 h-4 text-zinc-400 flex-shrink-0" />
                 MINI DISCIPLINE CALENDAR
               </h3>
-              <div className="flex items-center gap-1.5 flex-shrink-0">
+              <div className="flex items-center gap-2 flex-shrink-0">
                 <button
                   onClick={() => setDisciplineCalendarMonth(prev => prev.month === 0 ? { year: prev.year - 1, month: 11 } : { ...prev, month: prev.month - 1 })}
-                  className="p-1 bg-zinc-800 hover:bg-zinc-700 text-white rounded transition-colors"
+                  className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-md transition-colors"
                 >
-                  <ChevronLeft className="w-3 h-3" />
+                  <ChevronLeft className="w-3.5 h-3.5" />
                 </button>
-                <span className="text-[10px] font-medium text-zinc-300 whitespace-nowrap min-w-[70px] text-center">
+                <span className="text-xs font-medium text-zinc-300 whitespace-nowrap min-w-[92px] text-center">
                   {miniMonthNames[miniMonth]} {miniYear}
                 </span>
                 <button
                   onClick={() => setDisciplineCalendarMonth(prev => prev.month === 11 ? { year: prev.year + 1, month: 0 } : { ...prev, month: prev.month + 1 })}
-                  className="p-1 bg-zinc-800 hover:bg-zinc-700 text-white rounded transition-colors"
+                  className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-md transition-colors"
                 >
-                  <ChevronRight className="w-3 h-3" />
+                  <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-7 gap-0.5 max-w-[260px]">
+            <div className="grid grid-cols-7 gap-1.5 max-w-md mx-auto">
               {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
-                <div key={`${d}-${i}`} className="text-center text-[8px] text-zinc-500 font-medium py-0.5">
+                <div key={`${d}-${i}`} className="w-8 h-8 flex items-center justify-center text-[10px] text-zinc-500 font-medium">
                   {d}
                 </div>
               ))}
               {miniCalendarDays.map((cell, i) => {
-                if (cell.day === null) return <div key={`empty-${i}`} />;
+                if (cell.day === null) return <div key={`empty-${i}`} className="w-8 h-8" />;
                 const hasTrades = cell.trades.length > 0;
                 const followedCount = cell.trades.filter(t => t.rulesFollowed === 'followed').length;
                 const brokenCount = cell.trades.length - followedCount;
@@ -5866,7 +5886,7 @@ function App() {
                     key={i}
                     title={tooltip}
                     className={cn(
-                      'aspect-square rounded flex flex-col items-center justify-center gap-0 text-[9px] font-medium border transition-colors cursor-default',
+                      'w-8 h-8 rounded-lg flex flex-col items-center justify-center gap-0.5 text-xs font-medium border transition-colors cursor-default',
                       allFollowed && 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
                       anyBroken && 'bg-rose-500/10 border-rose-500/30 text-rose-300',
                       !hasTrades && 'bg-transparent border-transparent text-zinc-500'
