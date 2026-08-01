@@ -5184,13 +5184,11 @@ function App() {
             <button
               type="button"
               onClick={() => setTradeSubView('overview')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-white/5 transition-colors flex-shrink-0"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-200 hover:text-white transition-all text-xs font-medium cursor-pointer flex-shrink-0"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Back to Overview</span>
             </button>
-            <span className="text-zinc-700">/</span>
-            <span className="text-zinc-500 truncate">Trade History</span>
             <span className="text-zinc-700">/</span>
             <span className="text-white font-medium truncate">All Trades Database</span>
           </div>
