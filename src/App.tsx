@@ -145,6 +145,14 @@ interface Rule {
   pillar: RulePillar;
 }
 
+interface Strategy {
+  id: string;
+  title: string;
+  market: string; // e.g. "NYC / NQ" — market/session tag
+  steps: string; // step-by-step entry rules, one step per line
+  imageUrl: string; // ideal A+ chart example
+}
+
 interface ChatMessage {
   id: string;
   text: string;
@@ -285,6 +293,14 @@ const RULE_PILLAR_META: Record<RulePillar, { label: string; icon: string; accent
   risk: { label: 'Risk & Capital Rules', icon: '🛡️', accent: 'border-t-sky-500', iconBg: 'bg-sky-500/10' },
   execution: { label: 'Execution Rules', icon: '⚡', accent: 'border-t-amber-500', iconBg: 'bg-amber-500/10' },
   psychology: { label: 'Psychology Rules', icon: '🧠', accent: 'border-t-violet-500', iconBg: 'bg-violet-500/10' },
+};
+
+// Short category header labels for the Core Trading Mandates document view
+// (drops the trailing " Rules" from the pillar meta label above).
+const RULE_PILLAR_SHORT_LABEL: Record<RulePillar, string> = {
+  risk: 'Risk & Capital',
+  execution: 'Execution',
+  psychology: 'Psychology',
 };
 
 // ---- Rules Playbook: severity tiers ----
@@ -460,6 +476,14 @@ const normalizeRule = (r: any): Rule => ({
   pillar: RULE_PILLARS.includes(r?.pillar) ? r.pillar : guessRulePillar(r),
 });
 
+const normalizeStrategy = (s: any): Strategy => ({
+  id: typeof s?.id === 'string' ? s.id : generateId(),
+  title: normalizeStringField(s?.title),
+  market: normalizeStringField(s?.market),
+  steps: normalizeStringField(s?.steps),
+  imageUrl: normalizeStringField(s?.imageUrl),
+});
+
 const normalizeChatMessage = (m: any): ChatMessage => ({
   id: typeof m?.id === 'string' ? m.id : generateId(),
   text: normalizeStringField(m?.text),
@@ -513,6 +537,7 @@ interface StoredData {
   accounts: Account[];
   trades: Trade[];
   rules: Rule[];
+  strategies: Strategy[];
   notices: MarketNotice[];
   noticeScenarios: ScenarioRow[];
   wikiEntries: WikiEntry[];
@@ -534,6 +559,7 @@ const migrateStoredData = (raw: any): StoredData => {
     accounts: Array.isArray(data.accounts) ? data.accounts.map(normalizeAccount) : [],
     trades: Array.isArray(data.trades) ? normalizeTrades(data.trades) : [],
     rules: Array.isArray(data.rules) ? data.rules.map(normalizeRule) : [],
+    strategies: Array.isArray(data.strategies) ? data.strategies.map(normalizeStrategy) : [],
     notices: Array.isArray(data.notices) ? data.notices.map(normalizeNotice) : [],
     noticeScenarios: Array.isArray(data.noticeScenarios) ? data.noticeScenarios.map(normalizeScenario) : [],
     wikiEntries: Array.isArray(data.wikiEntries) ? data.wikiEntries.map(normalizeWiki) : [],
@@ -2514,6 +2540,7 @@ function App() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [rules, setRules] = useState<Rule[]>([]);
+  const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [notices, setNotices] = useState<MarketNotice[]>([]);
   const [noticeScenarios, setNoticeScenarios] = useState<ScenarioRow[]>([]);
   const [wikiEntries, setWikiEntries] = useState<WikiEntry[]>([]);
@@ -2542,6 +2569,10 @@ function App() {
   const [showRuleReviewModal, setShowRuleReviewModal] = useState<string | null>(null);
   const [isEditingRuleReview, setIsEditingRuleReview] = useState(false);
   const [showAddRule, setShowAddRule] = useState(false);
+  const [showAddStrategy, setShowAddStrategy] = useState(false);
+  const [newStrategy, setNewStrategy] = useState<{ title: string; market: string; steps: string; imageUrl: string }>({ title: '', market: '', steps: '', imageUrl: '' });
+  const [editingStrategyId, setEditingStrategyId] = useState<string | null>(null);
+  const strategyImageInputRef = useRef<HTMLInputElement>(null);
   const [showAddNotice, setShowAddNotice] = useState(false);
   const [activeNoticeId, setActiveNoticeId] = useState<string | null>(null);
   const [noticeDraftMessage, setNoticeDraftMessage] = useState('');
@@ -2708,6 +2739,7 @@ function App() {
         setAccounts(migrated.accounts);
         setTrades(migrated.trades);
         setRules(migrated.rules);
+        setStrategies(migrated.strategies);
         setNotices(migrated.notices);
         setNoticeScenarios(migrated.noticeScenarios);
         setWikiEntries(migrated.wikiEntries);
@@ -2727,13 +2759,13 @@ function App() {
 
   // Save to localStorage
   useEffect(() => {
-    const data: StoredData = { version: DATA_SCHEMA_VERSION, accounts, trades, rules, notices, noticeScenarios, wikiEntries, setupTypes, confluences, mistakesList, emotionsList, customSymbols };
+    const data: StoredData = { version: DATA_SCHEMA_VERSION, accounts, trades, rules, strategies, notices, noticeScenarios, wikiEntries, setupTypes, confluences, mistakesList, emotionsList, customSymbols };
     try {
       localStorage.setItem('tradingJournal', JSON.stringify(data));
     } catch (e) {
       console.error('Failed to save data:', e);
     }
-  }, [accounts, trades, rules, notices, noticeScenarios, wikiEntries, setupTypes, confluences, mistakesList, emotionsList, customSymbols]);
+  }, [accounts, trades, rules, strategies, notices, noticeScenarios, wikiEntries, setupTypes, confluences, mistakesList, emotionsList, customSymbols]);
 
   // ---- Life Discipline Hub persistence ----
   // Kept in its own localStorage key, deliberately separate from the trading
@@ -3448,6 +3480,47 @@ function App() {
 
   const handleDeleteRule = (id: string) => setRules(rules.filter(r => r.id !== id));
 
+  const handleStrategyImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setNewStrategy(prev => ({ ...prev, imageUrl: ev.target?.result as string }));
+    reader.readAsDataURL(file);
+  };
+
+  const openAddStrategyModal = () => {
+    setEditingStrategyId(null);
+    setNewStrategy({ title: '', market: '', steps: '', imageUrl: '' });
+    setShowAddStrategy(true);
+  };
+
+  const openEditStrategyModal = (strategy: Strategy) => {
+    setEditingStrategyId(strategy.id);
+    setNewStrategy({ title: strategy.title, market: strategy.market, steps: strategy.steps, imageUrl: strategy.imageUrl });
+    setShowAddStrategy(true);
+  };
+
+  const closeStrategyModal = () => {
+    setShowAddStrategy(false);
+    setEditingStrategyId(null);
+    setNewStrategy({ title: '', market: '', steps: '', imageUrl: '' });
+  };
+
+  const handleSaveStrategy = () => {
+    if (!newStrategy.title.trim()) return;
+    if (editingStrategyId) {
+      setStrategies(prev => prev.map(s => s.id === editingStrategyId
+        ? { ...s, title: newStrategy.title.trim(), market: newStrategy.market.trim(), steps: newStrategy.steps, imageUrl: newStrategy.imageUrl }
+        : s
+      ));
+    } else {
+      setStrategies(prev => [...prev, { id: generateId(), title: newStrategy.title.trim(), market: newStrategy.market.trim(), steps: newStrategy.steps, imageUrl: newStrategy.imageUrl }]);
+    }
+    closeStrategyModal();
+  };
+
+  const handleDeleteStrategy = (id: string) => setStrategies(prev => prev.filter(s => s.id !== id));
+
   const handleNoticeImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -3699,6 +3772,7 @@ function App() {
       accounts,
       trades,
       rules,
+      strategies,
       notices,
       noticeScenarios,
       wikiEntries,
@@ -3764,6 +3838,7 @@ function App() {
         setAccounts(migrated.accounts);
         setTrades(migrated.trades);
         setRules(migrated.rules);
+        setStrategies(migrated.strategies);
         setNotices(migrated.notices);
         setNoticeScenarios(migrated.noticeScenarios);
         setWikiEntries(migrated.wikiEntries);
@@ -6487,109 +6562,229 @@ function App() {
     );
   };
 
-  const renderPlaybook = () => (
-    <div className="space-y-4 min-w-0">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="min-w-0">
-          <h2 className={cn("text-2xl font-bold truncate", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>Rules Playbook</h2>
-          <p className="text-zinc-500 text-sm truncate">Your command center — logged trades passively track violations, no checklists required</p>
+  const renderPlaybook = () => {
+    const criticalRuleCount = rules.filter(r => r.severity === 'critical').length;
+
+    return (
+      <div className="space-y-6 min-w-0">
+        {/* HEADER */}
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="min-w-0">
+            <h2 className={cn("text-2xl font-bold truncate", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>Rules &amp; Strategy Playbook</h2>
+            <p className="text-zinc-500 text-sm truncate">Your Trading Bible — Core execution mandates and active strategy models.</p>
+          </div>
+          <button onClick={() => openAddRuleModal('risk')} className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors flex-shrink-0">
+            <Plus className="w-4 h-4" />
+            <span>Add Rule</span>
+          </button>
         </div>
-        <button onClick={() => openAddRuleModal('risk')} className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors flex-shrink-0">
-          <Plus className="w-4 h-4" />
-          <span>Add Rule</span>
-        </button>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-start">
-        {RULE_PILLARS.map(pillar => {
-          const meta = RULE_PILLAR_META[pillar];
-          const pillarRules = rules.filter(r => r.pillar === pillar);
-          return (
-            <div
-              key={pillar}
-              className={cn(
-                "rounded-xl border-t-4 flex flex-col min-w-0",
-                meta.accent,
-                theme !== 'light' ? 'bg-zinc-900/40 border-x border-b border-zinc-800' : 'bg-white border-x border-b border-zinc-200'
-              )}
-            >
-              <div className={cn("flex items-center justify-between gap-2 px-3 py-2.5 border-b", theme !== 'light' ? 'border-zinc-800/60' : 'border-zinc-200')}>
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className={cn("w-6 h-6 rounded-md flex items-center justify-center text-sm flex-shrink-0", meta.iconBg)}>{meta.icon}</span>
-                  <h3 className={cn("text-sm font-bold truncate", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>{meta.label}</h3>
-                  <span className="text-[10px] text-zinc-500 flex-shrink-0">{pillarRules.length}</span>
-                </div>
-                <button
-                  onClick={() => openAddRuleModal(pillar)}
-                  title={`Add ${meta.label}`}
-                  className={cn("p-1 rounded transition-colors flex-shrink-0", theme !== 'light' ? 'text-zinc-500 hover:text-white hover:bg-zinc-800' : 'text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100')}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-              </div>
+        {/* TRADING CHARTER / MANIFESTO HERO */}
+        <div className="bg-[#181920] border border-white/10 p-5 rounded-xl shadow-lg flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-start gap-3 min-w-0">
+            <span className="text-2xl leading-none flex-shrink-0">🛡️</span>
+            <p className="text-sm sm:text-[15px] text-zinc-300 leading-relaxed">
+              <span className="font-bold text-white">CAPITAL PRESERVATION IS PRIORITY #1.</span>{' '}
+              A single broken rule invalidates the entire session.
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20 flex-shrink-0 self-start lg:self-auto">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+            {criticalRuleCount} Critical Rule{criticalRuleCount === 1 ? '' : 's'} Active
+          </span>
+        </div>
 
-              <div className="p-3 space-y-2 flex-1">
-                {pillarRules.length === 0 ? (
-                  <button
-                    onClick={() => openAddRuleModal(pillar)}
-                    className={cn(
-                      "w-full text-center py-6 px-2 text-xs rounded-lg border border-dashed transition-colors",
-                      theme !== 'light' ? 'text-zinc-600 hover:text-zinc-400 border-zinc-800 hover:border-zinc-700' : 'text-zinc-400 hover:text-zinc-600 border-zinc-300 hover:border-zinc-400'
-                    )}
-                  >
-                    + Add your first rule
-                  </button>
-                ) : pillarRules.map(rule => {
-                  const violations = ruleViolationCounts[rule.id] || 0;
-                  const severityMeta = RULE_SEVERITY_META[rule.severity];
-                  return (
-                    <div
-                      key={rule.id}
-                      className={cn(
-                        "group relative rounded-lg p-2.5 border transition-colors",
-                        theme !== 'light' ? 'bg-zinc-900/60 border-zinc-800 hover:border-zinc-700' : 'bg-zinc-50 border-zinc-200 hover:border-zinc-300'
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <div className="min-w-0 flex-1 flex items-center gap-1.5">
-                          <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", severityMeta.dot)} title={severityMeta.label} />
-                          <h4 className={cn("text-sm font-semibold truncate", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>{rule.title}</h4>
-                        </div>
-                        <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => openEditRuleModal(rule)} className={cn("p-1 rounded", theme !== 'light' ? 'text-zinc-500 hover:text-white' : 'text-zinc-400 hover:text-zinc-900')}>
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button onClick={() => handleDeleteRule(rule.id)} className="p-1 rounded text-zinc-500 hover:text-rose-400">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+        {/* SECTION 1: CORE RULES BIBLE — asymmetric 2-column split */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* LEFT: Core Mandates document */}
+          <div className="lg:col-span-8 min-w-0 rounded-xl border border-white/10 bg-[#181920] shadow-lg overflow-hidden">
+            <div className="px-5 py-4 border-b border-white/10">
+              <h3 className="text-sm font-bold text-white tracking-wide">📜 CORE TRADING MANDATES</h3>
+            </div>
+            <div className="p-5 space-y-6">
+              {RULE_PILLARS.map(pillar => {
+                const meta = RULE_PILLAR_META[pillar];
+                const pillarRules = rules.filter(r => r.pillar === pillar);
+                return (
+                  <div key={pillar} className="min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm flex-shrink-0">{meta.icon}</span>
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 truncate">{RULE_PILLAR_SHORT_LABEL[pillar]}</h4>
                       </div>
+                      <button
+                        onClick={() => openAddRuleModal(pillar)}
+                        title={`Add ${meta.label}`}
+                        className="p-1 rounded text-zinc-500 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
 
-                      {rule.description && (
-                        <p className={cn("text-xs line-clamp-2 mb-2", theme !== 'light' ? 'text-zinc-500' : 'text-zinc-500')}>{rule.description}</p>
+                    {pillarRules.length === 0 ? (
+                      <button
+                        onClick={() => openAddRuleModal(pillar)}
+                        className="w-full text-center py-4 px-2 text-xs rounded-lg border border-dashed border-white/10 text-zinc-600 hover:text-zinc-400 hover:border-white/20 transition-colors"
+                      >
+                        + Add your first rule
+                      </button>
+                    ) : (
+                      <div className="divide-y divide-white/5">
+                        {pillarRules.map(rule => {
+                          const violations = ruleViolationCounts[rule.id] || 0;
+                          const severityMeta = RULE_SEVERITY_META[rule.severity];
+                          return (
+                            <div key={rule.id} className="group py-3 first:pt-0 last:pb-0">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
+                                  <h5 className="text-sm font-bold text-white">{rule.title}</h5>
+                                  <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide", severityMeta.badge)}>{severityMeta.label}</span>
+                                  {rule.category && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-zinc-400 truncate max-w-[8rem]">{rule.category}</span>
+                                  )}
+                                  {violations > 0 && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/20 font-semibold flex items-center gap-0.5">
+                                      ⚠️ Violated {violations}x
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button onClick={() => openEditRuleModal(rule)} className="p-1 rounded text-zinc-500 hover:text-white">
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button onClick={() => handleDeleteRule(rule.id)} className="p-1 rounded text-zinc-500 hover:text-rose-400">
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                              {rule.description && (
+                                <p className="text-xs text-zinc-500 mt-1">Rationale: {rule.description}</p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* RIGHT: Quick Reference Parameters */}
+          <div className="lg:col-span-4 min-w-0 space-y-3">
+            <h3 className="text-sm font-bold text-white tracking-wide px-1">⚡ QUICK REFERENCE PARAMETERS</h3>
+
+            <div className="rounded-xl border border-white/10 bg-[#181920] shadow-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-7 h-7 rounded-md bg-rose-500/10 flex items-center justify-center flex-shrink-0">
+                  <DollarSign className="w-3.5 h-3.5 text-rose-400" />
+                </span>
+                <span className="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">Max Daily Risk</span>
+              </div>
+              <p className="text-base font-bold text-white">$100.00 / 2 Losses Max</p>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-[#181920] shadow-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-7 h-7 rounded-md bg-sky-500/10 flex items-center justify-center flex-shrink-0">
+                  <Clock className="w-3.5 h-3.5 text-sky-400" />
+                </span>
+                <span className="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">Trading Window</span>
+              </div>
+              <p className="text-base font-bold text-white">09:30 AM - 11:30 AM EST</p>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-[#181920] shadow-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-7 h-7 rounded-md bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+                </span>
+                <span className="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">Violation Penalty</span>
+              </div>
+              <p className="text-base font-bold text-white">Immediate platform shutdown for the session</p>
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 2: ACTIVE STRATEGY MODELS */}
+        <div className="min-w-0 space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <h3 className={cn("text-lg font-bold truncate", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>⚔️ Active Strategy Models</h3>
+            <button onClick={openAddStrategyModal} className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors flex-shrink-0">
+              <Plus className="w-4 h-4" />
+              <span>Add Strategy Model</span>
+            </button>
+          </div>
+
+          {strategies.length === 0 ? (
+            <button
+              onClick={openAddStrategyModal}
+              className="w-full flex flex-col items-center justify-center gap-2 py-14 rounded-xl border border-dashed border-zinc-700 text-zinc-500 hover:text-zinc-300 hover:border-zinc-500 transition-all"
+            >
+              <Plus className="w-5 h-5" />
+              <span className="text-sm">+ Add Your First A+ Trading Model</span>
+            </button>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {strategies.map(strategy => {
+                const steps = strategy.steps.split('\n').map(s => s.trim()).filter(Boolean);
+                return (
+                  <div key={strategy.id} className="group rounded-xl border border-zinc-800 bg-zinc-900/50 overflow-hidden flex flex-col min-w-0">
+                    <div
+                      className={cn(
+                        "aspect-video w-full bg-zinc-950 border-b border-zinc-800 flex items-center justify-center overflow-hidden relative",
+                        strategy.imageUrl && "cursor-pointer"
                       )}
-
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium", severityMeta.badge)}>{severityMeta.label}</span>
-                        {rule.category && (
-                          <span className={cn("text-[10px] px-1.5 py-0.5 rounded truncate max-w-[8rem]", theme !== 'light' ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-200 text-zinc-600')}>{rule.category}</span>
-                        )}
-                        {violations > 0 && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/20 font-semibold flex items-center gap-0.5">
-                            ⚠️ Violated {violations}x
-                          </span>
-                        )}
+                      onClick={() => strategy.imageUrl && setLightboxImage(strategy.imageUrl)}
+                    >
+                      {strategy.imageUrl ? (
+                        <img src={strategy.imageUrl} alt={`${strategy.title} A+ example`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      ) : (
+                        <div className="flex flex-col items-center gap-1.5 text-zinc-700">
+                          <ImageIcon className="w-6 h-6" />
+                          <span className="text-[11px]">No A+ example yet</span>
+                        </div>
+                      )}
+                      <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openEditStrategyModal(strategy); }}
+                          className="p-1.5 rounded-lg bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-white"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteStrategy(strategy.id); }}
+                          className="p-1.5 rounded-lg bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-rose-400"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                    <div className="p-4 flex-1 flex flex-col gap-2.5 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <h4 className="text-sm font-bold text-white truncate">{strategy.title}</h4>
+                        {strategy.market && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20 flex-shrink-0 whitespace-nowrap">{strategy.market}</span>
+                        )}
+                      </div>
+                      {steps.length > 0 ? (
+                        <ol className="text-xs text-zinc-400 space-y-1 list-decimal list-inside">
+                          {steps.map((step, i) => <li key={i}>{step}</li>)}
+                        </ol>
+                      ) : (
+                        <p className="text-xs text-zinc-600 italic">No entry rules added yet.</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderNotices = () => {
     const activeNotice = notices.find(n => n.id === activeNoticeId) || null;
@@ -9124,6 +9319,57 @@ function App() {
     )
   );
 
+  const renderAddStrategyModal = () => (
+    showAddStrategy && (
+      <ModalBackdrop
+        onClose={closeStrategyModal}
+        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
+      >
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+          <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
+            <h3 className="text-lg font-bold text-white truncate">{editingStrategyId ? 'Edit Strategy Model' : 'Add Strategy Model'}</h3>
+            <button onClick={closeStrategyModal} className="p-1 text-zinc-400 hover:text-white">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="p-6 space-y-4">
+            <div>
+              <label className="block text-sm text-zinc-400 mb-2">Ideal A+ Chart Example</label>
+              <button
+                type="button"
+                onClick={() => strategyImageInputRef.current?.click()}
+                className="w-full aspect-video rounded-lg border border-dashed border-zinc-700 hover:border-zinc-500 flex flex-col items-center justify-center gap-2 text-zinc-500 hover:text-zinc-300 transition-all overflow-hidden bg-zinc-950"
+              >
+                {newStrategy.imageUrl ? (
+                  <img src={newStrategy.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                ) : (
+                  <>
+                    <ImagePlus className="w-5 h-5" />
+                    <span className="text-xs">Upload chart example</span>
+                  </>
+                )}
+              </button>
+              <input ref={strategyImageInputRef} type="file" accept="image/*" className="hidden" onChange={handleStrategyImagePick} />
+            </div>
+            <div>
+              <label className="block text-sm text-zinc-400 mb-2">Strategy Title</label>
+              <input type="text" value={newStrategy.title} onChange={(e) => setNewStrategy(prev => ({ ...prev, title: e.target.value }))} placeholder="NY Open Liquidity Sweep" className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600" />
+            </div>
+            <div>
+              <label className="block text-sm text-zinc-400 mb-2">Market / Session <span className="text-zinc-600">(e.g. "NYC / NQ")</span></label>
+              <input type="text" value={newStrategy.market} onChange={(e) => setNewStrategy(prev => ({ ...prev, market: e.target.value }))} placeholder="NYC / NQ" className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600" />
+            </div>
+            <div>
+              <label className="block text-sm text-zinc-400 mb-2">Step-by-Step Entry Rules <span className="text-zinc-600">(one step per line)</span></label>
+              <textarea value={newStrategy.steps} onChange={(e) => setNewStrategy(prev => ({ ...prev, steps: e.target.value }))} placeholder={"Wait for liquidity sweep of prior session low\nConfirm shift in structure on 1m\nEnter on retest of order block"} rows={4} className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600 resize-none" />
+            </div>
+            <button type="button" onClick={handleSaveStrategy} disabled={!newStrategy.title.trim()} className="w-full py-2.5 bg-white hover:bg-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed text-black rounded-lg text-sm font-medium transition-colors">{editingStrategyId ? 'Save Changes' : 'Add Strategy Model'}</button>
+          </div>
+        </div>
+      </ModalBackdrop>
+    )
+  );
+
   const renderAddNoticeModal = () => (
     showAddNotice && (
       <ModalBackdrop
@@ -9686,6 +9932,7 @@ function App() {
       {renderRuleAdherenceReviewModal()}
       {renderExpandGallery()}
       {renderAddRuleModal()}
+      {renderAddStrategyModal()}
       {renderAddNoticeModal()}
       {renderAddScenarioModal()}
       {renderAddWikiModal()}
