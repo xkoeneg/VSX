@@ -5944,19 +5944,22 @@ function App() {
                           </p>
 
                           {/* Daily trades list */}
-                          <div className="space-y-2 max-h-56 overflow-y-auto">
+                          <div className="border-t border-white/10 pt-3 mt-2 max-h-56 overflow-y-auto">
                             {cell.trades.map(t => {
                               const tradeAccount = accounts.find(a => a.id === t.accountId);
                               return (
-                                <div key={t.id} className="bg-white/[0.03] border border-white/5 rounded-lg p-2">
+                                <div key={t.id} className="py-2.5 border-b border-white/10 last:border-0">
                                   <div className="flex items-center justify-between gap-2">
                                     <span className="text-xs font-semibold text-white truncate">
                                       {t.symbol}
                                       {t.session && <span className="text-zinc-500 font-normal"> · {t.session}</span>}
                                       {tradeAccount && (
-                                        <span className="text-sky-400 font-medium text-xs">
-                                          {'  |  '}{tradeAccount.name}
-                                        </span>
+                                        <>
+                                          <span className="mx-1.5 text-zinc-500">|</span>
+                                          <span className="text-sky-400 font-medium text-xs">
+                                            {tradeAccount.name}
+                                          </span>
+                                        </>
                                       )}
                                     </span>
                                     <span className={cn('text-xs font-bold font-mono flex-shrink-0', t.profitLoss >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
@@ -5964,7 +5967,7 @@ function App() {
                                     </span>
                                   </div>
                                   {((t.mistakes && t.mistakes.length > 0) || (t.emotions && t.emotions.length > 0)) && (
-                                    <div className="flex flex-wrap gap-1 mt-1.5">
+                                    <div className="flex flex-wrap gap-1.5 mt-1.5">
                                       {(t.emotions || []).map(e => (
                                         <span key={`e-${e}`} className="px-1.5 py-0.5 rounded-full bg-violet-500/15 border border-violet-500/25 text-violet-300 text-[10px] font-medium">
                                           {e}
@@ -5991,7 +5994,7 @@ function App() {
                               setDbPage(0);
                               setOpenDisciplineDay(null);
                             }}
-                            className="w-full flex items-center justify-center gap-1.5 mt-3 pt-3 border-t border-white/5 text-xs font-medium text-zinc-400 hover:text-white transition-colors"
+                            className="w-full flex items-center justify-center gap-1.5 mt-2 pt-3 border-t border-white/10 text-xs font-medium text-zinc-400 hover:text-white transition-colors"
                           >
                             View in Trade History
                             <ArrowUpRight className="w-3 h-3" />
