@@ -6574,49 +6574,48 @@ function App() {
           </div>
         </div>
 
-        {/* SECTION 1: ACTIVE STRATEGY MODELS — compact gallery row */}
+        {/* SECTION 1: ACTIVE STRATEGY MODELS — clean image-focused gallery */}
         <div className="min-w-0 space-y-3">
-          <h3 className={cn("text-sm font-bold tracking-wide", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>⚔️ ACTIVE STRATEGY MODELS</h3>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <h3 className={cn("text-sm font-bold tracking-wide", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>⚔️ ACTIVE STRATEGY MODELS</h3>
+            <button onClick={openAddStrategyModal} className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs transition-colors flex-shrink-0">
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Strategy</span>
+            </button>
+          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Card #1 — always the compact Add Strategy action card */}
+          {strategies.length === 0 ? (
             <button
               onClick={openAddStrategyModal}
-              className="h-[170px] flex flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-zinc-700 text-zinc-500 hover:text-zinc-300 hover:border-zinc-500 transition-all flex-shrink-0"
+              className="w-full flex flex-col items-center justify-center gap-2 py-12 rounded-xl border border-dashed border-zinc-700 text-zinc-500 hover:text-zinc-300 hover:border-zinc-500 transition-all"
             >
-              <span className="w-8 h-8 rounded-full border border-dashed border-zinc-700 flex items-center justify-center">
-                <Plus className="w-4 h-4" />
-              </span>
-              <span className="text-xs font-medium">+ Add Strategy</span>
+              <Plus className="w-5 h-5" />
+              <span className="text-sm">+ Add Your First A+ Trading Model</span>
             </button>
-
-            {strategies.map(strategy => (
-              <button
-                key={strategy.id}
-                onClick={() => setViewStrategyId(strategy.id)}
-                className="group h-[170px] flex flex-col rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-zinc-700 overflow-hidden text-left transition-colors min-w-0"
-              >
-                {/* Top half — chart thumbnail */}
-                <div className="h-[85px] w-full flex-shrink-0 bg-zinc-950 border-b border-zinc-800 flex items-center justify-center overflow-hidden">
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {strategies.map(strategy => (
+                <button
+                  key={strategy.id}
+                  onClick={() => setViewStrategyId(strategy.id)}
+                  className="group relative h-44 w-full rounded-xl overflow-hidden border border-white/10 text-left flex-shrink-0"
+                >
                   {strategy.imageUrl ? (
-                    <img src={strategy.imageUrl} alt={`${strategy.title} A+ example`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    <img
+                      src={strategy.imageUrl}
+                      alt={`${strategy.title} A+ example`}
+                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
                   ) : (
-                    <ImageIcon className="w-5 h-5 text-zinc-700" />
+                    <div className="absolute inset-0 w-full h-full bg-[#181920]" />
                   )}
-                </div>
-                {/* Bottom half — title, market badge, view details */}
-                <div className="flex-1 min-h-0 px-3 py-2 flex flex-col justify-between gap-1 min-w-0">
-                  <div className="flex items-start justify-between gap-1.5 min-w-0">
-                    <h4 className="text-xs font-bold text-white truncate leading-tight">{strategy.title}</h4>
-                    {strategy.market && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20 flex-shrink-0 whitespace-nowrap">{strategy.market}</span>
-                    )}
+                  <div className="absolute bottom-0 inset-x-0 p-3 bg-[#181920]/90 border-t border-white/5 backdrop-blur-sm rounded-b-xl">
+                    <h4 className="text-sm font-bold text-white text-left truncate leading-none">{strategy.title}</h4>
                   </div>
-                  <span className="text-[10px] text-zinc-500 group-hover:text-zinc-300 transition-colors">View Details →</span>
-                </div>
-              </button>
-            ))}
-          </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* SECTION 2: CORE TRADING RULES BIBLE — unified, full-width, 3-column */}
