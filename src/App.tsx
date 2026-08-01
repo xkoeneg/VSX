@@ -6598,7 +6598,7 @@ function App() {
                 <button
                   key={strategy.id}
                   onClick={() => setViewStrategyId(strategy.id)}
-                  className="group h-full flex flex-col border border-zinc-800/70 hover:border-zinc-600 rounded-xl overflow-hidden cursor-pointer bg-[#16181e] transition-all duration-200 ease-out min-w-0 shadow-[0_10px_30px_rgba(0,0,0,0.8)] hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(0,0,0,0.9)] text-left"
+                  className="group h-full flex flex-col border border-zinc-800/70 hover:border-zinc-600 rounded-xl overflow-hidden cursor-pointer bg-[#16181e] transition-all duration-200 ease-out min-w-0 hover:-translate-y-0.5 text-left"
                 >
                   <div className="aspect-video bg-zinc-800 flex items-center justify-center relative overflow-hidden flex-shrink-0">
                     {strategy.imageUrl ? (
