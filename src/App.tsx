@@ -89,7 +89,6 @@ import {
   Quote,
   RefreshCw,
   ListChecks,
-  AlertOctagon,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -7334,66 +7333,68 @@ function App() {
           </div>
         </div>
 
-        {/* HORIZONTAL PRE-SESSION PROTOCOL STRIP — full width, sits above the Emergency Banner */}
-        <div className="min-w-0 bg-[#181920] border border-white/10 rounded-xl px-5 py-3 shadow-md flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-              <ListChecks className="w-3.5 h-3.5 text-emerald-400" strokeWidth={2} />
-            </div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 whitespace-nowrap">Pre-Session Protocol</h3>
-            <span className={cn(
-              "text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 whitespace-nowrap",
-              preSessionCompletedCount === PRE_SESSION_CHECKLIST_ITEMS.length
-                ? "bg-emerald-500/15 text-emerald-400"
-                : "bg-white/5 text-zinc-500"
-            )}>
-              {preSessionCompletedCount}/{PRE_SESSION_CHECKLIST_ITEMS.length} Ready
-            </span>
-            {preSessionCompletedCount === PRE_SESSION_CHECKLIST_ITEMS.length && (
-              <button
-                type="button"
-                onClick={resetPreSessionChecklist}
-                className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 transition-colors whitespace-nowrap flex-shrink-0"
-              >
-                Reset
-              </button>
-            )}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-6 sm:gap-8">
-            {PRE_SESSION_CHECKLIST_ITEMS.map(item => {
-              const checked = !!preSessionChecklist[item.id];
-              return (
+        {/* HORIZONTAL PRE-SESSION PROTOCOL STRIP — full width, sits above Trading Rules */}
+        <div className="min-w-0 bg-[#181920] border border-white/10 rounded-xl px-5 py-3 shadow-md space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                <ListChecks className="w-3.5 h-3.5 text-emerald-400" strokeWidth={2} />
+              </div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 whitespace-nowrap">Pre-Session Protocol</h3>
+              <span className={cn(
+                "text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 whitespace-nowrap",
+                preSessionCompletedCount === PRE_SESSION_CHECKLIST_ITEMS.length
+                  ? "bg-emerald-500/15 text-emerald-400"
+                  : "bg-white/5 text-zinc-500"
+              )}>
+                {preSessionCompletedCount}/{PRE_SESSION_CHECKLIST_ITEMS.length} Ready
+              </span>
+              {preSessionCompletedCount === PRE_SESSION_CHECKLIST_ITEMS.length && (
                 <button
-                  key={item.id}
                   type="button"
-                  onClick={() => togglePreSessionItem(item.id)}
-                  className="flex items-center gap-2.5 group"
+                  onClick={resetPreSessionChecklist}
+                  className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 transition-colors whitespace-nowrap flex-shrink-0"
                 >
-                  <span className={cn(
-                    "flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center border-2 transition-colors",
-                    checked ? "bg-emerald-500 border-emerald-500" : "bg-transparent border-zinc-600 group-hover:border-zinc-400"
-                  )}>
-                    {checked && <Check className="w-2.5 h-2.5 text-zinc-950" strokeWidth={3.5} />}
-                  </span>
-                  <span className={cn(
-                    "text-xs font-medium whitespace-nowrap transition-colors",
-                    checked ? "text-zinc-500 line-through" : "text-zinc-300 group-hover:text-white"
-                  )}>
-                    {item.label}
-                  </span>
+                  Reset
                 </button>
-              );
-            })}
-          </div>
-        </div>
+              )}
+            </div>
 
-        {/* EMERGENCY CIRCUIT BREAKER BANNER */}
-        <div className="min-w-0 flex items-center gap-3 rounded-xl px-4 py-3 bg-red-500/[0.07] border border-red-500/25">
-          <AlertOctagon className="w-5 h-5 text-red-400 flex-shrink-0" strokeWidth={2} />
-          <p className="text-xs sm:text-sm font-semibold tracking-wide text-red-400 truncate">
-            MAX 2 LOSSES = IMMEDIATE PLATFORM CLOSURE
-          </p>
+            <div className="flex flex-wrap items-center gap-6 sm:gap-8">
+              {PRE_SESSION_CHECKLIST_ITEMS.map(item => {
+                const checked = !!preSessionChecklist[item.id];
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => togglePreSessionItem(item.id)}
+                    className="flex items-center gap-2.5 group"
+                  >
+                    <span className={cn(
+                      "flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center border-2 transition-colors",
+                      checked ? "bg-emerald-500 border-emerald-500" : "bg-transparent border-zinc-600 group-hover:border-zinc-400"
+                    )}>
+                      {checked && <Check className="w-2.5 h-2.5 text-zinc-950" strokeWidth={3.5} />}
+                    </span>
+                    <span className={cn(
+                      "text-xs font-medium whitespace-nowrap transition-colors",
+                      checked ? "text-zinc-500 line-through" : "text-zinc-300 group-hover:text-white"
+                    )}>
+                      {item.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          <div className="w-full h-1.5 rounded-full overflow-hidden bg-white/5">
+            <div
+              className="h-full bg-emerald-500 transition-all duration-300 ease-out rounded-full"
+              style={{ width: `${(preSessionCompletedCount / PRE_SESSION_CHECKLIST_ITEMS.length) * 100}%` }}
+            />
+          </div>
         </div>
 
         {/* SECTION 2: TRADING CHARTER & MANDATES — single unified, read-only card */}
