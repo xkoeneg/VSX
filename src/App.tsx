@@ -5761,10 +5761,10 @@ function App() {
           {renderStatCard('Avg Loss (Broken)', brokenTrades.length > 0 ? formatCurrency(brokenTrades.reduce((s, t) => s + t.profitLoss, 0) / brokenTrades.length, privacyMode) : '$0.00', <AlertCircle className="w-4 h-4" />, 'text-rose-400')}
         </div>
 
-        {/* Discipline Analytics — Streak Progress Grid + Mini Discipline Calendar, side by side, equal height */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch mb-6">
-          {/* Streak Progress Grid */}
-          <div className="bg-[#121318] border border-white/10 rounded-xl p-5 min-w-0 h-full flex flex-col justify-between">
+        {/* Discipline Analytics — Streak Progress Grid + Mini Discipline Calendar, asymmetric 60/40 split, equal height */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-stretch mb-6">
+          {/* Streak Progress Grid — 60% width so the block grid has room to breathe */}
+          <div className="lg:col-span-3 bg-[#121318] border border-white/10 rounded-xl p-5 min-w-0 h-full flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
                 <h3 className="text-sm font-semibold text-white flex items-center gap-2 truncate">
@@ -5845,8 +5845,8 @@ function App() {
             </div>
           </div>
 
-          {/* Mini Discipline Calendar */}
-          <div className="bg-[#121318] border border-white/10 rounded-xl p-5 min-w-0 h-full flex flex-col justify-between">
+          {/* Mini Discipline Calendar — 40% width, compact and sleek */}
+          <div className="lg:col-span-2 bg-[#121318] border border-white/10 rounded-xl p-5 min-w-0 h-full flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
                 <h3 className="text-sm font-semibold text-white flex items-center gap-2 truncate">
@@ -5872,14 +5872,14 @@ function App() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-7 gap-1.5">
+              <div className="grid grid-cols-7 gap-1">
                 {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
                   <div key={`${d}-${i}`} className="text-center text-[10px] text-zinc-500 font-medium py-1">
                     {d}
                   </div>
                 ))}
                 {miniCalendarDays.map((cell, i) => {
-                  if (cell.day === null) return <div key={`empty-${i}`} />;
+                  if (cell.day === null) return <div key={`empty-${i}`} className="h-9" />;
                   const hasTrades = cell.trades.length > 0;
                   const followedCount = cell.trades.filter(t => t.rulesFollowed === 'followed').length;
                   const brokenCount = cell.trades.length - followedCount;
@@ -5893,15 +5893,15 @@ function App() {
                       key={i}
                       title={tooltip}
                       className={cn(
-                        'w-full aspect-square flex flex-col items-center justify-center gap-1 rounded-lg border transition-colors cursor-default',
+                        'h-9 flex flex-col items-center justify-center gap-0.5 rounded-md border transition-colors cursor-default',
                         allFollowed && 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
                         anyBroken && 'bg-rose-500/10 border-rose-500/30 text-rose-300',
                         !hasTrades && 'border-white/5 bg-white/[0.02] hover:bg-white/5 text-zinc-500'
                       )}
                     >
-                      <span className="text-sm font-medium">{cell.day}</span>
+                      <span className="text-xs font-medium">{cell.day}</span>
                       {hasTrades && (
-                        <span className={cn('w-1.5 h-1.5 rounded-full', anyBroken ? 'bg-rose-400' : 'bg-emerald-400')} />
+                        <span className={cn('w-1 h-1 rounded-full', anyBroken ? 'bg-rose-400' : 'bg-emerald-400')} />
                       )}
                     </div>
                   );
