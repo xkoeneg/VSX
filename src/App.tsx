@@ -5956,7 +5956,7 @@ function App() {
                           </p>
 
                           {/* Daily trades list */}
-                          <div className="border-t border-white/10 pt-3 mt-2 max-h-56 overflow-y-auto">
+                          <div className="border-t border-white/10 pt-3 mt-2 max-h-56 overflow-y-auto overscroll-contain">
                             {cell.trades.map(t => {
                               const tradeAccount = accounts.find(a => a.id === t.accountId);
                               return (
