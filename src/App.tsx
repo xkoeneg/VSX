@@ -7194,10 +7194,10 @@ function App() {
               </button>
             ) : (
               <>
-              <div className="overflow-hidden">
+              <div className="overflow-hidden flex-1">
               <div
                 ref={strategyCarouselRef}
-                className="custom-slider-scrollbar flex flex-nowrap overflow-x-auto snap-x snap-mandatory scroll-smooth gap-4 pb-2"
+                className="custom-slider-scrollbar flex flex-nowrap overflow-x-auto snap-x snap-mandatory scroll-smooth gap-4 pb-2 h-full"
               >
                 {strategies.map(strategy => (
                   <button
@@ -7254,9 +7254,6 @@ function App() {
                 ))}
               </div>
               </div>
-              {strategies.length > 1 && (
-                <p className={cn("text-[11px] mt-2", tc.textMuted)}>Drag a card to reorder — drop it first to pin it at the top of the gallery.</p>
-              )}
               </>
             )}
           </div>
