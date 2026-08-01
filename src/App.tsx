@@ -5730,6 +5730,18 @@ function App() {
       ? (compliantDayTrades.filter(t => t.profitLoss > 0).length / compliantDayTrades.length) * 100
       : 0;
 
+    // Popover account label — shows just the clean base name (e.g. "Main")
+    // when no other account shares that prefix, and falls back to the full
+    // "Base - Identifier" name whenever two or more accounts share a prefix
+    // (e.g. "Main - 101" vs "Main - 202") so they stay distinguishable.
+    const formatAccountName = (account: Account | undefined): string => {
+      if (!account) return '';
+      const baseOf = (name: string) => (name.includes(' - ') ? name.split(' - ')[0].trim() : name.trim());
+      const base = baseOf(account.name);
+      const sharedPrefixCount = accounts.filter(a => baseOf(a.name) === base).length;
+      return sharedPrefixCount > 1 ? account.name : base;
+    };
+
     // Small pill row shown under a trade's P&L in the log: every logged emotion
     // (violet) then every mistake (red) — all of them, not just the first couple,
     // wrapping onto as many lines as needed since each trade row now has the
@@ -5957,7 +5969,7 @@ function App() {
                                         <>
                                           <span className="mx-1.5 text-zinc-500">|</span>
                                           <span className="text-sky-400 font-medium text-xs">
-                                            {tradeAccount.name}
+                                            {formatAccountName(tradeAccount)}
                                           </span>
                                         </>
                                       )}
