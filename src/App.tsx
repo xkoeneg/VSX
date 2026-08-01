@@ -5864,10 +5864,57 @@ function App() {
           {renderStatCard('Avg Loss (Broken)', brokenTrades.length > 0 ? formatCurrency(brokenTrades.reduce((s, t) => s + t.profitLoss, 0) / brokenTrades.length, privacyMode) : '$0.00', <AlertCircle className="w-4 h-4" />, 'text-rose-400')}
         </div>
 
-        {/* Discipline Analytics — Streak Progress Grid + Mini Discipline Calendar, asymmetric 60/40 split, equal height */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-stretch mb-6">
-          {/* Streak Progress Grid — 60% width so the block grid has room to breathe */}
-          <div className="lg:col-span-3 bg-[#121318] border border-white/10 rounded-xl p-5 min-w-0 h-full flex flex-col">
+        {/* Discipline Analytics — Trades Needing Review + Streak Progress + Mini Discipline Calendar, unified 3-column row, equal height */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch mb-6">
+          {/* Trades Needing Review — thin left column, sleek compact list of unreviewed trades */}
+          <div className="lg:col-span-3 h-full flex flex-col bg-[#121318] border border-white/10 rounded-xl p-4 min-w-0">
+            <div className="flex items-center justify-between gap-2 mb-3 flex-shrink-0">
+              <h3 className="text-xs font-semibold text-white flex items-center gap-1.5 truncate">
+                <span>⚠️</span>
+                <span className="truncate">Pending Review</span>
+              </h3>
+              {pendingReviewTrades.length > 0 && (
+                <span className="text-[10px] font-mono font-semibold text-amber-300 flex-shrink-0 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-amber-500/15 border border-amber-500/30">
+                  {pendingReviewTrades.length}
+                </span>
+              )}
+            </div>
+
+            {pendingReviewTrades.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center">
+                <span className="text-xs font-medium text-zinc-500 px-3 py-1.5 rounded-full bg-zinc-800/50 border border-zinc-700/50 whitespace-nowrap">
+                  🎉 0 Pending
+                </span>
+              </div>
+            ) : (
+              <div className="space-y-1.5 overflow-y-auto max-h-[280px] pr-0.5">
+                {pendingReviewTrades.map(trade => (
+                  <div
+                    key={trade.id}
+                    onClick={() => setShowDisciplineReview(trade.id)}
+                    className="p-2 bg-zinc-800/30 rounded-lg hover:bg-zinc-800/50 cursor-pointer transition-colors min-w-0"
+                  >
+                    <div className="flex items-center justify-between gap-2 min-w-0">
+                      <span className="text-xs font-semibold text-white truncate">{trade.symbol}</span>
+                      <span className={cn('text-xs font-mono font-medium flex-shrink-0', trade.profitLoss >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
+                        {formatCurrency(trade.profitLoss, privacyMode)}
+                      </span>
+                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setShowDisciplineReview(trade.id); }}
+                      className="mt-1.5 w-full flex items-center justify-center gap-1 px-2 py-1 rounded-md bg-violet-500/15 border border-violet-500/30 text-violet-300 text-[10px] font-medium hover:bg-violet-500/25 transition-colors"
+                    >
+                      <Plus className="w-2.5 h-2.5" />
+                      Review
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Streak Progress Grid — center column */}
+          <div className="lg:col-span-5 bg-[#121318] border border-white/10 rounded-xl p-5 min-w-0 h-full flex flex-col">
             <div className="flex-1 min-h-0 flex flex-col">
               <div className="flex items-center justify-between flex-wrap gap-2 mb-4 flex-shrink-0">
                 <h3 className="text-sm font-semibold text-white flex items-center gap-2 truncate">
@@ -5949,8 +5996,8 @@ function App() {
             </div>
           </div>
 
-          {/* Mini Discipline Calendar — 40% width, compact and sleek */}
-          <div className="lg:col-span-2 bg-[#121318] border border-white/10 rounded-xl p-5 min-w-0 h-full flex flex-col justify-between select-none">
+          {/* Mini Discipline Calendar — right column, compact and sleek */}
+          <div className="lg:col-span-4 bg-[#121318] border border-white/10 rounded-xl p-5 min-w-0 h-full flex flex-col justify-between select-none">
             <div>
               <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
                 <h3 className="text-sm font-semibold text-white flex items-center gap-2 truncate">
@@ -6120,59 +6167,6 @@ function App() {
               </span>
             </div>
           </div>
-        </div>
-
-        {/* Trades Needing Review — recent trades with no emotion/mistake tags logged yet */}
-        <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-5 min-w-0">
-          <h3 className="text-base font-semibold text-white flex items-center gap-2 mb-4">
-            <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
-            <span className="truncate">Trades Needing Review</span>
-            {pendingReviewTrades.length > 0 && (
-              <span className="text-xs font-mono text-zinc-400 flex-shrink-0 px-2 py-0.5 rounded bg-zinc-800/60 ml-auto">
-                {pendingReviewTrades.length}
-              </span>
-            )}
-          </h3>
-
-          {pendingReviewTrades.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
-              <span className="text-2xl">🎉</span>
-              <p className="text-sm text-zinc-500">All trades tagged! Great job.</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {pendingReviewTrades.map(trade => (
-                <div
-                  key={trade.id}
-                  onClick={() => setShowDisciplineReview(trade.id)}
-                  className="flex items-center justify-between gap-3 p-3 bg-zinc-800/30 rounded-lg hover:bg-zinc-800/50 cursor-pointer transition-colors min-w-0"
-                >
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <TrackingBadge value={trade.trackingNumber} size="sm" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-white truncate">
-                        {trade.symbol}
-                        {trade.session && <span className="text-zinc-500 font-normal"> · {trade.session}</span>}
-                      </p>
-                      <p className="text-xs text-zinc-500 truncate">{formatDate(trade.date)}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    <span className={cn('font-mono font-medium text-sm', trade.profitLoss >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
-                      {formatCurrency(trade.profitLoss, privacyMode)}
-                    </span>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setShowDisciplineReview(trade.id); }}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-violet-500/15 border border-violet-500/30 text-violet-300 text-xs font-medium hover:bg-violet-500/25 transition-colors flex-shrink-0"
-                    >
-                      <Plus className="w-3 h-3" />
-                      Tag Discipline
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Psychology & Behavioral Analytics — now positioned above the log, full width, two columns */}
