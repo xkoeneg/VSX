@@ -6399,8 +6399,8 @@ function App() {
             <Shield className="w-4 h-4 text-zinc-400 flex-shrink-0" />
             <span className="truncate">Rule Adherence Log</span>
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="flex flex-col min-w-0">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="flex flex-col w-full min-w-0">
               <div className="flex items-center justify-between mb-3 pb-3 border-b border-zinc-800/70 flex-shrink-0">
                 <span className="flex items-center gap-1.5 text-sm font-semibold text-emerald-400 truncate">
                   <CheckCircle2 className="w-4 h-4 flex-shrink-0" /> Followed
@@ -6441,7 +6441,7 @@ function App() {
               </div>
             </div>
 
-            <div className="flex flex-col min-w-0 md:pl-6 md:border-l md:border-zinc-800/70">
+            <div className="flex flex-col w-full min-w-0">
               <div className="flex items-center justify-between mb-3 pb-3 border-b border-zinc-800/70 flex-shrink-0">
                 <span className="flex items-center gap-1.5 text-sm font-semibold text-rose-400 truncate">
                   <XCircle className="w-4 h-4 flex-shrink-0" /> Broken
