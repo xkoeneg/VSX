@@ -5893,7 +5893,11 @@ function App() {
               >
                 {pendingReviewTrades.map(trade => {
                   const account = accounts.find(a => a.id === trade.accountId);
-                  const timeLabel = formatTimeDisplay(trade.startTime);
+                  const startLabel = formatTimeDisplay(trade.startTime);
+                  const endLabel = formatTimeDisplay(trade.endTime);
+                  const timeLabel = startLabel && endLabel
+                    ? `${startLabel} – ${endLabel}`
+                    : startLabel || endLabel;
                   return (
                     <div
                       key={trade.id}
@@ -5903,7 +5907,7 @@ function App() {
                       {/* Top row: trade #, symbol, PnL */}
                       <div className="flex items-center justify-between gap-2 min-w-0">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <TrackingBadge value={String(getDisplayTradeNumber(trade))} size="sm" />
+                          {trade.trackingNumber && <TrackingBadge value={trade.trackingNumber} size="sm" />}
                           <span className="text-xs font-semibold text-white truncate">{trade.symbol}</span>
                         </div>
                         <span className={cn('text-xs font-mono font-semibold flex-shrink-0', trade.profitLoss > 0 ? 'text-emerald-400' : trade.profitLoss < 0 ? 'text-rose-400' : 'text-zinc-400')}>
