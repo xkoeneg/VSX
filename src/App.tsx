@@ -7138,7 +7138,7 @@ function App() {
 
   const renderPlaybook = () => {
     return (
-      <div className="space-y-6 min-w-0">
+      <div className="space-y-4 min-w-0">
         {/* HEADER */}
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="min-w-0">
@@ -7147,11 +7147,11 @@ function App() {
           </div>
         </div>
 
-        {/* TOP ROW: STRATEGY MODELS + DAILY CREED — flexible 3-col grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-w-0">
+        {/* TOP ROW: STRATEGY MODELS + DAILY CREED — equal-height 3-col grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch min-w-0">
 
           {/* SECTION 1: ACTIVE STRATEGY MODELS — clean image-focused gallery */}
-          <div className="min-w-0 space-y-3 lg:col-span-2">
+          <div className="min-w-0 space-y-3 lg:col-span-2 h-full flex flex-col">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <h3 className={cn("text-sm font-bold tracking-wide flex items-center gap-1.5", tc.text)}>
                 <Layers className="w-4 h-4 text-emerald-400" strokeWidth={2} />
@@ -7188,7 +7188,7 @@ function App() {
             {strategies.length === 0 ? (
               <button
                 onClick={openAddStrategyModal}
-                className={cn("w-full flex flex-col items-center justify-center gap-2 py-12 rounded-xl border border-dashed transition-all", tc.border, tc.textMuted, theme !== 'light' ? 'hover:text-zinc-300 hover:border-zinc-500' : 'hover:text-zinc-600 hover:border-zinc-400')}
+                className={cn("w-full flex-1 flex flex-col items-center justify-center gap-2 py-12 rounded-xl border border-dashed transition-all", tc.border, tc.textMuted, theme !== 'light' ? 'hover:text-zinc-300 hover:border-zinc-500' : 'hover:text-zinc-600 hover:border-zinc-400')}
               >
                 <Plus className="w-5 h-5" />
                 <span className="text-sm">+ Add Your First A+ Trading Model</span>
@@ -7262,11 +7262,9 @@ function App() {
             )}
           </div>
 
-          {/* SECTION 1b: DAILY TRADING CREED + PRE-SESSION PROTOCOL — right rail */}
-          <div className="min-w-0 space-y-4 lg:col-span-1">
-
-            {/* Quote Card — dark glassmorphism */}
-            <div className="bg-[#181920] border border-emerald-500/20 rounded-2xl p-6 relative overflow-hidden">
+          {/* SECTION 1b: DAILY TRADING CREED — quote card, matches Strategy Models column height */}
+          <div className="min-w-0 lg:col-span-1 h-full">
+            <div className="h-full flex flex-col bg-[#181920] border border-emerald-500/20 rounded-2xl p-6 relative overflow-hidden">
               <Quote className="absolute -top-2 -right-1 w-20 h-20 text-emerald-500/10" strokeWidth={1.5} />
               <div className="relative flex items-center justify-between gap-2 mb-4">
                 <div className="flex items-center gap-2">
@@ -7296,13 +7294,13 @@ function App() {
               </div>
 
               {isEditingCreed ? (
-                <div className="relative space-y-3">
+                <div className="relative space-y-3 flex-1 flex flex-col">
                   <textarea
                     value={creedDraft}
                     onChange={(e) => setCreedDraft(e.target.value)}
                     rows={4}
                     autoFocus
-                    className="w-full bg-zinc-950/60 border border-emerald-500/20 rounded-lg p-3 text-sm italic text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 resize-none"
+                    className="w-full flex-1 bg-zinc-950/60 border border-emerald-500/20 rounded-lg p-3 text-sm italic text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 resize-none"
                     placeholder="Write today's trading creed..."
                   />
                   <div className="flex items-center justify-end gap-2">
@@ -7326,84 +7324,67 @@ function App() {
                   </div>
                 </div>
               ) : (
-                <p className="relative text-[15px] leading-relaxed italic text-white/90 font-medium">
-                  "{dailyCreed}"
-                </p>
-              )}
-            </div>
-
-            {/* Pre-Session Checklist Widget */}
-            <div className={cn(
-              "rounded-2xl p-5 border",
-              theme !== 'light' ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-white border-zinc-200'
-            )}>
-              <div className="flex items-center justify-between gap-2 mb-3">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-                    <ListChecks className="w-4 h-4 text-emerald-400" strokeWidth={2} />
-                  </div>
-                  <h3 className={cn("text-xs font-bold uppercase tracking-wider truncate", tc.text)}>Pre-Session Protocol</h3>
+                <div className="relative flex-1 flex items-center">
+                  <p className="text-[15px] leading-relaxed italic text-white/90 font-medium">
+                    "{dailyCreed}"
+                  </p>
                 </div>
-                <span className={cn(
-                  "text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0",
-                  preSessionCompletedCount === PRE_SESSION_CHECKLIST_ITEMS.length
-                    ? "bg-emerald-500/15 text-emerald-400"
-                    : cn(tc.bgSecondary, tc.textMuted)
-                )}>
-                  {preSessionCompletedCount}/{PRE_SESSION_CHECKLIST_ITEMS.length} Ready
-                </span>
-              </div>
-
-              {/* Progress bar */}
-              <div className={cn("w-full h-1.5 rounded-full overflow-hidden mb-4", tc.bgSecondary)}>
-                <div
-                  className="h-full bg-emerald-500 transition-all duration-300 ease-out rounded-full"
-                  style={{ width: `${(preSessionCompletedCount / PRE_SESSION_CHECKLIST_ITEMS.length) * 100}%` }}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                {PRE_SESSION_CHECKLIST_ITEMS.map(item => {
-                  const checked = !!preSessionChecklist[item.id];
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => togglePreSessionItem(item.id)}
-                      className={cn(
-                        "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors",
-                        checked ? "bg-emerald-500/10" : tc.bgHover
-                      )}
-                    >
-                      <span className={cn(
-                        "flex-shrink-0 w-4 h-4 rounded flex items-center justify-center border transition-colors",
-                        checked ? "bg-emerald-500 border-emerald-500" : cn(tc.border, "bg-transparent")
-                      )}>
-                        {checked && <Check className="w-3 h-3 text-zinc-950" strokeWidth={3} />}
-                      </span>
-                      <span className={cn(
-                        "text-xs font-medium truncate",
-                        checked ? cn(tc.textMuted, "line-through") : tc.text
-                      )}>
-                        {item.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {preSessionCompletedCount === PRE_SESSION_CHECKLIST_ITEMS.length ? (
-                <button
-                  type="button"
-                  onClick={resetPreSessionChecklist}
-                  className="w-full mt-3 text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
-                >
-                  All set — reset for next session
-                </button>
-              ) : (
-                <p className={cn("text-[11px] mt-3", tc.textMuted)}>Complete all checks before entering a live trade.</p>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* HORIZONTAL PRE-SESSION PROTOCOL STRIP — full width, sits above the Emergency Banner */}
+        <div className="min-w-0 bg-[#181920] border border-white/10 rounded-xl px-5 py-3 shadow-md flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+              <ListChecks className="w-3.5 h-3.5 text-emerald-400" strokeWidth={2} />
+            </div>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 whitespace-nowrap">Pre-Session Protocol</h3>
+            <span className={cn(
+              "text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 whitespace-nowrap",
+              preSessionCompletedCount === PRE_SESSION_CHECKLIST_ITEMS.length
+                ? "bg-emerald-500/15 text-emerald-400"
+                : "bg-white/5 text-zinc-500"
+            )}>
+              {preSessionCompletedCount}/{PRE_SESSION_CHECKLIST_ITEMS.length} Ready
+            </span>
+            {preSessionCompletedCount === PRE_SESSION_CHECKLIST_ITEMS.length && (
+              <button
+                type="button"
+                onClick={resetPreSessionChecklist}
+                className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 transition-colors whitespace-nowrap flex-shrink-0"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-6 sm:gap-8">
+            {PRE_SESSION_CHECKLIST_ITEMS.map(item => {
+              const checked = !!preSessionChecklist[item.id];
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => togglePreSessionItem(item.id)}
+                  className="flex items-center gap-2.5 group"
+                >
+                  <span className={cn(
+                    "flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center border-2 transition-colors",
+                    checked ? "bg-emerald-500 border-emerald-500" : "bg-transparent border-zinc-600 group-hover:border-zinc-400"
+                  )}>
+                    {checked && <Check className="w-2.5 h-2.5 text-zinc-950" strokeWidth={3.5} />}
+                  </span>
+                  <span className={cn(
+                    "text-xs font-medium whitespace-nowrap transition-colors",
+                    checked ? "text-zinc-500 line-through" : "text-zinc-300 group-hover:text-white"
+                  )}>
+                    {item.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
