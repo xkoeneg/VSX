@@ -5662,24 +5662,37 @@ function App() {
       .slice(0, 8);
     const maxMistakeCount = topMistakes[0]?.count || 1;
 
-    // Current Discipline Streak: consecutive "Rules Followed" trades counting
-    // back from the most recently logged trade (by actual creation time, not
-    // whatever the Trade History sort dropdown happens to be set to), stopping
-    // the instant a "Rules Broken" trade is hit.
-    const chronoTrades = [...filteredTrades].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    // Current Discipline Streak — based on actual TRADING DAYS, not individual
+    // trades, so a rest day (weekend, no trades logged) never breaks the chain.
+    // A trading day only counts as "Compliant" when every trade logged that
+    // date followed the rules; one broken-rule trade makes the whole day break
+    // the streak. Days are ordered chronologically by calendar date, and only
+    // dates with at least one logged trade are considered "trading days" —
+    // gaps between them (weekends, days off) are simply skipped over.
+    const tradingDaysMap: Record<string, Trade[]> = {};
+    filteredTrades.forEach(t => {
+      (tradingDaysMap[t.date] = tradingDaysMap[t.date] || []).push(t);
+    });
+    const tradingDayCompliance = Object.entries(tradingDaysMap)
+      .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
+      .map(([date, dayTrades]) => ({
+        date,
+        compliant: dayTrades.every(t => t.rulesFollowed === 'followed'),
+      }));
+
     let disciplineStreak = 0;
-    for (let i = chronoTrades.length - 1; i >= 0; i--) {
-      if (chronoTrades[i].rulesFollowed === 'followed') disciplineStreak++;
+    for (let i = tradingDayCompliance.length - 1; i >= 0; i--) {
+      if (tradingDayCompliance[i].compliant) disciplineStreak++;
       else break;
     }
 
-    // Best Streak: the longest run of consecutive "Rules Followed" trades
+    // Best Streak: the longest run of consecutive compliant trading days
     // anywhere in the filtered history, not just the current active run.
     let bestStreak = 0;
     {
       let run = 0;
-      chronoTrades.forEach(t => {
-        if (t.rulesFollowed === 'followed') {
+      tradingDayCompliance.forEach(d => {
+        if (d.compliant) {
           run++;
           bestStreak = Math.max(bestStreak, run);
         } else {
@@ -5687,9 +5700,10 @@ function App() {
         }
       });
     }
+    const totalCompliantDays = tradingDayCompliance.filter(d => d.compliant).length;
 
-    // Streak Progress — milestone tier checkpoints the current streak can
-    // unlock, used by the Level Tier Milestone Progression card below.
+    // Streak Progress — milestone tier the current streak of compliant
+    // trading days has unlocked, shown in the card's bottom stats footer.
     const streakTiers: Array<{ days: number; label: string }> = [
       { days: 7, label: 'Novice' },
       { days: 30, label: 'Consistent' },
@@ -5697,7 +5711,6 @@ function App() {
       { days: 90, label: 'Elite Fund Manager' },
     ];
     const activeStreakTier = [...streakTiers].reverse().find(t => disciplineStreak >= t.days);
-    const streakProgressPct = Math.min((disciplineStreak / streakGridWindow) * 100, 100);
 
     // Mini Discipline Calendar — its own month browser (independent of the
     // Performance Calendar page), laid out Monday-first. Each day cell reflects
@@ -5823,45 +5836,34 @@ function App() {
                 </div>
               </div>
 
-              {/* Milestone Progress Bar — glowing emerald fill tracking current streak against the selected target window */}
-              <div className="mt-4">
-                <div className="flex items-center justify-between mb-2 text-[11px] text-zinc-500">
-                  <span>Progress to {streakGridWindow}-Day Milestone</span>
-                  <span className="text-emerald-400 font-semibold">{Math.round(streakProgressPct)}%</span>
-                </div>
-                <div className="h-3 w-full bg-zinc-800/80 rounded-full overflow-hidden relative">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.5)] transition-all duration-500"
-                    style={{ width: `${streakProgressPct}%` }}
-                  />
-                </div>
-
-                {/* Tier Milestone Checkpoints */}
-                <div className="flex flex-wrap gap-1.5 mt-3">
-                  {streakTiers.map(tier => {
-                    const unlocked = disciplineStreak >= tier.days;
-                    return (
-                      <span
-                        key={tier.days}
-                        className={cn(
-                          'flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold border transition-colors',
-                          unlocked
-                            ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 shadow-[0_0_8px_rgba(52,211,153,0.25)]'
-                            : 'bg-zinc-800/50 border-zinc-700/50 text-zinc-500'
-                        )}
-                      >
-                        {unlocked ? <Check className="w-3 h-3 flex-shrink-0" /> : <span className="w-3 h-3 flex-shrink-0" />}
-                        {tier.days}D {tier.label}
-                      </span>
-                    );
-                  })}
-                </div>
+              {/* GitHub-style contribution pills — one per trading day within the
+                  selected 30/60/90 window. Green pills fill in from the left for
+                  each consecutive compliant trading day in the current streak;
+                  the rest stay muted dark as the remaining target days. If the
+                  streak breaks, the fill simply resets back to 0 and starts
+                  filling fresh green pills from the left again — never red. */}
+              <div className="flex flex-wrap gap-1.5">
+                {Array.from({ length: streakGridWindow }, (_, i) => {
+                  const filled = i < disciplineStreak;
+                  return (
+                    <div
+                      key={i}
+                      title={filled ? `Day ${i + 1}: Compliant Trading Day` : `Day ${i + 1}: Target`}
+                      className={cn(
+                        'w-5 h-5 rounded-md border transition-colors',
+                        filled
+                          ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50'
+                          : 'bg-zinc-800/40 border-zinc-700/40'
+                      )}
+                    />
+                  );
+                })}
               </div>
             </div>
 
             {/* Subtle stat summary row — pinned to the bottom to match the calendar's legend footer */}
             <div className="flex items-center gap-6 pt-3 mt-3 border-t border-white/5 text-xs text-zinc-400">
-              <span>Total Compliant Days: <span className="text-zinc-200 font-semibold">{followedTrades.length}</span></span>
+              <span>Total Compliant Days: <span className="text-zinc-200 font-semibold">{totalCompliantDays}</span></span>
               <span>Milestone Tier: <span className="text-amber-400 font-semibold">{activeStreakTier ? activeStreakTier.label : 'Unranked'}</span></span>
             </div>
           </div>
