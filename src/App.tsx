@@ -4658,7 +4658,7 @@ function App() {
   const renderSidebarContent = (isMobile: boolean) => {
     const collapsed = !isMobile && sidebarCollapsed;
     return (
-      <div className="flex flex-col h-full w-full justify-between px-3.5 py-4">
+      <div className="flex flex-col h-full w-full justify-between px-3.5 py-4 select-none">
         {/* TOP GROUP: logo/header row + primary nav items, strictly stacked */}
         <div className="flex flex-col gap-1 w-full min-h-0">
           <div className={cn("pb-4 mb-2 border-b w-full", theme !== 'light' ? 'border-zinc-800' : 'border-zinc-200')}>
@@ -4675,10 +4675,10 @@ function App() {
                 </div>
                 {!collapsed && (
                   <div className="min-w-0 flex-1">
-                    <h1 className={cn("font-bold text-lg uppercase tracking-wider leading-none truncate", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>
+                    <h1 className={cn("font-bold text-lg uppercase tracking-wider leading-none truncate select-none", theme !== 'light' ? 'text-white' : 'text-zinc-900')}>
                       VSX
                     </h1>
-                    <p className={cn("text-[10px] font-medium uppercase tracking-widest truncate mt-0.5", theme !== 'light' ? 'text-zinc-500' : 'text-zinc-500')}>
+                    <p className={cn("text-[10px] font-medium uppercase tracking-widest truncate mt-0.5 select-none", theme !== 'light' ? 'text-zinc-500' : 'text-zinc-500')}>
                       Trading Journal
                     </p>
                   </div>
@@ -4716,7 +4716,7 @@ function App() {
             {[
               {
                 header: 'TRADING',
-                headerClassName: 'text-[10px] font-semibold text-zinc-500 uppercase tracking-wider px-3.5 mt-6 mb-2',
+                headerClassName: 'text-[10px] font-semibold text-zinc-500 uppercase tracking-wider px-3.5 mt-6 mb-2 select-none',
                 items: [
                   { id: 'dashboard' as ViewType, icon: LayoutDashboard, label: 'Dashboard' },
                   { id: 'trades' as ViewType, icon: TrendingUp, label: 'Trade History' },
@@ -4725,7 +4725,7 @@ function App() {
               },
               {
                 header: 'PROCESS',
-                headerClassName: 'text-[10px] font-semibold text-zinc-500 uppercase tracking-wider px-3.5 mt-6 mb-2',
+                headerClassName: 'text-[10px] font-semibold text-zinc-500 uppercase tracking-wider px-3.5 mt-6 mb-2 select-none',
                 items: [
                   { id: 'discipline' as ViewType, icon: Shield, label: 'Discipline Tracker' },
                   { id: 'playbook' as ViewType, icon: BookOpen, label: 'Rules Playbook' },
@@ -4734,7 +4734,7 @@ function App() {
               },
               {
                 header: 'RESOURCES',
-                headerClassName: 'text-[10px] font-semibold text-zinc-500 uppercase tracking-wider px-3.5 mt-6 mb-2',
+                headerClassName: 'text-[10px] font-semibold text-zinc-500 uppercase tracking-wider px-3.5 mt-6 mb-2 select-none',
                 items: [
                   { id: 'notices' as ViewType, icon: FileText, label: 'Market Notices' },
                   { id: 'wiki' as ViewType, icon: Lightbulb, label: 'Knowledge Wiki' },
@@ -4756,7 +4756,7 @@ function App() {
                       }}
                       title={collapsed ? item.label : undefined}
                       className={cn(
-                        'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm',
+                        'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm select-none cursor-pointer',
                         collapsed && 'justify-center px-0',
                         view === item.id
                           ? theme !== 'light' ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-zinc-900'
@@ -4780,11 +4780,11 @@ function App() {
             setIsMobileSidebarOpen(false);
           }}
           title={collapsed ? 'Settings' : undefined}
-          className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg hover:bg-white/5 cursor-pointer mt-auto border-t border-white/5"
+          className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg hover:bg-white/5 cursor-pointer mt-auto border-t border-white/5 select-none"
         >
           <Settings className={cn('w-4 h-4 flex-shrink-0', theme !== 'light' ? 'text-zinc-400' : 'text-zinc-500')} />
           {!collapsed && (
-            <span className={cn('text-sm font-medium truncate', theme !== 'light' ? 'text-zinc-300' : 'text-zinc-700')}>
+            <span className={cn('text-sm font-medium truncate select-none', theme !== 'light' ? 'text-zinc-300' : 'text-zinc-700')}>
               Settings
             </span>
           )}
@@ -11518,7 +11518,7 @@ function App() {
           />
           {/* Actual Mobile Sidebar Panel */}
           <aside className={cn(
-            "relative w-56 h-full flex flex-col",
+            "relative w-56 h-full flex flex-col select-none",
             theme !== 'light' ? 'bg-zinc-900 border-r border-zinc-800' : 'bg-white border-r border-zinc-200'
           )}>
             {renderSidebarContent(true)}
@@ -11528,7 +11528,7 @@ function App() {
 
       {/* DESKTOP SIDEBAR (Permanent Layout) - FIXED HEIGHT, PINNED TO VIEWPORT */}
       <aside className={cn(
-        "hidden md:flex flex-col h-screen sticky top-0 flex-shrink-0 overflow-hidden transition-all duration-300",
+        "hidden md:flex flex-col h-screen sticky top-0 flex-shrink-0 overflow-hidden transition-all duration-300 select-none",
         theme !== 'light' ? 'bg-zinc-900 border-r border-zinc-800' : 'bg-white border-r border-zinc-200',
         sidebarCollapsed ? "w-[72px]" : "w-56"
       )}>
