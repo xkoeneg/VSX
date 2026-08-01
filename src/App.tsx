@@ -2592,6 +2592,21 @@ function App() {
   const disciplineCalendarGridRef = useRef<HTMLDivElement>(null);
   useClickOutside(disciplineCalendarGridRef, useCallback(() => setOpenDisciplineDay(null), []), openDisciplineDay !== null);
 
+  // Discipline Tracker — Psychology & Behavioral Analytics timeframe filters.
+  // The Emotions and Mistakes cards each track their own independent
+  // timeframe so the user can compare e.g. "This Week" emotions against
+  // "All-Time" mistakes; the section's Global Timeframe dropdown is a master
+  // toggle that snaps both cards to the same value when changed.
+  type DisciplineAnalyticsTimeframe = 'week' | 'month' | '3months' | 'all';
+  const [emotionsTimeframe, setEmotionsTimeframe] = useState<DisciplineAnalyticsTimeframe>('week');
+  const [mistakesTimeframe, setMistakesTimeframe] = useState<DisciplineAnalyticsTimeframe>('all');
+  const disciplineAnalyticsTimeframeOptions: { value: DisciplineAnalyticsTimeframe; label: string }[] = [
+    { value: 'week', label: 'This Week' },
+    { value: 'month', label: 'This Month' },
+    { value: '3months', label: 'Last 3 Months' },
+    { value: 'all', label: 'All-Time' },
+  ];
+
   // Form state
   const [newAccount, setNewAccount] = useState<Partial<Account>>({
     name: '',
@@ -5627,18 +5642,24 @@ function App() {
     const followedTrades = filteredTrades.filter(t => t.rulesFollowed === 'followed');
     const brokenTrades = filteredTrades.filter(t => t.rulesFollowed === 'broken');
 
-    // Psychology analytics: for each Emotion tag logged in the last 7 days, tally
-    // how often it shows up, the aggregate P&L tied to trades carrying that tag
-    // (the "financial damage/gain" of that state of mind), and the win rate of
-    // trades tagged with it. Mistakes get the same P&L-impact treatment across
-    // all filtered trades (not time-boxed — a bad habit's cost matters however
-    // long ago it started).
-    const weekAgo = new Date();
-    weekAgo.setDate(weekAgo.getDate() - 7);
-    const thisWeekTrades = filteredTrades.filter(t => new Date(t.date) >= weekAgo);
+    // Psychology analytics: for each Emotion tag logged within the selected
+    // timeframe, tally how often it shows up, the aggregate P&L tied to
+    // trades carrying that tag (the "financial damage/gain" of that state of
+    // mind), and the win rate of trades tagged with it. Mistakes get the same
+    // P&L-impact treatment, filtered by its own independent timeframe.
+    const filterTradesByTimeframe = (trades: Trade[], timeframe: DisciplineAnalyticsTimeframe): Trade[] => {
+      if (timeframe === 'all') return trades;
+      const cutoff = new Date();
+      if (timeframe === 'week') cutoff.setDate(cutoff.getDate() - 7);
+      else if (timeframe === 'month') cutoff.setMonth(cutoff.getMonth() - 1);
+      else if (timeframe === '3months') cutoff.setMonth(cutoff.getMonth() - 3);
+      return trades.filter(t => new Date(t.date) >= cutoff);
+    };
+    const emotionsTimeframeTrades = filterTradesByTimeframe(filteredTrades, emotionsTimeframe);
+    const mistakesTimeframeTrades = filterTradesByTimeframe(filteredTrades, mistakesTimeframe);
 
     const emotionStatsMap: Record<string, { count: number; pnl: number; wins: number }> = {};
-    thisWeekTrades.forEach(t => (t.emotions || []).forEach(e => {
+    emotionsTimeframeTrades.forEach(t => (t.emotions || []).forEach(e => {
       if (!emotionStatsMap[e]) emotionStatsMap[e] = { count: 0, pnl: 0, wins: 0 };
       emotionStatsMap[e].count += 1;
       emotionStatsMap[e].pnl += t.profitLoss;
@@ -5651,7 +5672,7 @@ function App() {
     const maxEmotionCount = topEmotions[0]?.count || 1;
 
     const mistakeStatsMap: Record<string, { count: number; pnl: number }> = {};
-    filteredTrades.forEach(t => (t.mistakes || []).forEach(m => {
+    mistakesTimeframeTrades.forEach(t => (t.mistakes || []).forEach(m => {
       if (!mistakeStatsMap[m]) mistakeStatsMap[m] = { count: 0, pnl: 0 };
       mistakeStatsMap[m].count += 1;
       mistakeStatsMap[m].pnl += t.profitLoss;
@@ -5661,6 +5682,16 @@ function App() {
       .sort((a, b) => b.count - a.count)
       .slice(0, 8);
     const maxMistakeCount = topMistakes[0]?.count || 1;
+
+    // Global Timeframe dropdown counts as "active" (i.e. reflects both cards)
+    // only when the two cards already agree — the moment either card is
+    // changed independently, the master dropdown just shows its own value
+    // without silently overriding the other card.
+    const globalAnalyticsTimeframe = emotionsTimeframe === mistakesTimeframe ? emotionsTimeframe : null;
+    const setGlobalAnalyticsTimeframe = (tf: DisciplineAnalyticsTimeframe) => {
+      setEmotionsTimeframe(tf);
+      setMistakesTimeframe(tf);
+    };
 
     // Trades Needing Review — recent trades with no emotion or mistake tags
     // logged yet, newest first, so the discipline queue surfaces what's left
@@ -6125,10 +6156,23 @@ function App() {
 
         {/* Psychology & Behavioral Analytics — now positioned above the log, full width, two columns */}
         <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-5 min-w-0">
-          <h3 className="text-base font-semibold text-white flex items-center gap-2 mb-4">
-            <Brain className="w-4 h-4 text-violet-400 flex-shrink-0" />
-            <span className="truncate">Psychology & Behavioral Analytics</span>
-          </h3>
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+            <h3 className="text-base font-semibold text-white flex items-center gap-2 truncate">
+              <Brain className="w-4 h-4 text-violet-400 flex-shrink-0" />
+              <span className="truncate">Psychology & Behavioral Analytics</span>
+            </h3>
+            <select
+              value={globalAnalyticsTimeframe ?? ''}
+              onChange={(e) => setGlobalAnalyticsTimeframe(e.target.value as DisciplineAnalyticsTimeframe)}
+              title="Global Timeframe — updates both cards at once"
+              className="px-2.5 py-1 bg-zinc-900 border border-white/10 rounded-lg text-xs text-zinc-300 focus:outline-none focus:border-indigo-500/50 transition-colors cursor-pointer flex-shrink-0"
+            >
+              {globalAnalyticsTimeframe === null && <option value="" disabled>Mixed</option>}
+              {disciplineAnalyticsTimeframeOptions.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
 
           <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-br from-amber-500/10 to-transparent border border-amber-500/20 mb-5">
             <div className="w-10 h-10 rounded-lg bg-amber-500/15 border border-amber-500/25 flex items-center justify-center flex-shrink-0">
@@ -6142,12 +6186,23 @@ function App() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="bg-zinc-800/20 border border-zinc-800/60 rounded-xl p-4 min-w-0">
-              <h4 className="text-sm font-semibold text-violet-400 mb-3 flex items-center gap-1.5">
-                <Brain className="w-4 h-4 flex-shrink-0" />
-                <span className="truncate">Top Emotions & State Breakdown</span>
-              </h4>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <h4 className="text-sm font-semibold text-violet-400 flex items-center gap-1.5 min-w-0">
+                  <Brain className="w-4 h-4 flex-shrink-0" />
+                  <span className="truncate">Top Emotions & State Breakdown</span>
+                </h4>
+                <select
+                  value={emotionsTimeframe}
+                  onChange={(e) => setEmotionsTimeframe(e.target.value as DisciplineAnalyticsTimeframe)}
+                  className="px-2.5 py-1 bg-zinc-900 border border-white/10 rounded-lg text-xs text-zinc-300 focus:outline-none focus:border-indigo-500/50 transition-colors cursor-pointer flex-shrink-0"
+                >
+                  {disciplineAnalyticsTimeframeOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
               {topEmotions.length === 0 ? (
-                <p className="text-sm text-zinc-500 py-1">No emotions logged this week</p>
+                <p className="text-sm text-zinc-500 py-1">No emotions logged in this timeframe</p>
               ) : (
                 <div className="space-y-3">
                   {topEmotions.map(({ emotion, count, pnl, winRate }) => {
@@ -6177,12 +6232,23 @@ function App() {
             </div>
 
             <div className="bg-zinc-800/20 border border-zinc-800/60 rounded-xl p-4 min-w-0">
-              <h4 className="text-sm font-semibold text-rose-400 mb-3 flex items-center gap-1.5">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                <span className="truncate">Top Mistakes Committed</span>
-              </h4>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <h4 className="text-sm font-semibold text-rose-400 flex items-center gap-1.5 min-w-0">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span className="truncate">Top Mistakes Committed</span>
+                </h4>
+                <select
+                  value={mistakesTimeframe}
+                  onChange={(e) => setMistakesTimeframe(e.target.value as DisciplineAnalyticsTimeframe)}
+                  className="px-2.5 py-1 bg-zinc-900 border border-white/10 rounded-lg text-xs text-zinc-300 focus:outline-none focus:border-indigo-500/50 transition-colors cursor-pointer flex-shrink-0"
+                >
+                  {disciplineAnalyticsTimeframeOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
               {topMistakes.length === 0 ? (
-                <p className="text-sm text-zinc-500 py-1">No mistakes logged yet</p>
+                <p className="text-sm text-zinc-500 py-1">No mistakes logged in this timeframe</p>
               ) : (
                 <div className="space-y-3">
                   {topMistakes.map(({ mistake, count, pnl }) => (
