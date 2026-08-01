@@ -3507,6 +3507,16 @@ function App() {
     setEmotionsList(prev => prev.map(e => (e.id === id ? { ...e, color } : e)));
   };
 
+  // Looks up a tag's saved color by name so every emotion/mistake badge
+  // anywhere in the app (Discipline & Psychology Review modal, Rule
+  // Adherence Log, Analytics Breakdown, Mini Discipline Calendar, Trade
+  // Detail modal) pulls from the exact same color source — emotionsList /
+  // mistakesList — instead of a hardcoded uniform badge color.
+  const colorForEmotion = (name: string): TagColor =>
+    (emotionsList.find(e => e.name === name)?.color as TagColor) || 'purple';
+  const colorForMistake = (name: string): TagColor =>
+    (mistakesList.find(m => m.name === name)?.color as TagColor) || 'red';
+
   // File handlers
   const handleFileUpload = async (file: File, key: string, isEditing: boolean = false) => {
     const reader = new FileReader();
@@ -5850,9 +5860,11 @@ function App() {
     };
 
     // Small pill row shown under a trade's P&L in the log: every logged emotion
-    // (violet) then every mistake (red) — all of them, not just the first couple,
-    // wrapping onto as many lines as needed since each trade row now has the
-    // full row width to itself.
+    // then every mistake — all of them, not just the first couple, wrapping onto
+    // as many lines as needed since each trade row now has the full row width to
+    // itself. Each badge is tinted with that tag's own saved color (same
+    // dictionary as the Discipline & Psychology Review modal's dropdowns) instead
+    // of a uniform violet/red fallback.
     const renderPsychBadges = (trade: Trade) => {
       const emotions = trade.emotions || [];
       const mistakes = trade.mistakes || [];
@@ -5860,12 +5872,12 @@ function App() {
       return (
         <div className="flex flex-wrap gap-1.5 justify-end">
           {emotions.map(e => (
-            <span key={`e-${e}`} className="px-2 py-0.5 rounded-full bg-violet-500/15 border border-violet-500/25 text-violet-300 text-xs font-medium leading-normal">
+            <span key={`e-${e}`} className={cn('px-2 py-0.5 rounded-full text-xs font-medium leading-normal', getTagColorStyle(colorForEmotion(e)).chip)}>
               {e}
             </span>
           ))}
           {mistakes.map(m => (
-            <span key={`m-${m}`} className="px-2 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/25 text-rose-300 text-xs font-medium leading-normal">
+            <span key={`m-${m}`} className={cn('px-2 py-0.5 rounded-full text-xs font-medium leading-normal', getTagColorStyle(colorForMistake(m)).chip)}>
               {m}
             </span>
           ))}
@@ -6164,12 +6176,12 @@ function App() {
                                   {((t.mistakes && t.mistakes.length > 0) || (t.emotions && t.emotions.length > 0)) && (
                                     <div className="flex flex-wrap gap-1.5 mt-2.5">
                                       {(t.emotions || []).map(e => (
-                                        <span key={`e-${e}`} className="px-1.5 py-0.5 rounded-full bg-violet-500/15 border border-violet-500/25 text-violet-300 text-[10px] font-medium">
+                                        <span key={`e-${e}`} className={cn('px-1.5 py-0.5 rounded-full text-[10px] font-medium', getTagColorStyle(colorForEmotion(e)).chip)}>
                                           {e}
                                         </span>
                                       ))}
                                       {(t.mistakes || []).map(m => (
-                                        <span key={`m-${m}`} className="px-1.5 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/25 text-rose-300 text-[10px] font-medium">
+                                        <span key={`m-${m}`} className={cn('px-1.5 py-0.5 rounded-full text-[10px] font-medium', getTagColorStyle(colorForMistake(m)).chip)}>
                                           {m}
                                         </span>
                                       ))}
@@ -6276,7 +6288,9 @@ function App() {
                     return (
                       <div key={emotion} className="min-w-0">
                         <div className="flex items-center justify-between gap-2 mb-1.5">
-                          <span className="text-sm text-zinc-300 truncate">{emotion}</span>
+                          <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium truncate', getTagColorStyle(colorForEmotion(emotion)).chip)}>
+                            {emotion}
+                          </span>
                           <span className={cn('text-sm font-mono font-medium flex-shrink-0', isProfit ? 'text-emerald-400' : 'text-rose-400')}>
                             {formatCurrency(pnl, privacyMode)}
                           </span>
@@ -6320,7 +6334,9 @@ function App() {
                   {topMistakes.map(({ mistake, count, pnl }) => (
                     <div key={mistake} className="min-w-0">
                       <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <span className="text-sm text-zinc-300 truncate">{mistake}</span>
+                        <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium truncate', getTagColorStyle(colorForMistake(mistake)).chip)}>
+                          {mistake}
+                        </span>
                         <span className="text-sm font-mono font-medium text-rose-400 flex-shrink-0">
                           {formatCurrency(pnl, privacyMode)}
                         </span>
@@ -7391,7 +7407,7 @@ function App() {
                 <h4 className="text-sm text-zinc-500 mb-2">Mistakes Made</h4>
                 <div className="flex flex-wrap gap-2">
                   {trade.mistakes.map(m => (
-                    <span key={m} className="px-3 py-1.5 bg-rose-500/20 text-rose-400 rounded-lg text-sm truncate max-w-[150px]">{m}</span>
+                    <span key={m} className={cn('px-3 py-1.5 rounded-lg text-sm truncate max-w-[150px]', getTagColorStyle(colorForMistake(m)).chip)}>{m}</span>
                   ))}
                 </div>
               </div>
