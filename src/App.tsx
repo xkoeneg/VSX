@@ -5948,7 +5948,7 @@ function App() {
                             {cell.trades.map(t => {
                               const tradeAccount = accounts.find(a => a.id === t.accountId);
                               return (
-                                <div key={t.id} className="py-2.5 border-b border-white/10 last:border-0">
+                                <div key={t.id} className="py-3 px-3.5 border-b border-white/10 last:border-0">
                                   <div className="flex items-center justify-between gap-2">
                                     <span className="text-xs font-semibold text-white truncate">
                                       {t.symbol}
@@ -5967,7 +5967,7 @@ function App() {
                                     </span>
                                   </div>
                                   {((t.mistakes && t.mistakes.length > 0) || (t.emotions && t.emotions.length > 0)) && (
-                                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                    <div className="flex flex-wrap gap-1.5 mt-2.5">
                                       {(t.emotions || []).map(e => (
                                         <span key={`e-${e}`} className="px-1.5 py-0.5 rounded-full bg-violet-500/15 border border-violet-500/25 text-violet-300 text-[10px] font-medium">
                                           {e}
