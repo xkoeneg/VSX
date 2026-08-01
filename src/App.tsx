@@ -2576,6 +2576,16 @@ function App() {
     return { year: now.getFullYear(), month: now.getMonth() };
   });
 
+  // Discipline Tracker — Streak Progress Grid lookback window (30/60/90 trades)
+  const [streakGridWindow, setStreakGridWindow] = useState<30 | 60 | 90>(30);
+
+  // Discipline Tracker — Mini Discipline Calendar month, independent of the
+  // main Performance Calendar's month so browsing one doesn't affect the other.
+  const [disciplineCalendarMonth, setDisciplineCalendarMonth] = useState(() => {
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() };
+  });
+
   // Form state
   const [newAccount, setNewAccount] = useState<Partial<Account>>({
     name: '',
@@ -5656,6 +5666,49 @@ function App() {
       else break;
     }
 
+    // Best Streak: the longest run of consecutive "Rules Followed" trades
+    // anywhere in the filtered history, not just the current active run.
+    let bestStreak = 0;
+    {
+      let run = 0;
+      chronoTrades.forEach(t => {
+        if (t.rulesFollowed === 'followed') {
+          run++;
+          bestStreak = Math.max(bestStreak, run);
+        } else {
+          run = 0;
+        }
+      });
+    }
+
+    // Streak Progress Grid — the last `streakGridWindow` trades in chronological
+    // order, each rendered as a block. A broken-rule trade instantly shows as a
+    // red block, visually resetting the streak right there in the grid; empty
+    // zinc-outlined blocks pad the front when there isn't yet enough history to
+    // fill the selected window.
+    const streakWindowTrades = chronoTrades.slice(-streakGridWindow);
+    const streakPadCount = Math.max(0, streakGridWindow - streakWindowTrades.length);
+    const streakGridBlocks: Array<{ type: 'empty' } | { type: 'trade'; trade: Trade }> = [
+      ...Array.from({ length: streakPadCount }, () => ({ type: 'empty' as const })),
+      ...streakWindowTrades.map(t => ({ type: 'trade' as const, trade: t })),
+    ];
+
+    // Mini Discipline Calendar — its own month browser (independent of the
+    // Performance Calendar page), laid out Monday-first. Each day cell reflects
+    // whether every trade logged that day followed the rules, any trade broke a
+    // rule, or nothing was logged at all.
+    const miniMonthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const { year: miniYear, month: miniMonth } = disciplineCalendarMonth;
+    const miniFirstDayJs = new Date(miniYear, miniMonth, 1).getDay(); // 0 = Sun
+    const miniFirstDay = (miniFirstDayJs + 6) % 7; // 0 = Mon ... 6 = Sun
+    const miniDaysInMonth = new Date(miniYear, miniMonth + 1, 0).getDate();
+    const miniCalendarDays: Array<{ day: number | null; trades: Trade[] }> = [];
+    for (let i = 0; i < miniFirstDay; i++) miniCalendarDays.push({ day: null, trades: [] });
+    for (let d = 1; d <= miniDaysInMonth; d++) {
+      const dateStr = `${miniYear}-${String(miniMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      miniCalendarDays.push({ day: d, trades: filteredTrades.filter(t => t.date === dateStr) });
+    }
+
     // Small pill row shown under a trade's P&L in the log: every logged emotion
     // (violet) then every mistake (red) — all of them, not just the first couple,
     // wrapping onto as many lines as needed since each trade row now has the
@@ -5692,6 +5745,142 @@ function App() {
           {renderStatCard('Rules Broken', brokenTrades.length, <XCircle className="w-4 h-4" />, 'text-rose-400')}
           {renderStatCard('Follow Rate', `${((followedTrades.length / (followedTrades.length + brokenTrades.length)) * 100 || 0).toFixed(1)}%`, <Target className="w-4 h-4" />)}
           {renderStatCard('Avg Loss (Broken)', brokenTrades.length > 0 ? formatCurrency(brokenTrades.reduce((s, t) => s + t.profitLoss, 0) / brokenTrades.length, privacyMode) : '$0.00', <AlertCircle className="w-4 h-4" />, 'text-rose-400')}
+        </div>
+
+        {/* Discipline Analytics — Streak Progress Grid + Mini Discipline Calendar, side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+          {/* Streak Progress Grid */}
+          <div className="bg-[#121318] border border-white/10 rounded-xl p-5 min-w-0">
+            <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+              <h3 className="text-sm font-semibold text-white flex items-center gap-2 truncate">
+                <Flame className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                STREAK PROGRESS
+              </h3>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                {([30, 60, 90] as const).map(w => (
+                  <button
+                    key={w}
+                    onClick={() => setStreakGridWindow(w)}
+                    className={cn(
+                      'px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors',
+                      streakGridWindow === w
+                        ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
+                        : 'bg-zinc-800/60 border-zinc-700/60 text-zinc-500 hover:text-zinc-300 hover:border-zinc-600'
+                    )}
+                  >
+                    {w}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4 mb-4">
+              <div>
+                <p className="text-[11px] uppercase tracking-wider text-zinc-500">Current Streak</p>
+                <p className="text-lg font-bold text-emerald-400 truncate">
+                  {disciplineStreak} {disciplineStreak === 1 ? 'Trade' : 'Trades'}
+                </p>
+              </div>
+              <div className="w-px h-8 bg-white/10 flex-shrink-0" />
+              <div>
+                <p className="text-[11px] uppercase tracking-wider text-zinc-500">Best Streak</p>
+                <p className="text-lg font-bold text-zinc-300 truncate">
+                  {bestStreak} {bestStreak === 1 ? 'Trade' : 'Trades'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5">
+              {streakGridBlocks.map((block, i) => {
+                if (block.type === 'empty') {
+                  return (
+                    <div
+                      key={`empty-${i}`}
+                      className="w-7 h-7 rounded-md text-xs flex items-center justify-center font-bold bg-zinc-800/40 border border-zinc-700/50 text-zinc-600"
+                    />
+                  );
+                }
+                const followed = block.trade.rulesFollowed === 'followed';
+                return (
+                  <div
+                    key={block.trade.id}
+                    title={`${block.trade.date}: ${followed ? 'Rules Followed' : 'Rule Broken'}`}
+                    className={cn(
+                      'w-7 h-7 rounded-md text-xs flex items-center justify-center font-bold border',
+                      followed
+                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                        : 'bg-rose-500/20 text-rose-400 border-rose-500/40'
+                    )}
+                  >
+                    {followed ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Mini Discipline Calendar */}
+          <div className="bg-[#121318] border border-white/10 rounded-xl p-5 min-w-0">
+            <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+              <h3 className="text-sm font-semibold text-white flex items-center gap-2 truncate">
+                <Shield className="w-4 h-4 text-zinc-400 flex-shrink-0" />
+                MINI DISCIPLINE CALENDAR
+              </h3>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={() => setDisciplineCalendarMonth(prev => prev.month === 0 ? { year: prev.year - 1, month: 11 } : { ...prev, month: prev.month - 1 })}
+                  className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-md transition-colors"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-xs font-medium text-zinc-300 whitespace-nowrap min-w-[92px] text-center">
+                  {miniMonthNames[miniMonth]} {miniYear}
+                </span>
+                <button
+                  onClick={() => setDisciplineCalendarMonth(prev => prev.month === 11 ? { year: prev.year + 1, month: 0 } : { ...prev, month: prev.month + 1 })}
+                  className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-md transition-colors"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-7 gap-1">
+              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+                <div key={`${d}-${i}`} className="text-center text-[10px] text-zinc-500 font-medium py-1">
+                  {d}
+                </div>
+              ))}
+              {miniCalendarDays.map((cell, i) => {
+                if (cell.day === null) return <div key={`empty-${i}`} />;
+                const hasTrades = cell.trades.length > 0;
+                const followedCount = cell.trades.filter(t => t.rulesFollowed === 'followed').length;
+                const brokenCount = cell.trades.length - followedCount;
+                const anyBroken = hasTrades && brokenCount > 0;
+                const allFollowed = hasTrades && brokenCount === 0;
+                const tooltip = hasTrades
+                  ? `${miniMonthNames[miniMonth].slice(0, 3)} ${cell.day}: ${cell.trades.length} Trade${cell.trades.length !== 1 ? 's' : ''}${anyBroken ? `, ${brokenCount} Rule${brokenCount !== 1 ? 's' : ''} Broken` : ', All Rules Followed'}`
+                  : `${miniMonthNames[miniMonth].slice(0, 3)} ${cell.day}: No Trades`;
+                return (
+                  <div
+                    key={i}
+                    title={tooltip}
+                    className={cn(
+                      'aspect-square rounded-md flex flex-col items-center justify-center gap-0.5 text-xs font-medium border transition-colors cursor-default',
+                      allFollowed && 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
+                      anyBroken && 'bg-rose-500/10 border-rose-500/30 text-rose-300',
+                      !hasTrades && 'bg-transparent border-transparent text-zinc-500'
+                    )}
+                  >
+                    <span>{cell.day}</span>
+                    {hasTrades && (
+                      <span className={cn('w-1.5 h-1.5 rounded-full', anyBroken ? 'bg-rose-400' : 'bg-emerald-400')} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* Rule Adherence Log — full width so trades have room to show every emotion/mistake tag, not just the first couple */}
