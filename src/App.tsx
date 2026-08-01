@@ -484,6 +484,23 @@ const RULE_TEXT_SIZES: { id: RuleTextSize; label: string }[] = [
   { id: 'large', label: 'Large' },
 ];
 
+// ---- Trading Rules card: configurable "Pillars Per Row" layout ----
+// Hard-capped 2–6. Written out as full, literal Tailwind class strings
+// (rather than built with string interpolation like `grid-cols-${n}`) so
+// Tailwind's JIT scanner can find every class it needs to generate at
+// build time — interpolated class names are invisible to the scanner and
+// would silently produce no CSS. Falls back to a single column on small
+// screens regardless of the chosen row limit.
+type PillarsPerRow = 2 | 3 | 4 | 5 | 6;
+const PILLAR_GRID_COLS_CLASS: Record<PillarsPerRow, string> = {
+  2: 'grid-cols-1 sm:grid-cols-2',
+  3: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
+  4: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4',
+  5: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-5',
+  6: 'grid-cols-1 sm:grid-cols-3 lg:grid-cols-6',
+};
+const PILLARS_PER_ROW_OPTIONS: PillarsPerRow[] = [2, 3, 4, 5, 6];
+
 // Resolves the icon component for a rule, falling back to the pillar default
 // when the rule predates this feature or has no icon set.
 const getRuleIconComponent = (rule: Pick<Rule, 'iconValue' | 'pillar'>, customPillars: CustomPillar[] = []): LucideIcon =>
@@ -2800,6 +2817,10 @@ function App() {
   );
   const [customSymbols, setCustomSymbols] = useState<string[]>([]);
   const [customPillars, setCustomPillars] = useState<CustomPillar[]>([]);
+  // How many pillar columns the Trading Rules card shows per row (2–6).
+  // Purely a display preference — not persisted to the trading journal
+  // schema, so it always starts at a sensible default per session.
+  const [pillarsPerRow, setPillarsPerRow] = useState<PillarsPerRow>(3);
 
   // Modal state
   const [showAddAccount, setShowAddAccount] = useState(false);
@@ -7208,7 +7229,25 @@ function App() {
                 <h3 className={cn("text-sm font-bold uppercase tracking-wide truncate", tc.text)}>Trading Rules</h3>
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
+              <div className="flex items-center gap-1.5">
+                <label htmlFor="pillars-per-row" className={cn("text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap", tc.textMuted)}>
+                  Per Row
+                </label>
+                <select
+                  id="pillars-per-row"
+                  value={pillarsPerRow}
+                  onChange={(e) => setPillarsPerRow(Number(e.target.value) as PillarsPerRow)}
+                  className={cn(
+                    "text-xs font-semibold rounded-lg pl-2.5 pr-7 py-2 border focus:outline-none cursor-pointer",
+                    theme !== 'light' ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-white border-zinc-200 text-zinc-900'
+                  )}
+                >
+                  {PILLARS_PER_ROW_OPTIONS.map(n => (
+                    <option key={n} value={n}>{n} / row</option>
+                  ))}
+                </select>
+              </div>
               <button
                 onClick={openAddPillarModal}
                 className={cn("inline-flex items-center px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors", tc.btnSecondary)}
@@ -7226,7 +7265,7 @@ function App() {
             </div>
           </div>
 
-          <div className="grid gap-8" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+          <div className={cn("grid gap-x-6 gap-y-8 w-full", PILLAR_GRID_COLS_CLASS[pillarsPerRow])}>
             {getAllPillarIds(customPillars).map(pillar => (
               <div className="min-w-0" key={pillar}>
                 {renderRulePillarColumn(pillar)}
@@ -7244,6 +7283,8 @@ function App() {
   // 100% clean, read-only, and distraction-free. Notion-style: generous
   // spacing, per-rule icon/color accents, configurable bullet style + text
   // size, and optional labeled section dividers between groups of rules.
+  // Titles/badges wrap onto multiple lines instead of truncating — full
+  // rule text (e.g. "DON'T ENTER IF NOT FEELING WELL") always stays visible.
   const renderRulePillarColumn = (pillar: RulePillar) => {
     const meta = getPillarMeta(pillar, customPillars);
     const pillarRules = rules.filter(r => r.pillar === pillar);
@@ -7252,7 +7293,7 @@ function App() {
       <div className="min-w-0">
         <div className="flex items-center gap-1.5 mb-4 min-w-0">
           <meta.Icon className={cn("w-4 h-4 flex-shrink-0", meta.color)} strokeWidth={2} />
-          <h4 className={cn("text-xs font-bold uppercase tracking-wider truncate", tc.textSecondary)}>{getPillarShortLabel(pillar, customPillars)}</h4>
+          <h4 className={cn("text-xs font-bold uppercase tracking-wider break-words leading-snug", tc.textSecondary)}>{getPillarShortLabel(pillar, customPillars)}</h4>
         </div>
 
         {pillarRules.length === 0 ? (
@@ -7296,12 +7337,12 @@ function App() {
                   )}
 
                   <div className="min-w-0 flex-1 leading-relaxed">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <h5 className={cn("font-bold truncate", tc.text, large ? "text-base" : "text-sm")}>{rule.title}</h5>
-                      <span className={cn("text-[9px] px-1 py-0.5 rounded font-semibold uppercase tracking-wide leading-none flex-shrink-0", severityMeta.badge)}>{severityMeta.label}</span>
+                    <div className="flex flex-col sm:flex-row sm:items-center items-start gap-1 sm:gap-1.5">
+                      <h5 className={cn("font-bold whitespace-normal break-words leading-snug", tc.text, large ? "text-base" : "text-sm")}>{rule.title}</h5>
+                      <span className={cn("text-[9px] px-1 py-0.5 rounded font-semibold uppercase tracking-wide leading-none flex-shrink-0 whitespace-normal break-words", severityMeta.badge)}>{severityMeta.label}</span>
                     </div>
                     {rule.description && (
-                      <p className={cn("mt-0.5 leading-relaxed", tc.textMuted, large ? "text-sm" : "text-xs")}>{rule.description}</p>
+                      <p className={cn("mt-0.5 leading-relaxed whitespace-normal break-words", tc.textMuted, large ? "text-sm" : "text-xs")}>{rule.description}</p>
                     )}
                     {violations > 0 && (
                       <span className="inline-flex items-center gap-0.5 text-[9px] mt-1.5 px-1 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/20 font-semibold">
@@ -10067,7 +10108,7 @@ function App() {
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-1.5 min-w-0">
             <meta.Icon className={cn("w-4 h-4 flex-shrink-0", meta.color)} strokeWidth={2} />
-            <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 truncate">{getPillarShortLabel(pillar, customPillars)}</h4>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 break-words leading-snug">{getPillarShortLabel(pillar, customPillars)}</h4>
           </div>
           <div className="flex items-center gap-0.5 flex-shrink-0">
             <button
@@ -10135,11 +10176,11 @@ function App() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-1.5">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <h5 className="text-sm font-bold text-white truncate">{rule.title}</h5>
-                          <span className={cn("text-[9px] px-1 py-0.5 rounded font-semibold uppercase tracking-wide leading-none", severityMeta.badge)}>{severityMeta.label}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-center items-start gap-1 sm:gap-1.5">
+                          <h5 className="text-sm font-bold text-white whitespace-normal break-words leading-snug">{rule.title}</h5>
+                          <span className={cn("text-[9px] px-1 py-0.5 rounded font-semibold uppercase tracking-wide leading-none flex-shrink-0 whitespace-normal break-words", severityMeta.badge)}>{severityMeta.label}</span>
                         </div>
-                        {rule.description && <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed line-clamp-2">{rule.description}</p>}
+                        {rule.description && <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed whitespace-normal break-words">{rule.description}</p>}
                       </div>
                       <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={() => openEditRuleModal(rule)} className="p-0.5 rounded text-zinc-500 hover:text-white">
