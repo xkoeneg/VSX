@@ -5853,7 +5853,7 @@ function App() {
           </div>
 
           {/* Mini Discipline Calendar — 40% width, compact and sleek */}
-          <div className="lg:col-span-2 bg-[#121318] border border-white/10 rounded-xl p-5 min-w-0 h-full flex flex-col justify-between">
+          <div className="lg:col-span-2 bg-[#121318] border border-white/10 rounded-xl p-5 min-w-0 h-full flex flex-col justify-between select-none">
             <div>
               <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
                 <h3 className="text-sm font-semibold text-white flex items-center gap-2 truncate">
@@ -5879,14 +5879,14 @@ function App() {
                 </div>
               </div>
 
-              <div ref={disciplineCalendarGridRef} className="grid grid-cols-7 gap-1">
+              <div ref={disciplineCalendarGridRef} className="grid grid-cols-7 gap-1 select-none">
                 {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
                   <div key={`${d}-${i}`} className="text-center text-[10px] text-zinc-500 font-medium py-1">
                     {d}
                   </div>
                 ))}
                 {miniCalendarDays.map((cell, i) => {
-                  if (cell.day === null || cell.date === null) return <div key={`empty-${i}`} className="h-9" />;
+                  if (cell.day === null || cell.date === null) return <div key={`empty-${i}`} className="h-9 select-none" />;
                   const cellDate = cell.date;
                   const hasTrades = cell.trades.length > 0;
                   const followedCount = cell.trades.filter(t => t.rulesFollowed === 'followed').length;
@@ -5904,7 +5904,7 @@ function App() {
                         title={tooltip}
                         onClick={() => hasTrades && setOpenDisciplineDay(prev => prev === cellDate ? null : cellDate)}
                         className={cn(
-                          'h-9 flex flex-col items-center justify-center gap-0.5 rounded-md border transition-colors',
+                          'w-full aspect-square select-none h-9 flex flex-col items-center justify-center gap-0.5 rounded-md border transition-colors',
                           hasTrades ? 'cursor-pointer hover:scale-105 transition-transform' : 'cursor-default',
                           allFollowed && 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
                           anyBroken && 'bg-rose-500/10 border-rose-500/30 text-rose-300',
@@ -5953,16 +5953,16 @@ function App() {
                                     <span className="text-xs font-semibold text-white truncate">
                                       {t.symbol}
                                       {t.session && <span className="text-zinc-500 font-normal"> · {t.session}</span>}
+                                      {tradeAccount && (
+                                        <span className="text-sky-400 font-medium text-xs">
+                                          {'  |  '}{tradeAccount.name}
+                                        </span>
+                                      )}
                                     </span>
                                     <span className={cn('text-xs font-bold font-mono flex-shrink-0', t.profitLoss >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
                                       {formatCurrency(t.profitLoss, privacyMode)}
                                     </span>
                                   </div>
-                                  {tradeAccount && (
-                                    <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-500/30 text-sky-300 text-[9px] font-semibold truncate max-w-full">
-                                      {tradeAccount.name}
-                                    </span>
-                                  )}
                                   {((t.mistakes && t.mistakes.length > 0) || (t.emotions && t.emotions.length > 0)) && (
                                     <div className="flex flex-wrap gap-1 mt-1.5">
                                       {(t.emotions || []).map(e => (
