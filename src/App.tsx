@@ -7182,10 +7182,11 @@ function App() {
               {hasActiveChallengeProgress && (
                 <button
                   onClick={() => openChallengeConfigModal('edit')}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold transition-all bg-amber-500/10 border border-amber-500/40 text-amber-400 hover:bg-amber-500/20 hover:border-amber-500/60"
+                  title="Edit Challenge"
+                  aria-label="Edit Challenge"
+                  className="flex items-center justify-center p-2 rounded-lg transition-all bg-zinc-800 text-white border border-zinc-700 hover:bg-zinc-700"
                 >
                   <Edit2 className="w-4 h-4" />
-                  <span className="hidden sm:inline">Edit Challenge</span>
                 </button>
               )}
               <button
