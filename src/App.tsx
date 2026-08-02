@@ -3235,7 +3235,19 @@ function App() {
   // Dates that missed full completion but were "saved" using a re-check
   // (grace) token, up to the challenge's configured token allowance.
   const [lifeDisciplineGraceDays, setLifeDisciplineGraceDays] = useState<Record<string, boolean>>({});
+  // Zero-cheating mode: once re-check tokens run out, a missed day can no
+  // longer be flipped to complete. Instead the user logs a reason, which
+  // permanently locks that tile as Failed (red) with an attached note.
+  const [lifeDisciplineMissedReasons, setLifeDisciplineMissedReasons] = useState<Record<string, string>>({});
   const [challengeConfig, setChallengeConfig] = useState<ChallengeConfig>(DEFAULT_CHALLENGE_CONFIG);
+
+  // Re-Check Token confirmation modal ("Use 1 Re-Check Token to mark Day X
+  // as Complete?") — holds the dateKey of the failed day being redeemed.
+  const [reCheckConfirmDate, setReCheckConfirmDate] = useState<string | null>(null);
+  // Missed Day Reason Log modal — 'edit' when logging/updating a reason
+  // (tokens exhausted), 'view' when just reviewing an already-logged one.
+  const [missedReasonModal, setMissedReasonModal] = useState<{ dateKey: string; day: number; mode: 'edit' | 'view' } | null>(null);
+  const [missedReasonDraftText, setMissedReasonDraftText] = useState('');
 
   // Configure Challenge modal state — edits happen on a draft copy so
   // Cancel discards changes without touching the live config.
@@ -3271,6 +3283,7 @@ function App() {
         if (parsed?.startDate) setLifeDisciplineStartDate(parsed.startDate);
         if (parsed?.checks) setLifeDisciplineChecks(parsed.checks);
         if (parsed?.graceDays) setLifeDisciplineGraceDays(parsed.graceDays);
+        if (parsed?.missedReasons) setLifeDisciplineMissedReasons(parsed.missedReasons);
         if (parsed?.config?.routines) setChallengeConfig(parsed.config);
       } catch (e) {
         console.error('Failed to load Life Discipline Hub data:', e);
@@ -3284,12 +3297,13 @@ function App() {
         startDate: lifeDisciplineStartDate,
         checks: lifeDisciplineChecks,
         graceDays: lifeDisciplineGraceDays,
+        missedReasons: lifeDisciplineMissedReasons,
         config: challengeConfig,
       }));
     } catch (e) {
       console.error('Failed to save Life Discipline Hub data:', e);
     }
-  }, [lifeDisciplineStartDate, lifeDisciplineChecks, lifeDisciplineGraceDays, challengeConfig]);
+  }, [lifeDisciplineStartDate, lifeDisciplineChecks, lifeDisciplineGraceDays, lifeDisciplineMissedReasons, challengeConfig]);
 
   // Toggle a single habit checkbox for a given date.
   const toggleLifeDisciplineItem = (dateKey: string, groupIdx: number, itemIdx: number) => {
@@ -3327,8 +3341,10 @@ function App() {
   const lifeDisciplineTokensRemaining = Math.max(0, challengeConfig.recheckTokens - lifeDisciplineTokensUsed);
 
   // Spend (or refund) a re-check token on a missed day. Only valid for past,
-  // incomplete days — the toggle is a no-op otherwise.
+  // incomplete days — the toggle is a no-op otherwise. Days with a logged
+  // missed-day reason are permanently locked as Failed and can't be redeemed.
   const toggleLifeDisciplineGraceDay = (dateKey: string) => {
+    if (lifeDisciplineMissedReasons[dateKey]) return; // locked — see zero-cheating mode
     setLifeDisciplineGraceDays(prev => {
       const isGraced = !!prev[dateKey];
       if (!isGraced && lifeDisciplineTokensRemaining <= 0) return prev; // no tokens left
@@ -3337,6 +3353,51 @@ function App() {
       else next[dateKey] = true;
       return next;
     });
+  };
+
+  // ---- Missed Day Reason Log (zero-cheating mode) ----
+  const openMissedReasonModal = (dateKey: string, day: number, mode: 'edit' | 'view') => {
+    setMissedReasonDraftText(lifeDisciplineMissedReasons[dateKey] || '');
+    setMissedReasonModal({ dateKey, day, mode });
+  };
+
+  const saveMissedReasonLog = () => {
+    if (!missedReasonModal) return;
+    const text = missedReasonDraftText.trim();
+    if (!text) return;
+    setLifeDisciplineMissedReasons(prev => ({ ...prev, [missedReasonModal.dateKey]: text }));
+    // Logging a reason permanently locks the tile as Failed — clear any
+    // grace token that may have been spent on it (shouldn't normally
+    // co-exist, but this keeps the two mechanics mutually exclusive).
+    setLifeDisciplineGraceDays(prev => {
+      if (!prev[missedReasonModal.dateKey]) return prev;
+      const next = { ...prev };
+      delete next[missedReasonModal.dateKey];
+      return next;
+    });
+    setMissedReasonModal(null);
+    showLifeDisciplineToast('📝 Reason logged — day locked as Failed');
+  };
+
+  // Clicking a grid tile routes to the right flow based on its status and
+  // the current token allowance:
+  //  - failed + reason already logged  -> read-only reason popup
+  //  - failed + tokens remaining       -> re-check confirmation modal
+  //  - failed + no tokens remaining    -> Missed Day Reason Log modal
+  //  - grace (already re-checked)      -> click to undo, refunding the token
+  const handleLifeDisciplineTileClick = (dateKey: string, day: number, status: string) => {
+    if (status === 'grace') {
+      toggleLifeDisciplineGraceDay(dateKey);
+      return;
+    }
+    if (status !== 'failed') return;
+    if (lifeDisciplineMissedReasons[dateKey]) {
+      openMissedReasonModal(dateKey, day, 'view');
+    } else if (lifeDisciplineTokensRemaining > 0) {
+      setReCheckConfirmDate(dateKey);
+    } else {
+      openMissedReasonModal(dateKey, day, 'edit');
+    }
   };
 
   // ---- Configure Challenge modal helpers ----
@@ -3425,6 +3486,7 @@ function App() {
     setLifeDisciplineStartDate(new Date().toISOString().slice(0, 10));
     setLifeDisciplineChecks({});
     setLifeDisciplineGraceDays({});
+    setLifeDisciplineMissedReasons({});
     setIsChallengeConfigOpen(false);
   };
 
@@ -6507,6 +6569,24 @@ function App() {
     const completedCount = gridDays.filter(d => d.status === 'complete' || d.status === 'grace').length;
     const failedCount = gridDays.filter(d => d.status === 'failed').length;
 
+    // Active streak: consecutive successful days counting back from today
+    // (today's still-pending status doesn't break it; the first failed day
+    // encountered does).
+    const todayGridIndex = gridDays.findIndex(d => d.status === 'pending');
+    let activeStreak = 0;
+    for (let i = (todayGridIndex !== -1 ? todayGridIndex : gridDays.length - 1); i >= 0; i--) {
+      const st = gridDays[i].status;
+      if (st === 'complete' || st === 'grace') activeStreak++;
+      else if (st === 'pending') continue;
+      else break;
+    }
+
+    // Discipline Score = execution rate across all "decided" days so far
+    // (complete + grace vs. failed) — excludes today (undecided) and
+    // upcoming days.
+    const decidedDays = completedCount + failedCount;
+    const disciplineScore = decidedDays > 0 ? Math.round((completedCount / decidedDays) * 100) : 0;
+
     const statusStyles: Record<string, string> = {
       complete: 'bg-emerald-500 border-emerald-400 text-white',
       grace: 'bg-cyan-500/80 border-cyan-400 text-white',
@@ -6654,7 +6734,7 @@ function App() {
         {/* DYNAMIC CHALLENGE PROGRESS GRID */}
         <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-5 min-w-0">
           <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-            <h3 className="text-base font-semibold text-white flex items-center gap-2">
+            <h3 className="text-base font-semibold text-white flex items-center gap-2 select-none">
               <Target className="w-4 h-4 text-zinc-400 flex-shrink-0" />
               <span className="truncate">{challengeConfig.durationDays}-Day Challenge Progress</span>
             </h3>
@@ -6666,42 +6746,201 @@ function App() {
               <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-zinc-800 border border-zinc-700" /> Upcoming</span>
             </div>
           </div>
-          {challengeConfig.recheckTokens > 0 && (
-            <p className="text-xs text-zinc-500 mb-3">
-              Click a failed day to spend a re-check token and mark it saved. {lifeDisciplineTokensRemaining} of {challengeConfig.recheckTokens} tokens remaining.
+
+          {/* TOP STATUS BAR: streak, token allowance, discipline score */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-4 select-none">
+            <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-zinc-800/50 border border-zinc-800">
+              <span className="text-lg leading-none flex-shrink-0">🔥</span>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-white truncate">{activeStreak}-Day Streak</p>
+                <p className="text-[11px] text-zinc-500">Active streak</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-zinc-800/50 border border-zinc-800">
+              <span className="text-lg leading-none flex-shrink-0">🛡️</span>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-white truncate">Re-Checks Left: {lifeDisciplineTokensRemaining}/{challengeConfig.recheckTokens}</p>
+                <p className="text-[11px] text-zinc-500">Token allowance</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-zinc-800/50 border border-zinc-800">
+              <span className="text-lg leading-none flex-shrink-0">🎯</span>
+              <div className="min-w-0">
+                <p className={cn('text-sm font-bold truncate', disciplineScore >= 80 ? 'text-emerald-400' : disciplineScore >= 50 ? 'text-amber-400' : 'text-rose-400')}>
+                  {disciplineScore}% Discipline Score
+                </p>
+                <p className="text-[11px] text-zinc-500">Execution rate</p>
+              </div>
+            </div>
+          </div>
+
+          {challengeConfig.recheckTokens > 0 ? (
+            <p className="text-xs text-zinc-500 mb-3 select-none">
+              Click a failed day to spend a re-check token and mark it saved, or review a logged reason. {lifeDisciplineTokensRemaining} of {challengeConfig.recheckTokens} tokens remaining.
+            </p>
+          ) : (
+            <p className="text-xs text-zinc-500 mb-3 select-none">
+              Zero-cheating mode: no re-check tokens remaining. Click a failed day to log why it was missed.
             </p>
           )}
 
           <div className="grid grid-cols-10 sm:grid-cols-10 md:grid-cols-[repeat(20,minmax(0,1fr))] gap-1.5">
-            {gridDays.map(({ day, dateKey, status }) => (
-              <div
-                key={day}
-                title={
-                  status === 'failed'
-                    ? (lifeDisciplineTokensRemaining > 0 ? `Day ${day} — click to spend a re-check token` : `Day ${day} — missed, no tokens left`)
-                    : status === 'grace'
-                    ? `Day ${day} — re-checked, click to undo`
-                    : `Day ${day}`
-                }
-                onClick={() => {
-                  if (status === 'failed' || status === 'grace') toggleLifeDisciplineGraceDay(dateKey);
-                }}
-                className={cn(
-                  'aspect-square rounded-md border flex items-center justify-center text-[10px] font-mono font-medium transition-colors',
-                  statusStyles[status],
-                  status === 'grace' && 'cursor-pointer hover:brightness-110'
-                )}
-              >
-                {day}
-              </div>
-            ))}
+            {gridDays.map(({ day, dateKey, status }) => {
+              const loggedReason = lifeDisciplineMissedReasons[dateKey];
+              const tooltip =
+                status === 'failed'
+                  ? loggedReason
+                    ? `Day ${day} — missed: ${loggedReason}`
+                    : lifeDisciplineTokensRemaining > 0
+                    ? `Day ${day} — click to spend a re-check token`
+                    : `Day ${day} — missed, no tokens left. Click to log a reason.`
+                  : status === 'grace'
+                  ? `Day ${day} — re-checked, click to undo`
+                  : `Day ${day}`;
+              return (
+                <div
+                  key={day}
+                  title={tooltip}
+                  onClick={() => handleLifeDisciplineTileClick(dateKey, day, status)}
+                  className={cn(
+                    'relative aspect-square rounded-md border flex items-center justify-center text-[10px] font-mono font-medium transition-colors select-none',
+                    statusStyles[status],
+                    status === 'grace' && 'cursor-pointer hover:brightness-110'
+                  )}
+                >
+                  {day}
+                  {loggedReason && (
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-zinc-950 border border-white/70 flex items-center justify-center">
+                      <span className="w-1 h-1 rounded-full bg-white/90" />
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
     );
   };
 
-  // ---- Configure Challenge modal ----
+  // ---- Re-Check Token confirmation + Missed Day Reason Log modals ----
+  const renderReCheckConfirmModal = () => {
+    if (!reCheckConfirmDate) return null;
+    const dayNum = Math.round((new Date(reCheckConfirmDate + 'T00:00:00').getTime() - new Date(lifeDisciplineStartDate + 'T00:00:00').getTime()) / 86400000) + 1;
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+        onClick={() => setReCheckConfirmDate(null)}
+      >
+        <div
+          className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="p-5">
+            <div className="flex items-center gap-2.5 mb-2">
+              <span className="text-lg leading-none">🛡️</span>
+              <h2 className="text-base font-semibold text-white">Use a Re-Check Token?</h2>
+            </div>
+            <p className="text-sm text-zinc-400">
+              Use 1 Re-Check Token to mark <span className="text-white font-medium">Day {dayNum}</span> as Complete?
+              <br />
+              <span className="text-xs text-zinc-500">Remaining: {lifeDisciplineTokensRemaining}/{challengeConfig.recheckTokens}</span>
+            </p>
+          </div>
+          <div className="flex items-center justify-end gap-2 border-t border-zinc-800 px-5 py-3">
+            <button
+              onClick={() => setReCheckConfirmDate(null)}
+              className="px-3 py-1.5 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                toggleLifeDisciplineGraceDay(reCheckConfirmDate);
+                setReCheckConfirmDate(null);
+              }}
+              className="px-3.5 py-1.5 rounded-lg text-sm font-medium bg-cyan-500 text-black hover:bg-cyan-400 transition-all"
+            >
+              Use Token
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderMissedReasonModal = () => {
+    if (!missedReasonModal) return null;
+    const isView = missedReasonModal.mode === 'view';
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+        onClick={() => setMissedReasonModal(null)}
+      >
+        <div
+          className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between px-5 pt-5 pb-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="text-lg leading-none flex-shrink-0">📝</span>
+              <h2 className="text-base font-semibold text-white truncate">
+                {isView ? `Missed Day Reason — Day ${missedReasonModal.day}` : `Log Reason for Missed Day ${missedReasonModal.day}`}
+              </h2>
+            </div>
+            <button
+              onClick={() => setMissedReasonModal(null)}
+              className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all flex-shrink-0"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="px-5 pb-5">
+            {!isView && (
+              <p className="text-xs text-zinc-500 mb-3">
+                No re-check tokens remaining. Tell us why you were unable to complete your routine (e.g. fatigue, emergency, lack of discipline) — this will lock the day as Failed.
+              </p>
+            )}
+            {isView ? (
+              <p className="text-sm text-zinc-300 bg-zinc-800/50 border border-zinc-800 rounded-xl p-3.5 whitespace-pre-wrap">
+                {lifeDisciplineMissedReasons[missedReasonModal.dateKey]}
+              </p>
+            ) : (
+              <textarea
+                autoFocus
+                value={missedReasonDraftText}
+                onChange={(e) => setMissedReasonDraftText(e.target.value)}
+                placeholder="What got in the way today?"
+                rows={4}
+                className="w-full px-3.5 py-2.5 rounded-lg bg-zinc-800/60 border border-zinc-700 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-rose-500/40 resize-none"
+              />
+            )}
+          </div>
+          <div className="flex items-center justify-end gap-2 border-t border-zinc-800 px-5 py-3">
+            <button
+              onClick={() => setMissedReasonModal(null)}
+              className="px-3 py-1.5 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all"
+            >
+              {isView ? 'Close' : 'Cancel'}
+            </button>
+            {!isView && (
+              <button
+                onClick={saveMissedReasonLog}
+                disabled={!missedReasonDraftText.trim()}
+                className={cn(
+                  'px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all',
+                  missedReasonDraftText.trim() ? 'bg-rose-500 text-white hover:bg-rose-400' : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
+                )}
+              >
+                Save
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
   // Lets the user rename the active challenge, pick a duration (preset or
   // custom 1-365 days), set the re-check token allowance, add an optional
   // motto, manage routine items per time-block, and 1-click load a preset
@@ -12193,6 +12432,8 @@ function App() {
       {renderLightbox()}
       {renderSettingsModal()}
       {renderChallengeConfigModal()}
+      {renderReCheckConfirmModal()}
+      {renderMissedReasonModal()}
 
       {isExportConfirmOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
