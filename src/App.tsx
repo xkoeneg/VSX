@@ -6747,20 +6747,13 @@ function App() {
             </div>
           </div>
 
-          {/* TOP STATUS BAR: streak, token allowance, discipline score */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-4 select-none">
+          {/* TOP STATUS BAR: streak + discipline score (re-check tokens already shown in the stat card above) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-4 select-none">
             <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-zinc-800/50 border border-zinc-800">
               <span className="text-lg leading-none flex-shrink-0">🔥</span>
               <div className="min-w-0">
                 <p className="text-sm font-bold text-white truncate">{activeStreak}-Day Streak</p>
                 <p className="text-[11px] text-zinc-500">Active streak</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-zinc-800/50 border border-zinc-800">
-              <span className="text-lg leading-none flex-shrink-0">🛡️</span>
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-white truncate">Re-Checks Left: {lifeDisciplineTokensRemaining}/{challengeConfig.recheckTokens}</p>
-                <p className="text-[11px] text-zinc-500">Token allowance</p>
               </div>
             </div>
             <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-zinc-800/50 border border-zinc-800">
