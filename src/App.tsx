@@ -315,23 +315,108 @@ const PRESET_SYMBOLS = [
 
 const SESSION_OPTIONS: SessionOption[] = ['NYC', 'London', 'Asia', 'Pre-market Open'];
 
-// ---- Life Discipline Hub: daily habit checklist config ----
-// Each group renders as its own card of checkboxes. A day only counts as
-// "complete" on the Challenge Progress Grid when every item across every
-// group is checked for that date.
-interface HabitGroupConfig {
+// ---- Life Discipline Hub: dynamic challenge + routine config ----
+// Each routine group renders as its own card of checkboxes. A day only
+// counts as "complete" on the Challenge Progress Grid when every item
+// across every group is checked for that date. Routine groups are fixed
+// to 3 time-block categories (icons/labels below), but the items inside
+// each one are fully user-configurable and persisted to localStorage.
+type RoutineGroupId = 'morning' | 'active' | 'night';
+
+interface RoutineItem {
   id: string;
-  label: string;
-  icon: LucideIcon;
-  items: string[];
+  text: string;
 }
 
-const LIFE_DISCIPLINE_CHALLENGE_LENGTH = 100;
+type ChallengeRoutines = Record<RoutineGroupId, RoutineItem[]>;
 
-const LIFE_DISCIPLINE_HABIT_GROUPS: HabitGroupConfig[] = [
-  { id: 'morning', label: 'Morning Routine', icon: Sun, items: ['Brush teeth twice a day', 'Face wash / Skincare', 'Hydrate'] },
-  { id: 'night', label: 'Night Routine', icon: Moon, items: ['Night shower', 'Brush teeth', 'Moisturize'] },
-  { id: 'physical', label: 'Physical & Mental Focus', icon: Activity, items: ['Gym / Workout', 'Clean eating', 'Sleep on time'] },
+interface ChallengeConfig {
+  title: string;
+  durationDays: number;
+  recheckTokens: number; // max allowed grace re-checks for missed days
+  motto: string; // optional identity / vision anchor
+  routines: ChallengeRoutines;
+}
+
+const LIFE_DISCIPLINE_GROUP_META: { id: RoutineGroupId; label: string; icon: LucideIcon }[] = [
+  { id: 'morning', label: 'Morning Routine', icon: Sun },
+  { id: 'active', label: 'Active / Trading Focus', icon: TrendingUp },
+  { id: 'night', label: 'Night Routine', icon: Moon },
+];
+
+const DURATION_PRESET_OPTIONS = [21, 30, 75, 100];
+
+// Note: uses fixed string ids (not the generateId() helper, which is
+// defined further down the file) since this default is built once at
+// module-evaluation time, before that helper's `const` has initialized.
+const makeRoutineItems = (groupId: RoutineGroupId, texts: string[]): RoutineItem[] =>
+  texts.map((text, i) => ({ id: `${groupId}-default-${i}`, text }));
+
+const DEFAULT_CHALLENGE_CONFIG: ChallengeConfig = {
+  title: 'Life Discipline Challenge',
+  durationDays: 100,
+  recheckTokens: 3,
+  motto: '',
+  routines: {
+    morning: makeRoutineItems('morning', ['Brush teeth twice a day', 'Face wash / Skincare', 'Hydrate']),
+    active: makeRoutineItems('active', ['Gym / Workout', 'Clean eating', 'Sleep on time']),
+    night: makeRoutineItems('night', ['Night shower', 'Brush teeth', 'Moisturize']),
+  },
+};
+
+interface ChallengePreset {
+  id: string;
+  name: string;
+  description: string;
+  durationDays: number;
+  recheckTokens: number;
+  motto: string;
+  routines: Record<RoutineGroupId, string[]>;
+}
+
+// 1-click templates offered in the Configure Challenge modal. Selecting one
+// auto-populates the draft (duration, tokens, motto, routines) while still
+// leaving every field open for further editing before saving.
+const CHALLENGE_PRESETS: ChallengePreset[] = [
+  {
+    id: 'monk30',
+    name: '30-Day Monk Mode',
+    description: 'A month of tight focus — minimal distractions, maximum output.',
+    durationDays: 30,
+    recheckTokens: 3,
+    motto: 'Discipline is the bridge between goals and results.',
+    routines: {
+      morning: ['Wake up before 6:30 AM', 'No phone for first 30 min', 'Hydrate + stretch'],
+      active: ['Deep work block (no social media)', 'Gym / physical training', 'Review trading/execution journal'],
+      night: ['No screens after 10 PM', 'Plan tomorrow\'s priorities', 'Lights out by 11 PM'],
+    },
+  },
+  {
+    id: 'exec21',
+    name: '21-Day Execution Protocol',
+    description: 'Short, high-intensity streak built to install one core habit set fast.',
+    durationDays: 21,
+    recheckTokens: 2,
+    motto: 'Execute the plan. No exceptions.',
+    routines: {
+      morning: ['Review daily execution checklist', 'Hydrate', 'Set top 3 priorities'],
+      active: ['Follow trading/execution rules exactly', 'No revenge or impulsive actions', 'Log every decision'],
+      night: ['End-of-day review', 'Rate rule adherence 1-10', 'Prep for tomorrow'],
+    },
+  },
+  {
+    id: 'hard75',
+    name: '75 Hard Challenge',
+    description: 'The classic mental-toughness program: strict daily non-negotiables, zero grace days.',
+    durationDays: 75,
+    recheckTokens: 0,
+    motto: 'No compromises.',
+    routines: {
+      morning: ['Follow a structured diet — no alcohol, no cheat meals', 'Drink 1 gallon of water', 'Read 10 pages of a non-fiction book'],
+      active: ['45-min outdoor workout', '45-min indoor workout', 'Take a progress photo'],
+      night: ['Log the day\'s progress', 'No screens after workouts wind down', 'Lights out on schedule'],
+    },
+  },
 ];
 
 // Preset emotion tags for the Discipline & Psychology Review modal
@@ -3141,10 +3226,30 @@ function App() {
   // Kept in its own localStorage key, deliberately separate from the trading
   // journal's versioned schema/migration pipeline above — this is a simple,
   // self-contained habit tracker and shouldn't need to migrate alongside it.
-  // Shape: { startDate: 'YYYY-MM-DD', checks: { 'YYYY-MM-DD': boolean[][] } }
-  // checks[date][groupIndex][itemIndex] mirrors LIFE_DISCIPLINE_HABIT_GROUPS.
+  // Shape: { startDate, checks: { date: boolean[][] }, graceDays: { date: true },
+  //          config: ChallengeConfig }
+  // checks[date][groupIndex][itemIndex] mirrors LIFE_DISCIPLINE_GROUP_META
+  // order, with each group's items pulled from config.routines[group.id].
   const [lifeDisciplineStartDate, setLifeDisciplineStartDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [lifeDisciplineChecks, setLifeDisciplineChecks] = useState<Record<string, boolean[][]>>({});
+  // Dates that missed full completion but were "saved" using a re-check
+  // (grace) token, up to the challenge's configured token allowance.
+  const [lifeDisciplineGraceDays, setLifeDisciplineGraceDays] = useState<Record<string, boolean>>({});
+  const [challengeConfig, setChallengeConfig] = useState<ChallengeConfig>(DEFAULT_CHALLENGE_CONFIG);
+
+  // Configure Challenge modal state — edits happen on a draft copy so
+  // Cancel discards changes without touching the live config.
+  const [isChallengeConfigOpen, setIsChallengeConfigOpen] = useState(false);
+  const [challengeConfigDraft, setChallengeConfigDraft] = useState<ChallengeConfig>(DEFAULT_CHALLENGE_CONFIG);
+  const [isCustomDuration, setIsCustomDuration] = useState(false);
+  const [newRoutineItemText, setNewRoutineItemText] = useState<Record<RoutineGroupId, string>>({ morning: '', active: '', night: '' });
+  const [editingRoutineItem, setEditingRoutineItem] = useState<{ group: RoutineGroupId; id: string } | null>(null);
+  const [editingRoutineItemText, setEditingRoutineItemText] = useState('');
+
+  // Helper: build a fresh, empty checks matrix matching the current config's
+  // routine group order and item counts.
+  const emptyLifeDisciplineChecks = (config: ChallengeConfig): boolean[][] =>
+    LIFE_DISCIPLINE_GROUP_META.map(meta => config.routines[meta.id].map(() => false));
 
   useEffect(() => {
     const stored = localStorage.getItem('lifeDisciplineData');
@@ -3153,6 +3258,8 @@ function App() {
         const parsed = JSON.parse(stored);
         if (parsed?.startDate) setLifeDisciplineStartDate(parsed.startDate);
         if (parsed?.checks) setLifeDisciplineChecks(parsed.checks);
+        if (parsed?.graceDays) setLifeDisciplineGraceDays(parsed.graceDays);
+        if (parsed?.config?.routines) setChallengeConfig(parsed.config);
       } catch (e) {
         console.error('Failed to load Life Discipline Hub data:', e);
       }
@@ -3161,16 +3268,21 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('lifeDisciplineData', JSON.stringify({ startDate: lifeDisciplineStartDate, checks: lifeDisciplineChecks }));
+      localStorage.setItem('lifeDisciplineData', JSON.stringify({
+        startDate: lifeDisciplineStartDate,
+        checks: lifeDisciplineChecks,
+        graceDays: lifeDisciplineGraceDays,
+        config: challengeConfig,
+      }));
     } catch (e) {
       console.error('Failed to save Life Discipline Hub data:', e);
     }
-  }, [lifeDisciplineStartDate, lifeDisciplineChecks]);
+  }, [lifeDisciplineStartDate, lifeDisciplineChecks, lifeDisciplineGraceDays, challengeConfig]);
 
   // Toggle a single habit checkbox for a given date.
   const toggleLifeDisciplineItem = (dateKey: string, groupIdx: number, itemIdx: number) => {
     setLifeDisciplineChecks(prev => {
-      const existing = prev[dateKey] || LIFE_DISCIPLINE_HABIT_GROUPS.map(g => g.items.map(() => false));
+      const existing = prev[dateKey] || emptyLifeDisciplineChecks(challengeConfig);
       const nextForDate = existing.map((group, gI) =>
         gI === groupIdx ? group.map((val, iI) => (iI === itemIdx ? !val : val)) : group
       );
@@ -3182,9 +3294,116 @@ function App() {
   const isLifeDisciplineDayComplete = (dateKey: string) => {
     const dayChecks = lifeDisciplineChecks[dateKey];
     if (!dayChecks) return false;
-    return LIFE_DISCIPLINE_HABIT_GROUPS.every((group, gI) =>
-      group.items.every((_, iI) => dayChecks[gI]?.[iI])
+    return LIFE_DISCIPLINE_GROUP_META.every((meta, gI) =>
+      challengeConfig.routines[meta.id].every((_, iI) => dayChecks[gI]?.[iI])
     );
+  };
+
+  // Re-check (grace) tokens: how many of the configured allowance have
+  // already been spent redeeming missed days, and how many remain.
+  const lifeDisciplineTokensUsed = Object.values(lifeDisciplineGraceDays).filter(Boolean).length;
+  const lifeDisciplineTokensRemaining = Math.max(0, challengeConfig.recheckTokens - lifeDisciplineTokensUsed);
+
+  // Spend (or refund) a re-check token on a missed day. Only valid for past,
+  // incomplete days — the toggle is a no-op otherwise.
+  const toggleLifeDisciplineGraceDay = (dateKey: string) => {
+    setLifeDisciplineGraceDays(prev => {
+      const isGraced = !!prev[dateKey];
+      if (!isGraced && lifeDisciplineTokensRemaining <= 0) return prev; // no tokens left
+      const next = { ...prev };
+      if (isGraced) delete next[dateKey];
+      else next[dateKey] = true;
+      return next;
+    });
+  };
+
+  // ---- Configure Challenge modal helpers ----
+  const openChallengeConfigModal = () => {
+    setChallengeConfigDraft({
+      ...challengeConfig,
+      routines: {
+        morning: challengeConfig.routines.morning.map(i => ({ ...i })),
+        active: challengeConfig.routines.active.map(i => ({ ...i })),
+        night: challengeConfig.routines.night.map(i => ({ ...i })),
+      },
+    });
+    setIsCustomDuration(!DURATION_PRESET_OPTIONS.includes(challengeConfig.durationDays));
+    setNewRoutineItemText({ morning: '', active: '', night: '' });
+    setEditingRoutineItem(null);
+    setIsChallengeConfigOpen(true);
+  };
+
+  const applyChallengePreset = (preset: ChallengePreset) => {
+    setChallengeConfigDraft(prev => ({
+      ...prev,
+      title: prev.title?.trim() ? prev.title : preset.name,
+      durationDays: preset.durationDays,
+      recheckTokens: preset.recheckTokens,
+      motto: preset.motto,
+      routines: {
+        morning: makeRoutineItems('morning', preset.routines.morning).map(i => ({ ...i, id: generateId() })),
+        active: makeRoutineItems('active', preset.routines.active).map(i => ({ ...i, id: generateId() })),
+        night: makeRoutineItems('night', preset.routines.night).map(i => ({ ...i, id: generateId() })),
+      },
+    }));
+    setIsCustomDuration(!DURATION_PRESET_OPTIONS.includes(preset.durationDays));
+  };
+
+  const addDraftRoutineItem = (group: RoutineGroupId) => {
+    const text = newRoutineItemText[group].trim();
+    if (!text) return;
+    setChallengeConfigDraft(prev => ({
+      ...prev,
+      routines: { ...prev.routines, [group]: [...prev.routines[group], { id: generateId(), text }] },
+    }));
+    setNewRoutineItemText(prev => ({ ...prev, [group]: '' }));
+  };
+
+  const deleteDraftRoutineItem = (group: RoutineGroupId, id: string) => {
+    setChallengeConfigDraft(prev => ({
+      ...prev,
+      routines: { ...prev.routines, [group]: prev.routines[group].filter(i => i.id !== id) },
+    }));
+  };
+
+  const startEditDraftRoutineItem = (group: RoutineGroupId, item: RoutineItem) => {
+    setEditingRoutineItem({ group, id: item.id });
+    setEditingRoutineItemText(item.text);
+  };
+
+  const commitEditDraftRoutineItem = () => {
+    if (!editingRoutineItem) return;
+    const text = editingRoutineItemText.trim();
+    if (text) {
+      setChallengeConfigDraft(prev => ({
+        ...prev,
+        routines: {
+          ...prev.routines,
+          [editingRoutineItem.group]: prev.routines[editingRoutineItem.group].map(i =>
+            i.id === editingRoutineItem.id ? { ...i, text } : i
+          ),
+        },
+      }));
+    }
+    setEditingRoutineItem(null);
+    setEditingRoutineItemText('');
+  };
+
+  // Saving starts a brand-new challenge: applies the draft config and resets
+  // progress (start date, checklist state, and spent grace tokens) so the
+  // new duration / routines / token allowance begin from Day 1.
+  const saveChallengeConfig = () => {
+    const cleaned: ChallengeConfig = {
+      ...challengeConfigDraft,
+      title: challengeConfigDraft.title.trim() || 'Life Discipline Challenge',
+      durationDays: Math.min(365, Math.max(1, Math.round(challengeConfigDraft.durationDays) || 1)),
+      recheckTokens: Math.max(0, Math.round(challengeConfigDraft.recheckTokens) || 0),
+    };
+    setChallengeConfig(cleaned);
+    setLifeDisciplineStartDate(new Date().toISOString().slice(0, 10));
+    setLifeDisciplineChecks({});
+    setLifeDisciplineGraceDays({});
+    setIsChallengeConfigOpen(false);
   };
 
   // Initialize selected account
@@ -6233,36 +6452,43 @@ function App() {
   // Intentionally decoupled from the trading journal's trade/rule data.
   const renderLifeDisciplineHub = () => {
     const todayKey = new Date().toISOString().slice(0, 10);
-    const todayChecks = lifeDisciplineChecks[todayKey] || LIFE_DISCIPLINE_HABIT_GROUPS.map(g => g.items.map(() => false));
+    const todayChecks = lifeDisciplineChecks[todayKey] || emptyLifeDisciplineChecks(challengeConfig);
 
-    const totalItems = LIFE_DISCIPLINE_HABIT_GROUPS.reduce((sum, g) => sum + g.items.length, 0);
+    // Live routine groups: fixed 3 time-block categories + meta (icon/label),
+    // items sourced from the active challenge config.
+    const routineGroups = LIFE_DISCIPLINE_GROUP_META.map(meta => ({ ...meta, items: challengeConfig.routines[meta.id] }));
+
+    const totalItems = routineGroups.reduce((sum, g) => sum + g.items.length, 0);
     const checkedItems = todayChecks.reduce((sum, group) => sum + group.filter(Boolean).length, 0);
-    const todayComplete = checkedItems === totalItems;
+    const todayComplete = totalItems > 0 && checkedItems === totalItems;
 
     // Build the Day 1..N grid against the stored challenge start date.
     const start = new Date(lifeDisciplineStartDate + 'T00:00:00');
     const today = new Date(todayKey + 'T00:00:00');
-    const gridDays = Array.from({ length: LIFE_DISCIPLINE_CHALLENGE_LENGTH }, (_, i) => {
+    const gridDays = Array.from({ length: challengeConfig.durationDays }, (_, i) => {
       const d = new Date(start);
       d.setDate(d.getDate() + i);
       const dateKey = d.toISOString().slice(0, 10);
       const isFuture = d.getTime() > today.getTime();
       const isToday = d.getTime() === today.getTime();
       const complete = isLifeDisciplineDayComplete(dateKey);
-      let status: 'upcoming' | 'complete' | 'failed' | 'pending';
+      const graced = !!lifeDisciplineGraceDays[dateKey];
+      let status: 'upcoming' | 'complete' | 'failed' | 'pending' | 'grace';
       if (isFuture) status = 'upcoming';
       else if (complete) status = 'complete';
       else if (isToday) status = 'pending';
+      else if (graced) status = 'grace';
       else status = 'failed';
       return { day: i + 1, dateKey, status };
     });
 
-    const completedCount = gridDays.filter(d => d.status === 'complete').length;
+    const completedCount = gridDays.filter(d => d.status === 'complete' || d.status === 'grace').length;
     const failedCount = gridDays.filter(d => d.status === 'failed').length;
 
     const statusStyles: Record<string, string> = {
       complete: 'bg-emerald-500 border-emerald-400 text-white',
-      failed: 'bg-rose-500/90 border-rose-400 text-white',
+      grace: 'bg-cyan-500/80 border-cyan-400 text-white',
+      failed: 'bg-rose-500/90 border-rose-400 text-white cursor-pointer hover:brightness-110',
       pending: 'bg-amber-500/20 border-amber-500/50 text-amber-300',
       upcoming: theme !== 'light' ? 'bg-zinc-800/50 border-zinc-800 text-zinc-600' : 'bg-zinc-100 border-zinc-200 text-zinc-400',
     };
@@ -6270,18 +6496,30 @@ function App() {
     return (
       <div className="space-y-4 min-w-0">
         {/* PAGE HEADER */}
-        <div>
-          <h2 className="text-2xl font-bold text-white truncate flex items-center gap-2">
-            <Flame className="w-6 h-6 text-amber-400 flex-shrink-0" />
-            Life Discipline Hub
-          </h2>
-          <p className="text-zinc-500 text-sm truncate">Tracking daily execution, one habit at a time</p>
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            <h2 className="text-2xl font-bold text-white truncate flex items-center gap-2">
+              <Flame className="w-6 h-6 text-amber-400 flex-shrink-0" />
+              {challengeConfig.title}
+            </h2>
+            <p className="text-zinc-500 text-sm truncate">
+              {challengeConfig.motto ? challengeConfig.motto : 'Tracking daily execution, one habit at a time'}
+            </p>
+          </div>
+          <button
+            onClick={openChallengeConfigModal}
+            className="flex-shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium bg-zinc-800 text-white border border-zinc-700 hover:bg-zinc-700 transition-all"
+          >
+            <Settings className="w-4 h-4" />
+            Configure Challenge
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {renderStatCard('Today\'s Progress', `${checkedItems}/${totalItems}`, <CheckCircle2 className="w-4 h-4" />, todayComplete ? 'text-emerald-400' : 'text-amber-400')}
           {renderStatCard('Days Completed', completedCount, <Flame className="w-4 h-4" />, 'text-emerald-400')}
           {renderStatCard('Days Failed', failedCount, <XCircle className="w-4 h-4" />, 'text-rose-400')}
+          {renderStatCard('Re-check Tokens', `${lifeDisciplineTokensRemaining}/${challengeConfig.recheckTokens}`, <RefreshCw className="w-4 h-4" />, 'text-cyan-400')}
         </div>
 
         {/* DAILY CHECKLIST SECTION */}
@@ -6292,9 +6530,9 @@ function App() {
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {LIFE_DISCIPLINE_HABIT_GROUPS.map((group, gI) => {
+            {routineGroups.map((group, gI) => {
               const groupChecks = todayChecks[gI] || group.items.map(() => false);
-              const groupComplete = groupChecks.every(Boolean);
+              const groupComplete = group.items.length > 0 && groupChecks.every(Boolean);
               const GroupIcon = group.icon;
               return (
                 <div
@@ -6310,11 +6548,14 @@ function App() {
                     {groupComplete && <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 ml-auto" />}
                   </div>
                   <div className="space-y-2">
+                    {group.items.length === 0 && (
+                      <p className="text-xs text-zinc-500 italic">No routine items — add some in Configure Challenge.</p>
+                    )}
                     {group.items.map((item, iI) => {
                       const checked = !!groupChecks[iI];
                       return (
                         <label
-                          key={iI}
+                          key={item.id}
                           className="flex items-center gap-2.5 cursor-pointer group select-none"
                         >
                           <input
@@ -6332,7 +6573,7 @@ function App() {
                             {checked && <Check className="w-3.5 h-3.5 text-white" />}
                           </span>
                           <span className={cn('text-sm transition-colors', checked ? 'text-zinc-300 line-through decoration-zinc-600' : 'text-zinc-300')}>
-                            {item}
+                            {item.text}
                           </span>
                         </label>
                       );
@@ -6349,29 +6590,289 @@ function App() {
           <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
             <h3 className="text-base font-semibold text-white flex items-center gap-2">
               <Target className="w-4 h-4 text-zinc-400 flex-shrink-0" />
-              <span className="truncate">{LIFE_DISCIPLINE_CHALLENGE_LENGTH}-Day Challenge Progress</span>
+              <span className="truncate">{challengeConfig.durationDays}-Day Challenge Progress</span>
             </h3>
             <div className="flex items-center gap-3 text-xs text-zinc-400 flex-wrap">
               <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" /> Complete</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-cyan-500/80" /> Re-checked</span>
               <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-rose-500/90" /> Failed</span>
               <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-amber-500/20 border border-amber-500/50" /> Today</span>
               <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-zinc-800 border border-zinc-700" /> Upcoming</span>
             </div>
           </div>
+          {challengeConfig.recheckTokens > 0 && (
+            <p className="text-xs text-zinc-500 mb-3">
+              Click a failed day to spend a re-check token and mark it saved. {lifeDisciplineTokensRemaining} of {challengeConfig.recheckTokens} tokens remaining.
+            </p>
+          )}
 
           <div className="grid grid-cols-10 sm:grid-cols-10 md:grid-cols-[repeat(20,minmax(0,1fr))] gap-1.5">
-            {gridDays.map(({ day, status }) => (
+            {gridDays.map(({ day, dateKey, status }) => (
               <div
                 key={day}
-                title={`Day ${day}`}
+                title={
+                  status === 'failed'
+                    ? (lifeDisciplineTokensRemaining > 0 ? `Day ${day} — click to spend a re-check token` : `Day ${day} — missed, no tokens left`)
+                    : status === 'grace'
+                    ? `Day ${day} — re-checked, click to undo`
+                    : `Day ${day}`
+                }
+                onClick={() => {
+                  if (status === 'failed' || status === 'grace') toggleLifeDisciplineGraceDay(dateKey);
+                }}
                 className={cn(
                   'aspect-square rounded-md border flex items-center justify-center text-[10px] font-mono font-medium transition-colors',
-                  statusStyles[status]
+                  statusStyles[status],
+                  status === 'grace' && 'cursor-pointer hover:brightness-110'
                 )}
               >
                 {day}
               </div>
             ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ---- Configure Challenge modal ----
+  // Lets the user rename the active challenge, pick a duration (preset or
+  // custom 1-365 days), set the re-check token allowance, add an optional
+  // motto, manage routine items per time-block, and 1-click load a preset
+  // template. Saving starts a fresh challenge run from Day 1.
+  const renderChallengeConfigModal = () => {
+    if (!isChallengeConfigOpen) return null;
+
+    const draftGroups = LIFE_DISCIPLINE_GROUP_META.map(meta => ({ ...meta, items: challengeConfigDraft.routines[meta.id] }));
+
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+        onClick={() => setIsChallengeConfigOpen(false)}
+      >
+        <div
+          className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-zinc-800 flex-shrink-0">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center">
+                <Flame className="w-4 h-4 text-amber-400" />
+              </div>
+              <h2 className="text-base font-semibold text-white">Configure Challenge</h2>
+            </div>
+            <button
+              onClick={() => setIsChallengeConfigOpen(false)}
+              className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="overflow-y-auto px-6 py-5 space-y-6 flex-1 min-h-0">
+            {/* PRESETS */}
+            <div>
+              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2.5">Load Preset</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {CHALLENGE_PRESETS.map(preset => (
+                  <button
+                    key={preset.id}
+                    onClick={() => applyChallengePreset(preset)}
+                    className="text-left px-3.5 py-3 rounded-xl bg-zinc-800/50 border border-zinc-800 hover:border-amber-500/50 hover:bg-zinc-800 transition-all"
+                  >
+                    <p className="text-sm font-medium text-white truncate">{preset.name}</p>
+                    <p className="text-xs text-zinc-500 mt-1 line-clamp-2">{preset.description}</p>
+                    <p className="text-[11px] text-zinc-600 mt-1.5">{preset.durationDays} days · {preset.recheckTokens} tokens</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* TITLE */}
+            <div>
+              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 block">Challenge Title</label>
+              <input
+                type="text"
+                value={challengeConfigDraft.title}
+                onChange={(e) => setChallengeConfigDraft(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="e.g. Monk Mode, 100-Day Trading Focus"
+                className="w-full px-3.5 py-2.5 rounded-lg bg-zinc-800/60 border border-zinc-700 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+              />
+            </div>
+
+            {/* DURATION */}
+            <div>
+              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 block">Duration</label>
+              <div className="flex flex-wrap items-center gap-2">
+                {DURATION_PRESET_OPTIONS.map(days => (
+                  <button
+                    key={days}
+                    onClick={() => {
+                      setIsCustomDuration(false);
+                      setChallengeConfigDraft(prev => ({ ...prev, durationDays: days }));
+                    }}
+                    className={cn(
+                      'px-3.5 py-2 rounded-lg text-sm font-medium border transition-all',
+                      !isCustomDuration && challengeConfigDraft.durationDays === days
+                        ? 'bg-amber-500 border-amber-400 text-black'
+                        : 'bg-zinc-800/50 border-zinc-700 text-zinc-300 hover:border-zinc-600'
+                    )}
+                  >
+                    {days} Days
+                  </button>
+                ))}
+                <button
+                  onClick={() => setIsCustomDuration(true)}
+                  className={cn(
+                    'px-3.5 py-2 rounded-lg text-sm font-medium border transition-all',
+                    isCustomDuration
+                      ? 'bg-amber-500 border-amber-400 text-black'
+                      : 'bg-zinc-800/50 border-zinc-700 text-zinc-300 hover:border-zinc-600'
+                  )}
+                >
+                  Custom
+                </button>
+                {isCustomDuration && (
+                  <input
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={challengeConfigDraft.durationDays}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      setChallengeConfigDraft(prev => ({ ...prev, durationDays: Number.isFinite(val) ? val : prev.durationDays }));
+                    }}
+                    className="w-24 px-3 py-2 rounded-lg bg-zinc-800/60 border border-zinc-700 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                  />
+                )}
+                {isCustomDuration && <span className="text-xs text-zinc-500">days (1–365)</span>}
+              </div>
+            </div>
+
+            {/* RE-CHECK TOKENS */}
+            <div>
+              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 block">
+                Re-check Token Allowance
+              </label>
+              <p className="text-xs text-zinc-500 mb-2">Max number of grace re-checks allowed for missed days.</p>
+              <input
+                type="number"
+                min={0}
+                max={99}
+                value={challengeConfigDraft.recheckTokens}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  setChallengeConfigDraft(prev => ({ ...prev, recheckTokens: Number.isFinite(val) ? val : prev.recheckTokens }));
+                }}
+                className="w-24 px-3 py-2 rounded-lg bg-zinc-800/60 border border-zinc-700 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+              />
+            </div>
+
+            {/* MOTTO */}
+            <div>
+              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 block">
+                Identity / Vision Motto <span className="text-zinc-600 normal-case font-normal">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={challengeConfigDraft.motto}
+                onChange={(e) => setChallengeConfigDraft(prev => ({ ...prev, motto: e.target.value }))}
+                placeholder="e.g. Discipline is the bridge between goals and results."
+                className="w-full px-3.5 py-2.5 rounded-lg bg-zinc-800/60 border border-zinc-700 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+              />
+            </div>
+
+            {/* ROUTINE MANAGER */}
+            <div>
+              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2.5 block">Custom Routine Manager</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {draftGroups.map(group => {
+                  const GroupIcon = group.icon;
+                  return (
+                    <div key={group.id} className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-3.5">
+                      <div className="flex items-center gap-2 mb-3 pb-2.5 border-b border-zinc-800/60">
+                        <GroupIcon className="w-4 h-4 text-zinc-400 flex-shrink-0" />
+                        <span className="text-sm font-semibold text-white truncate">{group.label}</span>
+                      </div>
+                      <div className="space-y-1.5 mb-2.5">
+                        {group.items.length === 0 && (
+                          <p className="text-xs text-zinc-600 italic">No items yet.</p>
+                        )}
+                        {group.items.map(item => (
+                          <div key={item.id} className="flex items-center gap-1.5 group">
+                            {editingRoutineItem?.group === group.id && editingRoutineItem?.id === item.id ? (
+                              <input
+                                autoFocus
+                                type="text"
+                                value={editingRoutineItemText}
+                                onChange={(e) => setEditingRoutineItemText(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') commitEditDraftRoutineItem(); if (e.key === 'Escape') setEditingRoutineItem(null); }}
+                                onBlur={commitEditDraftRoutineItem}
+                                className="flex-1 min-w-0 px-2 py-1 rounded-md bg-zinc-900 border border-amber-500/50 text-xs text-white focus:outline-none"
+                              />
+                            ) : (
+                              <span className="flex-1 min-w-0 text-xs text-zinc-300 truncate">{item.text}</span>
+                            )}
+                            <button
+                              onClick={() => startEditDraftRoutineItem(group.id, item)}
+                              className="opacity-0 group-hover:opacity-100 p-1 rounded text-zinc-500 hover:text-white hover:bg-zinc-700 transition-all flex-shrink-0"
+                              aria-label="Edit item"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => deleteDraftRoutineItem(group.id, item.id)}
+                              className="opacity-0 group-hover:opacity-100 p-1 rounded text-zinc-500 hover:text-rose-400 hover:bg-zinc-700 transition-all flex-shrink-0"
+                              aria-label="Delete item"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="text"
+                          value={newRoutineItemText[group.id]}
+                          onChange={(e) => setNewRoutineItemText(prev => ({ ...prev, [group.id]: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === 'Enter') addDraftRoutineItem(group.id); }}
+                          placeholder="Add item..."
+                          className="flex-1 min-w-0 px-2 py-1.5 rounded-md bg-zinc-900 border border-zinc-700 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
+                        />
+                        <button
+                          onClick={() => addDraftRoutineItem(group.id)}
+                          className="p-1.5 rounded-md bg-zinc-700 text-white hover:bg-zinc-600 transition-all flex-shrink-0"
+                          aria-label="Add item"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between gap-2 border-t border-zinc-800 px-6 py-4 flex-shrink-0">
+            <p className="text-xs text-zinc-500">Saving starts a new challenge run from Day 1.</p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsChallengeConfigOpen(false)}
+                className="px-3.5 py-2 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveChallengeConfig}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-amber-500 text-black hover:bg-amber-400 transition-all"
+              >
+                Save & Start Challenge
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -11625,6 +12126,7 @@ function App() {
       {renderDeleteStrategyConfirm()}
       {renderLightbox()}
       {renderSettingsModal()}
+      {renderChallengeConfigModal()}
 
       {isExportConfirmOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
