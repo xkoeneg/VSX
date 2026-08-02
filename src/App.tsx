@@ -339,9 +339,9 @@ interface ChallengeConfig {
 }
 
 const LIFE_DISCIPLINE_GROUP_META: { id: RoutineGroupId; label: string; icon: LucideIcon }[] = [
-  { id: 'morning', label: 'Morning Routine', icon: Sun },
-  { id: 'active', label: 'Active / Trading Focus', icon: TrendingUp },
-  { id: 'night', label: 'Night Routine', icon: Moon },
+  { id: 'morning', label: '🌅 Morning Routine', icon: Sun },
+  { id: 'active', label: '⚡ Active / Trading Focus', icon: TrendingUp },
+  { id: 'night', label: '🌙 Night Routine', icon: Moon },
 ];
 
 const DURATION_PRESET_OPTIONS = [21, 30, 75, 100];
@@ -3246,6 +3246,18 @@ function App() {
   const [editingRoutineItem, setEditingRoutineItem] = useState<{ group: RoutineGroupId; id: string } | null>(null);
   const [editingRoutineItemText, setEditingRoutineItemText] = useState('');
 
+  // Lightweight local toast for Daily Checklist quick actions (e.g. "Complete All").
+  const [lifeDisciplineToast, setLifeDisciplineToast] = useState<string | null>(null);
+  const lifeDisciplineToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showLifeDisciplineToast = (message: string) => {
+    setLifeDisciplineToast(message);
+    if (lifeDisciplineToastTimeoutRef.current) clearTimeout(lifeDisciplineToastTimeoutRef.current);
+    lifeDisciplineToastTimeoutRef.current = setTimeout(() => setLifeDisciplineToast(null), 2500);
+  };
+  useEffect(() => () => {
+    if (lifeDisciplineToastTimeoutRef.current) clearTimeout(lifeDisciplineToastTimeoutRef.current);
+  }, []);
+
   // Helper: build a fresh, empty checks matrix matching the current config's
   // routine group order and item counts.
   const emptyLifeDisciplineChecks = (config: ChallengeConfig): boolean[][] =>
@@ -3288,6 +3300,16 @@ function App() {
       );
       return { ...prev, [dateKey]: nextForDate };
     });
+  };
+
+  // Quick action: mark every habit across every routine group complete for
+  // the given date in a single click.
+  const completeAllLifeDisciplineToday = (dateKey: string) => {
+    setLifeDisciplineChecks(prev => ({
+      ...prev,
+      [dateKey]: LIFE_DISCIPLINE_GROUP_META.map(meta => challengeConfig.routines[meta.id].map(() => true)),
+    }));
+    showLifeDisciplineToast('✨ All habits marked complete for today');
   };
 
   // A date "counts" as complete only once every checkbox across every group is checked.
@@ -6523,16 +6545,49 @@ function App() {
         </div>
 
         {/* DAILY CHECKLIST SECTION */}
-        <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-5 min-w-0">
-          <h3 className="text-base font-semibold text-white flex items-center gap-2 mb-4">
-            <Shield className="w-4 h-4 text-zinc-400 flex-shrink-0" />
-            <span className="truncate">Daily Checklist — {formatDate(todayKey)}</span>
-          </h3>
+        <div className="relative bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-5 min-w-0">
+          <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+            <h3 className="text-base font-semibold text-white flex items-center gap-2 select-none">
+              <Shield className="w-4 h-4 text-zinc-400 flex-shrink-0" />
+              <span className="truncate">Daily Checklist — {formatDate(todayKey)}</span>
+            </h3>
+            <button
+              onClick={() => completeAllLifeDisciplineToday(todayKey)}
+              disabled={todayComplete || totalItems === 0}
+              className={cn(
+                'flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium transition-all select-none',
+                todayComplete || totalItems === 0
+                  ? 'bg-zinc-800/50 text-zinc-600 cursor-not-allowed'
+                  : 'bg-emerald-500 text-black hover:bg-emerald-400 cursor-pointer'
+              )}
+            >
+              <Zap className="w-4 h-4" />
+              {todayComplete ? 'All Complete ✨' : '⚡ Complete All'}
+            </button>
+          </div>
+
+          {/* Toast feedback for quick actions */}
+          {lifeDisciplineToast && (
+            <div
+              key={lifeDisciplineToast}
+              style={{ animation: 'lifeDisciplineToastIn 0.25s ease-out' }}
+              className="absolute top-3 right-5 z-10 px-3.5 py-2 rounded-lg bg-emerald-500 text-black text-xs font-semibold shadow-lg select-none"
+            >
+              {lifeDisciplineToast}
+            </div>
+          )}
+          <style>{`
+            @keyframes lifeDisciplineToastIn {
+              from { opacity: 0; transform: translateY(-6px); }
+              to { opacity: 1; transform: translateY(0); }
+            }
+          `}</style>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {routineGroups.map((group, gI) => {
               const groupChecks = todayChecks[gI] || group.items.map(() => false);
-              const groupComplete = group.items.length > 0 && groupChecks.every(Boolean);
+              const groupCheckedCount = groupChecks.filter(Boolean).length;
+              const groupComplete = group.items.length > 0 && groupCheckedCount === group.items.length;
               const GroupIcon = group.icon;
               return (
                 <div
@@ -6542,14 +6597,23 @@ function App() {
                     groupComplete ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-zinc-800/30 border-zinc-800/70'
                   )}
                 >
-                  <div className="flex items-center gap-2 mb-3 pb-3 border-b border-zinc-800/60">
+                  <div className="flex items-center gap-2 mb-3 pb-3 border-b border-zinc-800/60 select-none">
                     <GroupIcon className={cn('w-4 h-4 flex-shrink-0', groupComplete ? 'text-emerald-400' : 'text-zinc-400')} />
                     <span className="text-sm font-semibold text-white truncate">{group.label}</span>
-                    {groupComplete && <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 ml-auto" />}
+                    <span
+                      className={cn(
+                        'ml-auto flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap',
+                        groupComplete
+                          ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                          : 'bg-zinc-800 text-zinc-400 border-zinc-700'
+                      )}
+                    >
+                      {groupCheckedCount}/{group.items.length}{groupComplete ? ' Ready' : ''}
+                    </span>
                   </div>
                   <div className="space-y-2">
                     {group.items.length === 0 && (
-                      <p className="text-xs text-zinc-500 italic">No routine items — add some in Configure Challenge.</p>
+                      <p className="text-xs text-zinc-500 italic select-none">No routine items — add some in Configure Challenge.</p>
                     )}
                     {group.items.map((item, iI) => {
                       const checked = !!groupChecks[iI];
@@ -6562,17 +6626,19 @@ function App() {
                             type="checkbox"
                             checked={checked}
                             onChange={() => toggleLifeDisciplineItem(todayKey, gI, iI)}
-                            className="sr-only peer"
+                            className="sr-only peer cursor-pointer"
                           />
                           <span
                             className={cn(
-                              'w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 transition-colors',
-                              checked ? 'bg-emerald-500 border-emerald-400' : 'border-zinc-600 group-hover:border-zinc-400'
+                              'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 cursor-pointer transition-all duration-200 ease-out',
+                              checked
+                                ? 'bg-emerald-500 border-emerald-400 scale-100'
+                                : 'border-zinc-600 group-hover:border-zinc-400 group-active:scale-90'
                             )}
                           >
                             {checked && <Check className="w-3.5 h-3.5 text-white" />}
                           </span>
-                          <span className={cn('text-sm transition-colors', checked ? 'text-zinc-300 line-through decoration-zinc-600' : 'text-zinc-300')}>
+                          <span className={cn('text-sm select-none transition-colors', checked ? 'text-zinc-300 line-through decoration-zinc-600' : 'text-zinc-300')}>
                             {item.text}
                           </span>
                         </label>
