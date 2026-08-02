@@ -9714,15 +9714,13 @@ function App() {
 
     return (
       <div className="space-y-10 min-w-0">
+        <PageHeader
+          title="Market Notices"
+          description="Document market observations and scenarios"
+        />
+
         {/* Gallery */}
         <div className="space-y-4 min-w-0">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="min-w-0">
-              <h2 className="text-2xl font-bold text-white truncate">Market Notices</h2>
-              <p className="text-zinc-500 text-sm truncate">Document market observations and scenarios</p>
-            </div>
-          </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {notices.map(notice => (
               <div
@@ -9937,16 +9935,16 @@ function App() {
 
   const renderWiki = () => (
     <div className="space-y-6 min-w-0">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="min-w-0">
-          <h2 className="text-2xl font-bold text-white truncate">Knowledge Wiki</h2>
-          <p className="text-zinc-500 text-sm truncate">Personal reference for trading concepts</p>
-        </div>
-        <button onClick={() => setShowAddWiki(true)} className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors flex-shrink-0">
-          <Plus className="w-4 h-4" />
-          <span>Add Entry</span>
-        </button>
-      </div>
+      <PageHeader
+        title="Knowledge Wiki"
+        description="Personal reference for trading concepts"
+        actions={
+          <button onClick={() => setShowAddWiki(true)} className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors flex-shrink-0">
+            <Plus className="w-4 h-4" />
+            <span>Add Entry</span>
+          </button>
+        }
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {wikiEntries.map(entry => (
@@ -10017,7 +10015,7 @@ function App() {
               <div className="relative" ref={accountDropdownRef}>
                 <button
                   onClick={() => setShowAccountDropdown(!showAccountDropdown)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700"
+                  className="h-9 flex items-center gap-2 px-3 rounded-lg text-sm transition-colors bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700"
                 >
                   <Filter className="w-4 h-4 flex-shrink-0" />
                   <span className="hidden sm:inline truncate max-w-[120px]">{selectedAccounts.includes('all') ? 'All Accounts' : `${selectedAccounts.length} Selected`}</span>
@@ -10062,15 +10060,17 @@ function App() {
                 )}
               </div>
 
-              <button onClick={() => { setCalendarMonth(prev => prev.month === 0 ? { year: prev.year - 1, month: 11 } : { ...prev, month: prev.month - 1 }); }} className="p-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors">
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <div className="px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-lg">
-                <span className="font-medium text-white whitespace-nowrap">{monthNames[calendarMonth.month]} {calendarMonth.year}</span>
+              <div className="flex items-center gap-2 h-9">
+                <button onClick={() => { setCalendarMonth(prev => prev.month === 0 ? { year: prev.year - 1, month: 11 } : { ...prev, month: prev.month - 1 }); }} className="h-9 w-9 flex items-center justify-center flex-shrink-0 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors">
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <div className="h-9 flex items-center px-4 bg-zinc-900 border border-zinc-800 rounded-lg">
+                  <span className="text-sm font-medium text-white whitespace-nowrap">{monthNames[calendarMonth.month]} {calendarMonth.year}</span>
+                </div>
+                <button onClick={() => { setCalendarMonth(prev => prev.month === 11 ? { year: prev.year + 1, month: 0 } : { ...prev, month: prev.month + 1 }); }} className="h-9 w-9 flex items-center justify-center flex-shrink-0 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors">
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
-              <button onClick={() => { setCalendarMonth(prev => prev.month === 11 ? { year: prev.year + 1, month: 0 } : { ...prev, month: prev.month + 1 }); }} className="p-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors">
-                <ChevronRight className="w-4 h-4" />
-              </button>
             </>
           }
         />
