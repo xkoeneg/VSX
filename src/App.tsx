@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback, memo } from 'react';
 import {
   LayoutDashboard,
   BookOpen,
@@ -3620,6 +3620,48 @@ function App() {
   const [iconPickerOpenFor, setIconPickerOpenFor] = useState<string | null>(null);
   const [iconPickerTab, setIconPickerTab] = useState<'emoji' | 'icon'>('emoji');
   const iconPickerRef = useRef<HTMLDivElement | null>(null);
+  // The popover itself is rendered through a portal (see below) so it can
+  // escape the Configure/Edit Challenge modal's scrollable body — without
+  // this, `overflow-y-auto` on that body clips the popover and it renders
+  // cut off / underneath the modal's sticky Cancel · Save Changes footer.
+  const iconPickerPopoverRef = useRef<HTMLDivElement | null>(null);
+  const [iconPickerPos, setIconPickerPos] = useState<{ top: number; left: number } | null>(null);
+  // Recompute the portal's on-screen position every time a picker opens
+  // (or the trigger button it's anchored to changes), and keep it inside
+  // the viewport horizontally/vertically so it never gets clipped.
+  useLayoutEffect(() => {
+    if (!iconPickerOpenFor) { setIconPickerPos(null); return; }
+    const anchor = iconPickerRef.current;
+    if (!anchor) return;
+    const POPOVER_WIDTH = 288; // w-72
+    const POPOVER_MAX_HEIGHT = 320;
+    const GAP = 6;
+    const VIEWPORT_PADDING = 8;
+    const rect = anchor.getBoundingClientRect();
+    let top = rect.bottom + GAP;
+    let left = rect.left;
+    if (left + POPOVER_WIDTH + VIEWPORT_PADDING > window.innerWidth) {
+      left = Math.max(VIEWPORT_PADDING, window.innerWidth - POPOVER_WIDTH - VIEWPORT_PADDING);
+    }
+    if (top + POPOVER_MAX_HEIGHT + VIEWPORT_PADDING > window.innerHeight) {
+      // Not enough room below — flip to open above the trigger instead.
+      const flippedTop = rect.top - GAP - POPOVER_MAX_HEIGHT;
+      top = flippedTop > VIEWPORT_PADDING ? flippedTop : Math.max(VIEWPORT_PADDING, window.innerHeight - POPOVER_MAX_HEIGHT - VIEWPORT_PADDING);
+    }
+    setIconPickerPos({ top, left });
+  }, [iconPickerOpenFor]);
+  // Close the picker on scroll/resize instead of letting it drift out of
+  // sync with its trigger button, since it's now positioned `fixed`.
+  useEffect(() => {
+    if (!iconPickerOpenFor) return;
+    const closeIt = () => setIconPickerOpenFor(null);
+    window.addEventListener('resize', closeIt);
+    document.addEventListener('scroll', closeIt, true);
+    return () => {
+      window.removeEventListener('resize', closeIt);
+      document.removeEventListener('scroll', closeIt, true);
+    };
+  }, [iconPickerOpenFor]);
   // Delete-confirmation state for the Custom Routine Manager — deleting a
   // whole category block or a single routine item always requires an
   // explicit "Confirm Delete" to prevent accidental data loss.
@@ -3742,7 +3784,10 @@ function App() {
   useEffect(() => {
     if (!iconPickerOpenFor) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (iconPickerRef.current && !iconPickerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const insideButton = iconPickerRef.current?.contains(target);
+      const insidePopover = iconPickerPopoverRef.current?.contains(target);
+      if (!insideButton && !insidePopover) {
         setIconPickerOpenFor(null);
       }
     };
@@ -7951,9 +7996,11 @@ function App() {
                           >
                             {renderCategoryIcon(group, 'w-4 h-4')}
                           </button>
-                          {iconPickerOpenFor === group.id && (
+                          {iconPickerOpenFor === group.id && iconPickerPos && (
                             <div
-                              className="absolute z-30 top-full left-0 mt-1.5 w-72 rounded-xl border border-zinc-800 bg-zinc-900 shadow-2xl p-3"
+                              ref={iconPickerPopoverRef}
+                              className="fixed z-[9999] w-72 rounded-xl border border-zinc-800 bg-zinc-900 shadow-2xl p-3"
+                              style={{ top: iconPickerPos.top, left: iconPickerPos.left }}
                               onClick={(e) => e.stopPropagation()}
                             >
                               <div className="flex items-center gap-1 mb-3 p-0.5 rounded-lg bg-zinc-800/60">
