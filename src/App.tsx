@@ -3110,21 +3110,149 @@ function App() {
   const [pillarsPerRow, setPillarsPerRow] = useState<PillarsPerRow>(3);
 
   // ---- Playbook: Daily Trading Creed quote card ----
-  const DEFAULT_CREED_QUOTES = [
-    "Discipline is choosing between what you want now and what you want most.",
-    "The market rewards patience and punishes impulse. Wait for A+ setups only.",
-    "Protect your capital first. Profits are a byproduct of survival.",
-    "Plan the trade, trade the plan. No exceptions, no excuses.",
-    "You don't need to trade every day to be a great trader.",
-    "Cut losses fast, let winners run — the oldest rule, still the truest.",
+  // Each quote carries its own short attribution/tag line (shown bottom-right
+  // of the card) instead of one static label for every quote.
+  interface CreedQuote { text: string; tag: string; }
+  const DEFAULT_CREED_QUOTES: CreedQuote[] = [
+    { text: "Discipline is choosing between what you want now and what you want most.", tag: "Rule #0: Mindset First" },
+    { text: "The market rewards patience and punishes impulse. Wait for A+ setups only.", tag: "Rule #1: Patience Over Impulse" },
+    { text: "Protect your capital first. Profits are a byproduct of survival.", tag: "Rule #2: Capital Preservation" },
+    { text: "Plan the trade, trade the plan. No exceptions, no excuses.", tag: "Rule #3: Process Over Outcome" },
+    { text: "You don't need to trade every day to be a great trader.", tag: "Rule #4: Selective Execution" },
+    { text: "Cut losses fast, let winners run — the oldest rule, still the truest.", tag: "Rule #5: Risk Management" },
   ];
-  const [dailyCreed, setDailyCreed] = useState(DEFAULT_CREED_QUOTES[0]);
+  // User's own quotes — persisted to localStorage so they survive reloads,
+  // same pattern as the rest of the app's settings (see 'lifeDisciplineUserPresets').
+  const [customCreedQuotes, setCustomCreedQuotes] = useState<CreedQuote[]>([]);
+  const [customCreedQuotesLoaded, setCustomCreedQuotesLoaded] = useState(false);
+  const allCreedQuotes = useMemo(() => [...DEFAULT_CREED_QUOTES, ...customCreedQuotes], [customCreedQuotes]);
+  const [creedIndex, setCreedIndex] = useState(0);
   const [isEditingCreed, setIsEditingCreed] = useState(false);
-  const [creedDraft, setCreedDraft] = useState(dailyCreed);
-  const refreshDailyCreed = () => {
-    setDailyCreed(prev => {
-      const others = DEFAULT_CREED_QUOTES.filter(q => q !== prev);
-      return others[Math.floor(Math.random() * others.length)] ?? prev;
+  const [creedDraftText, setCreedDraftText] = useState('');
+  const [creedDraftTag, setCreedDraftTag] = useState('');
+  const currentCreedQuote: CreedQuote = allCreedQuotes[creedIndex] ?? DEFAULT_CREED_QUOTES[0];
+  const isCurrentCreedCustom = creedIndex >= DEFAULT_CREED_QUOTES.length;
+
+  // Load saved custom quotes once on mount.
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('customCreedQuotes');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) setCustomCreedQuotes(parsed);
+      }
+    } catch (e) {
+      console.error('Failed to load custom creed quotes:', e);
+    }
+    setCustomCreedQuotesLoaded(true);
+  }, []);
+
+  // Persist custom quotes whenever they change (skip the very first render so
+  // we don't stomp saved data with the initial empty array before it loads).
+  useEffect(() => {
+    if (!customCreedQuotesLoaded) return;
+    try {
+      localStorage.setItem('customCreedQuotes', JSON.stringify(customCreedQuotes));
+    } catch (e) {
+      console.error('Failed to save custom creed quotes:', e);
+    }
+  }, [customCreedQuotes, customCreedQuotesLoaded]);
+
+  // Daily auto-rotation — once per calendar day the card lands on a fresh
+  // quote automatically; the chosen index + date are cached so it stays put
+  // for the rest of the day (and across reloads) until the date rolls over
+  // or the user hits Shuffle.
+  useEffect(() => {
+    if (!customCreedQuotesLoaded) return;
+    try {
+      const todayKeyStr = new Date().toLocaleDateString('en-CA');
+      const stored = localStorage.getItem('dailyCreedState');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && parsed.date === todayKeyStr && typeof parsed.index === 'number' && parsed.index < allCreedQuotes.length) {
+          setCreedIndex(parsed.index);
+          return;
+        }
+      }
+      const newIndex = Math.floor(Math.random() * allCreedQuotes.length);
+      setCreedIndex(newIndex);
+      localStorage.setItem('dailyCreedState', JSON.stringify({ date: todayKeyStr, index: newIndex }));
+    } catch (e) {
+      console.error('Failed to set daily creed quote:', e);
+    }
+  }, [customCreedQuotesLoaded]);
+
+  // Shuffle — jumps to a different random quote from the combined pool
+  // (defaults + the user's favorites) and remembers the pick for today.
+  const shuffleDailyCreed = () => {
+    setCreedIndex(prev => {
+      if (allCreedQuotes.length <= 1) return prev;
+      let next = prev;
+      while (next === prev) next = Math.floor(Math.random() * allCreedQuotes.length);
+      try {
+        localStorage.setItem('dailyCreedState', JSON.stringify({ date: new Date().toLocaleDateString('en-CA'), index: next }));
+      } catch (e) {
+        console.error('Failed to save shuffled creed quote:', e);
+      }
+      return next;
+    });
+  };
+
+  const openCreedEditor = () => {
+    setCreedDraftText(currentCreedQuote.text);
+    setCreedDraftTag(currentCreedQuote.tag);
+    setIsEditingCreed(true);
+  };
+
+  const saveCreedEdit = () => {
+    const text = creedDraftText.trim();
+    if (!text) { setIsEditingCreed(false); return; }
+    const tag = creedDraftTag.trim() || 'Rule #0: Mindset First';
+    if (isCurrentCreedCustom) {
+      const customIdx = creedIndex - DEFAULT_CREED_QUOTES.length;
+      setCustomCreedQuotes(prev => prev.map((q, i) => (i === customIdx ? { text, tag } : q)));
+    } else {
+      // Built-in quotes are immutable — editing one forks a new custom quote
+      // instead, and the card switches to display that new copy.
+      setCustomCreedQuotes(prev => {
+        setCreedIndex(DEFAULT_CREED_QUOTES.length + prev.length);
+        return [...prev, { text, tag }];
+      });
+    }
+    setIsEditingCreed(false);
+  };
+
+  const deleteCurrentCreedQuote = () => {
+    if (!isCurrentCreedCustom) return;
+    const customIdx = creedIndex - DEFAULT_CREED_QUOTES.length;
+    setCustomCreedQuotes(prev => prev.filter((_, i) => i !== customIdx));
+    setCreedIndex(0);
+    setIsEditingCreed(false);
+  };
+
+  // Highlights key psychological "power words" inside a creed quote with an
+  // accent gradient so they stand out from the surrounding italic text —
+  // works for the built-in quotes and gracefully no-ops for custom quotes
+  // that don't happen to use any of these phrases.
+  const CREED_EMPHASIS_WORDS = [
+    'plan the trade', 'trade the plan', 'let winners run', 'cut losses',
+    'great trader', 'no exceptions', 'no excuses', 'discipline', 'patience',
+    'impulse', 'capital', 'survival', 'protect', 'rewards', 'punishes', 'a+',
+  ];
+  const renderCreedQuoteText = (text: string) => {
+    const sorted = [...CREED_EMPHASIS_WORDS].sort((a, b) => b.length - a.length);
+    const escaped = sorted.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const pattern = new RegExp(`(${escaped.join('|')})`, 'gi');
+    const parts = text.split(pattern);
+    return parts.map((part, i) => {
+      const isMatch = sorted.some(w => w.toLowerCase() === part.toLowerCase());
+      return isMatch ? (
+        <span key={i} className="bg-gradient-to-r from-emerald-300 via-cyan-300 to-emerald-300 bg-clip-text text-transparent font-bold not-italic">
+          {part}
+        </span>
+      ) : (
+        <span key={i}>{part}</span>
+      );
     });
   };
 
@@ -9194,71 +9322,99 @@ function App() {
             </div>
           </div>
 
-          {/* SECTION 1b: DAILY TRADING CREED — quote card, matches Strategy Models column height */}
+          {/* SECTION 1b: DAILY TRADING CREED / OPERATING MANIFESTO — quote card, matches Strategy Models column height */}
           <div className="min-w-0 lg:col-span-1 h-full">
-            <div className="h-full flex flex-col bg-[#181920] border border-emerald-500/20 rounded-2xl p-6 relative overflow-hidden">
-              <Quote className="absolute -top-2 -right-1 w-20 h-20 text-emerald-500/10" strokeWidth={1.5} />
+            <div
+              className="h-full flex flex-col rounded-2xl p-6 relative overflow-hidden border border-emerald-500/20 shadow-xl backdrop-blur-sm"
+              style={{
+                background: 'radial-gradient(120% 100% at 100% 0%, rgba(16,185,129,0.16) 0%, rgba(8,145,178,0.08) 35%, rgba(15,15,20,0.92) 65%), linear-gradient(160deg, rgba(24,25,32,0.95), rgba(9,10,14,0.98))',
+              }}
+            >
+              {/* Faint oversized quote-mark watermark, top-right corner */}
+              <Quote className="absolute -top-4 -right-4 w-28 h-28 text-emerald-400/10 pointer-events-none select-none" strokeWidth={1} fill="currentColor" />
+
+              {/* Header bar: icon + label on the left, Edit + Shuffle on the right */}
               <div className="relative flex items-center justify-between gap-2 mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-                    <Quote className="w-4 h-4 text-emerald-400" strokeWidth={2} />
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                    <span className="text-sm leading-none" aria-hidden="true">📜</span>
                   </div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Daily Trading Creed</h3>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 truncate">Daily Trading Creed</h3>
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <button
                     type="button"
-                    onClick={() => { setCreedDraft(dailyCreed); setIsEditingCreed(true); }}
+                    onClick={openCreedEditor}
                     title="Edit quote"
+                    aria-label="Edit quote"
                     className="p-1.5 rounded-lg text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
                   >
-                    <Edit2 className="w-3.5 h-3.5" />
+                    <span aria-hidden="true">✏️</span>
                   </button>
                   <button
                     type="button"
-                    onClick={refreshDailyCreed}
-                    title="Refresh quote"
-                    className="p-1.5 rounded-lg text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                    onClick={shuffleDailyCreed}
+                    title="Shuffle quote"
+                    aria-label="Shuffle quote"
+                    className="p-1.5 rounded-lg text-zinc-500 hover:text-cyan-400 hover:bg-cyan-500/10 transition-colors"
                   >
-                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span aria-hidden="true">🎲</span>
                   </button>
                 </div>
               </div>
 
               {isEditingCreed ? (
-                <div className="relative space-y-3 flex-1 flex flex-col">
+                <div className="relative space-y-2.5 flex-1 flex flex-col">
                   <textarea
-                    value={creedDraft}
-                    onChange={(e) => setCreedDraft(e.target.value)}
+                    value={creedDraftText}
+                    onChange={(e) => setCreedDraftText(e.target.value)}
                     rows={4}
                     autoFocus
                     className="w-full flex-1 bg-zinc-950/60 border border-emerald-500/20 rounded-lg p-3 text-sm italic text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 resize-none"
                     placeholder="Write today's trading creed..."
                   />
-                  <div className="flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingCreed(false)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (creedDraft.trim()) setDailyCreed(creedDraft.trim());
-                        setIsEditingCreed(false);
-                      }}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 transition-colors"
-                    >
-                      Save
-                    </button>
+                  <input
+                    type="text"
+                    value={creedDraftTag}
+                    onChange={(e) => setCreedDraftTag(e.target.value)}
+                    className="w-full bg-zinc-950/60 border border-emerald-500/20 rounded-lg px-3 py-2 text-xs text-zinc-300 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50"
+                    placeholder="Tag, e.g. Rule #0: Mindset First"
+                  />
+                  <div className="flex items-center justify-between gap-2">
+                    {isCurrentCreedCustom ? (
+                      <button
+                        type="button"
+                        onClick={deleteCurrentCreedQuote}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    ) : <span />}
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingCreed(false)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={saveCreedEdit}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 transition-colors"
+                      >
+                        Save
+                      </button>
+                    </div>
                   </div>
                 </div>
               ) : (
-                <div className="relative flex-1 flex items-center">
-                  <p className="text-[15px] leading-relaxed italic text-white/90 font-medium">
-                    "{dailyCreed}"
+                <div className="relative flex-1 flex flex-col justify-center gap-3">
+                  <p className="text-[20px] sm:text-[22px] leading-snug italic font-bold text-white/95">
+                    "{renderCreedQuoteText(currentCreedQuote.text)}"
+                  </p>
+                  <p className="text-xs text-zinc-500 text-right">
+                    — <span className="text-zinc-400 font-medium">{currentCreedQuote.tag}</span>
                   </p>
                 </div>
               )}
