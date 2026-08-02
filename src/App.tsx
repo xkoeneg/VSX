@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
 import {
   LayoutDashboard,
   BookOpen,
@@ -2784,6 +2784,111 @@ const NumericInput: React.FC<NumericInputProps> = ({
     </div>
   );
 };
+
+// Pending Review — empty-state celebration bear. Pure inline SVG animated
+// with CSS keyframe transforms (GPU-accelerated, no JS ticking, no external
+// animation library / network fetch needed for a Lottie file), so it costs
+// nothing at 60fps and can't touch chart or journal render cycles. It takes
+// no props and is wrapped in memo, so it mounts once per empty-state entry
+// and never re-renders just because App (or the Discipline Tracker view)
+// re-renders for unrelated reasons — the animation itself lives entirely in
+// CSS, so even repeated mounts are cheap.
+const FunkyBear = memo(function FunkyBear() {
+  return (
+    <div className="funky-bear-wrap" aria-hidden="true">
+      <style>{`
+        .funky-bear-wrap { width: 76px; height: 76px; }
+        .funky-bear-wrap svg { width: 100%; height: 100%; overflow: visible; }
+        .funky-bear-body {
+          transform-box: fill-box;
+          transform-origin: 50% 100%;
+          animation: funky-bear-hip 0.85s ease-in-out infinite;
+        }
+        .funky-bear-head {
+          transform-box: fill-box;
+          transform-origin: 50% 100%;
+          animation: funky-bear-head-bop 0.85s ease-in-out infinite;
+        }
+        .funky-bear-arm-l {
+          transform-box: fill-box;
+          transform-origin: 50% 0%;
+          animation: funky-bear-arm-l 0.85s ease-in-out infinite;
+        }
+        .funky-bear-arm-r {
+          transform-box: fill-box;
+          transform-origin: 50% 0%;
+          animation: funky-bear-arm-r 0.85s ease-in-out infinite;
+        }
+        .funky-bear-leg-l {
+          transform-box: fill-box;
+          transform-origin: 50% 0%;
+          animation: funky-bear-step-l 0.85s ease-in-out infinite;
+        }
+        .funky-bear-leg-r {
+          transform-box: fill-box;
+          transform-origin: 50% 0%;
+          animation: funky-bear-step-r 0.85s ease-in-out infinite;
+        }
+        @keyframes funky-bear-hip {
+          0%, 100% { transform: translateX(-5px) rotate(-7deg); }
+          50% { transform: translateX(5px) rotate(7deg); }
+        }
+        @keyframes funky-bear-head-bop {
+          0%, 100% { transform: translateX(-2px) rotate(-4deg); }
+          50% { transform: translateX(2px) rotate(4deg); }
+        }
+        @keyframes funky-bear-arm-l {
+          0%, 100% { transform: rotate(-16deg); }
+          50% { transform: rotate(24deg); }
+        }
+        @keyframes funky-bear-arm-r {
+          0%, 100% { transform: rotate(16deg); }
+          50% { transform: rotate(-24deg); }
+        }
+        @keyframes funky-bear-step-l {
+          0%, 55%, 100% { transform: translate(0, 0); }
+          27% { transform: translate(-9px, -5px); }
+        }
+        @keyframes funky-bear-step-r {
+          0%, 55%, 100% { transform: translate(0, 0); }
+          82% { transform: translate(9px, -5px); }
+        }
+      `}</style>
+      <svg viewBox="0 0 100 100">
+        {/* Feet — alternating step-touch */}
+        <g className="funky-bear-leg-l">
+          <ellipse cx="39" cy="87" rx="9" ry="6.5" fill="#6b3f26" />
+        </g>
+        <g className="funky-bear-leg-r">
+          <ellipse cx="61" cy="87" rx="9" ry="6.5" fill="#6b3f26" />
+        </g>
+
+        {/* Torso group sways at the hips; arms + head are nested so they move together */}
+        <g className="funky-bear-body">
+          <ellipse cx="50" cy="63" rx="21" ry="19" fill="#a5652f" />
+          <ellipse cx="50" cy="68" rx="11" ry="9" fill="#e8c9a0" />
+
+          <g className="funky-bear-arm-l">
+            <ellipse cx="73" cy="50" rx="6.5" ry="15" fill="#a5652f" />
+          </g>
+          <g className="funky-bear-arm-r">
+            <ellipse cx="27" cy="50" rx="6.5" ry="15" fill="#a5652f" />
+          </g>
+
+          <g className="funky-bear-head">
+            <ellipse cx="38" cy="19" rx="5.5" ry="5.5" fill="#a5652f" />
+            <ellipse cx="62" cy="19" rx="5.5" ry="5.5" fill="#a5652f" />
+            <ellipse cx="50" cy="31" rx="17" ry="15" fill="#a5652f" />
+            <ellipse cx="50" cy="35" rx="8.5" ry="6.5" fill="#e8c9a0" />
+            <circle cx="45.5" cy="27" r="1.9" fill="#2b1a0f" />
+            <circle cx="54.5" cy="27" r="1.9" fill="#2b1a0f" />
+            <ellipse cx="50" cy="36" rx="2.2" ry="1.8" fill="#2b1a0f" />
+          </g>
+        </g>
+      </svg>
+    </div>
+  );
+});
 
 function App() {
   // State
@@ -8339,11 +8444,20 @@ function App() {
         {/* Discipline Analytics — Trades Needing Review + Streak Progress + Mini Discipline Calendar, unified 3-column row, equal height */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch mb-6">
           {/* Trades Needing Review — thin left column, sleek compact list of unreviewed trades */}
-          <div className="lg:col-span-3 h-full flex flex-col bg-[#121318] border border-white/10 rounded-xl p-4 min-w-0">
+          <div className={cn(
+            "lg:col-span-3 h-full flex flex-col rounded-xl p-4 min-w-0 border",
+            theme !== 'light' ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-white border-zinc-200'
+          )}>
             <div className="flex items-center justify-between gap-2 mb-3 flex-shrink-0">
-              <h3 className="text-xs font-semibold text-white flex items-center gap-1.5 truncate">
+              <h3 className={cn("text-xs font-semibold flex items-center gap-1.5 truncate", tc.text)}>
                 <span>⚠️</span>
                 <span className="truncate">Pending Review</span>
+                {pendingReviewTrades.length > 0 && (
+                  // Subtle, static bear glyph — a quiet "waiting" cue while
+                  // there's real work to do. It only animates once the card
+                  // flips into the all-clear celebration state below.
+                  <span className="text-[11px] opacity-30 select-none" aria-hidden="true">🐻</span>
+                )}
               </h3>
               {pendingReviewTrades.length > 0 && (
                 <span className="text-[10px] font-mono font-semibold text-amber-300 flex-shrink-0 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-amber-500/15 border border-amber-500/30">
@@ -8352,72 +8466,102 @@ function App() {
               )}
             </div>
 
-            {pendingReviewTrades.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center">
-                <span className="text-xs font-medium text-zinc-500 px-3 py-1.5 rounded-full bg-zinc-800/50 border border-zinc-700/50 whitespace-nowrap">
-                  🎉 0 Pending
-                </span>
-              </div>
-            ) : (
-              <div
-                className="overflow-y-auto space-y-2.5 max-h-[290px] pr-1 overscroll-contain"
-                onWheel={(e) => e.stopPropagation()}
-              >
-                {pendingReviewTrades.map(trade => {
-                  const account = accounts.find(a => a.id === trade.accountId);
-                  const startLabel = formatTimeDisplay(trade.startTime);
-                  const endLabel = formatTimeDisplay(trade.endTime);
-                  const timeLabel = startLabel && endLabel
-                    ? `${startLabel} – ${endLabel}`
-                    : startLabel || endLabel;
-                  return (
-                    <div
-                      key={trade.id}
-                      onClick={() => { setShowTradeDetail(trade.id); setShowExpandGallery(false); }}
-                      className="p-2.5 bg-zinc-800/30 border border-zinc-700/40 rounded-lg hover:bg-zinc-800/50 hover:border-zinc-600/50 cursor-pointer transition-colors min-w-0"
-                    >
-                      {/* Top row: trade #, symbol, PnL */}
-                      <div className="flex items-center justify-between gap-2 min-w-0">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          {trade.trackingNumber && <TrackingBadge value={trade.trackingNumber} size="sm" />}
-                          <span className="text-xs font-semibold text-white truncate">{trade.symbol}</span>
+            {/* Fixed-height body: locked regardless of which state renders below,
+                so the card never grows/shrinks or shifts neighboring cards when
+                pendingCount flips between 0 and >0. */}
+            <div className="flex-1 h-[290px] flex flex-col min-h-0">
+              {pendingReviewTrades.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center gap-3">
+                  <FunkyBear />
+                  <span className={cn(
+                    "text-[11px] font-medium px-3 py-1.5 rounded-full border whitespace-nowrap",
+                    tc.textSecondary,
+                    theme !== 'light' ? 'bg-zinc-800/60 border-zinc-700/50' : 'bg-zinc-100 border-zinc-200'
+                  )}>
+                    🎉 0 Pending Trades — All Cleared!
+                  </span>
+                </div>
+              ) : (
+                <>
+                  {/* Prominent action button — jumps straight into reviewing
+                      the oldest unreviewed trade first. */}
+                  <button
+                    onClick={() => setShowDisciplineReview(pendingReviewTrades[0].id)}
+                    className="mb-2.5 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-semibold hover:bg-amber-500/25 transition-colors flex-shrink-0"
+                  >
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    Review {pendingReviewTrades.length} Pending {pendingReviewTrades.length === 1 ? 'Trade' : 'Trades'}
+                  </button>
+
+                  <div
+                    className="flex-1 min-h-0 overflow-y-auto space-y-2.5 pr-1 overscroll-contain"
+                    onWheel={(e) => e.stopPropagation()}
+                  >
+                    {pendingReviewTrades.map(trade => {
+                      const account = accounts.find(a => a.id === trade.accountId);
+                      const startLabel = formatTimeDisplay(trade.startTime);
+                      const endLabel = formatTimeDisplay(trade.endTime);
+                      const timeLabel = startLabel && endLabel
+                        ? `${startLabel} – ${endLabel}`
+                        : startLabel || endLabel;
+                      return (
+                        <div
+                          key={trade.id}
+                          onClick={() => { setShowTradeDetail(trade.id); setShowExpandGallery(false); }}
+                          className={cn(
+                            "p-2.5 rounded-lg border cursor-pointer transition-colors min-w-0",
+                            theme !== 'light'
+                              ? 'bg-zinc-800/30 border-zinc-700/40 hover:bg-zinc-800/50 hover:border-zinc-600/50'
+                              : 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100 hover:border-zinc-300'
+                          )}
+                        >
+                          {/* Top row: trade #, symbol, PnL */}
+                          <div className="flex items-center justify-between gap-2 min-w-0">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              {trade.trackingNumber && <TrackingBadge value={trade.trackingNumber} size="sm" />}
+                              <span className={cn("text-xs font-semibold truncate", tc.text)}>{trade.symbol}</span>
+                            </div>
+                            <span className={cn('text-xs font-mono font-semibold flex-shrink-0', trade.profitLoss > 0 ? 'text-emerald-400' : trade.profitLoss < 0 ? 'text-rose-400' : tc.textSecondary)}>
+                              {formatCurrency(trade.profitLoss, privacyMode)}
+                            </span>
+                          </div>
+
+                          {/* Account name */}
+                          <p className={cn("text-[11px] truncate mt-1", tc.textSecondary)}>{formatAccountName(account) || account?.name || '—'}</p>
+
+                          {/* Session + date/time row */}
+                          <div className="flex items-center gap-1.5 mt-1.5 min-w-0">
+                            {trade.session && <SessionBadge value={trade.session} size="sm" />}
+                            <span className={cn("text-[10px] font-mono truncate", tc.textMuted)}>
+                              {formatDate(trade.date)}
+                              {timeLabel && <span className={tc.textMuted}> · {timeLabel}</span>}
+                            </span>
+                          </div>
+
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setShowDisciplineReview(trade.id); }}
+                            className="mt-2 w-full flex items-center justify-center gap-1 px-2 py-1 rounded-md bg-violet-500/15 border border-violet-500/30 text-violet-300 text-[10px] font-medium hover:bg-violet-500/25 transition-colors"
+                          >
+                            <Plus className="w-2.5 h-2.5" />
+                            Review
+                          </button>
                         </div>
-                        <span className={cn('text-xs font-mono font-semibold flex-shrink-0', trade.profitLoss > 0 ? 'text-emerald-400' : trade.profitLoss < 0 ? 'text-rose-400' : 'text-zinc-400')}>
-                          {formatCurrency(trade.profitLoss, privacyMode)}
-                        </span>
-                      </div>
-
-                      {/* Account name */}
-                      <p className="text-[11px] text-zinc-400 truncate mt-1">{formatAccountName(account) || account?.name || '—'}</p>
-
-                      {/* Session + date/time row */}
-                      <div className="flex items-center gap-1.5 mt-1.5 min-w-0">
-                        {trade.session && <SessionBadge value={trade.session} size="sm" />}
-                        <span className="text-[10px] text-zinc-500 font-mono truncate">
-                          {formatDate(trade.date)}
-                          {timeLabel && <span className="text-zinc-600"> · {timeLabel}</span>}
-                        </span>
-                      </div>
-
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setShowDisciplineReview(trade.id); }}
-                        className="mt-2 w-full flex items-center justify-center gap-1 px-2 py-1 rounded-md bg-violet-500/15 border border-violet-500/30 text-violet-300 text-[10px] font-medium hover:bg-violet-500/25 transition-colors"
-                      >
-                        <Plus className="w-2.5 h-2.5" />
-                        Review
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Streak Progress Grid — center column */}
-          <div className="lg:col-span-5 bg-[#121318] border border-white/10 rounded-xl p-5 min-w-0 h-full flex flex-col">
+          <div className={cn(
+            "lg:col-span-5 rounded-xl p-5 min-w-0 h-full flex flex-col border",
+            theme !== 'light' ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-white border-zinc-200'
+          )}>
             <div className="flex-1 min-h-0 flex flex-col">
               <div className="flex items-center justify-between flex-wrap gap-2 mb-4 flex-shrink-0">
-                <h3 className="text-sm font-semibold text-white flex items-center gap-2 truncate">
+                <h3 className={cn("text-sm font-semibold flex items-center gap-2 truncate", tc.text)}>
                   <Flame className="w-4 h-4 text-amber-400 flex-shrink-0" />
                   STREAK PROGRESS
                 </h3>
@@ -8430,7 +8574,9 @@ function App() {
                         'px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors',
                         streakGridWindow === w
                           ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
-                          : 'bg-zinc-800/60 border-zinc-700/60 text-zinc-500 hover:text-zinc-300 hover:border-zinc-600'
+                          : theme !== 'light'
+                            ? 'bg-zinc-800/60 border-zinc-700/60 text-zinc-500 hover:text-zinc-300 hover:border-zinc-600'
+                            : 'bg-zinc-100 border-zinc-200 text-zinc-500 hover:text-zinc-700 hover:border-zinc-300'
                       )}
                     >
                       {w}
@@ -8441,15 +8587,15 @@ function App() {
 
               <div className="flex items-center gap-4 mb-4 flex-shrink-0">
                 <div>
-                  <p className="text-[11px] uppercase tracking-wider text-zinc-500">Current Streak</p>
+                  <p className={cn("text-[11px] uppercase tracking-wider", tc.textMuted)}>Current Streak</p>
                   <p className="text-lg font-bold text-emerald-400 truncate">
                     {disciplineStreak} {disciplineStreak === 1 ? 'Day' : 'Days'} Clean
                   </p>
                 </div>
-                <div className="w-px h-8 bg-white/10 flex-shrink-0" />
+                <div className={cn("w-px h-8 flex-shrink-0", theme !== 'light' ? 'bg-white/10' : 'bg-zinc-200')} />
                 <div>
-                  <p className="text-[11px] uppercase tracking-wider text-zinc-500">Best Streak</p>
-                  <p className="text-lg font-bold text-zinc-300 truncate">
+                  <p className={cn("text-[11px] uppercase tracking-wider", tc.textMuted)}>Best Streak</p>
+                  <p className={cn("text-lg font-bold truncate", tc.textSecondary)}>
                     {bestStreak} {bestStreak === 1 ? 'Day' : 'Days'}
                   </p>
                 </div>
@@ -8481,7 +8627,7 @@ function App() {
                         'w-full h-full rounded-md border transition-colors',
                         filled
                           ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50'
-                          : 'bg-zinc-800/40 border-zinc-700/40'
+                          : theme !== 'light' ? 'bg-zinc-800/40 border-zinc-700/40' : 'bg-zinc-100 border-zinc-200'
                       )}
                     />
                   );
@@ -8490,8 +8636,12 @@ function App() {
             </div>
 
             {/* Subtle stat summary row — pinned to the bottom to match the calendar's legend footer */}
-            <div className="flex items-center gap-6 pt-3 mt-3 border-t border-white/5 text-xs text-zinc-400 flex-shrink-0">
-              <span>Total Compliant Days: <span className="text-zinc-200 font-semibold">{totalCompliantDays}</span></span>
+            <div className={cn(
+              "flex items-center gap-6 pt-3 mt-3 border-t text-xs flex-shrink-0",
+              tc.textSecondary,
+              theme !== 'light' ? 'border-white/5' : 'border-zinc-200'
+            )}>
+              <span>Total Compliant Days: <span className={cn("font-semibold", tc.text)}>{totalCompliantDays}</span></span>
               <span>Milestone Tier: <span className="text-amber-400 font-semibold">{activeStreakTier ? activeStreakTier.label : 'Unranked'}</span></span>
             </div>
           </div>
