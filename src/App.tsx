@@ -89,6 +89,9 @@ import {
   Quote,
   RefreshCw,
   ListChecks,
+  Dumbbell,
+  Coffee,
+  Heart,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -316,24 +319,97 @@ const PRESET_SYMBOLS = [
 const SESSION_OPTIONS: SessionOption[] = ['NYC', 'London', 'Asia', 'Pre-market Open'];
 
 // ---- Life Discipline Hub: dynamic challenge + routine config ----
-// Each routine group renders as its own card of checkboxes. A day only
+// Each routine category renders as its own card of checkboxes. A day only
 // counts as "complete" on the Challenge Progress Grid when every item
-// across every group is checked for that date. Routine groups are fixed
-// to 3 time-block categories (icons/labels below), but the items inside
-// each one are fully user-configurable and persisted to localStorage.
-interface RoutineItem {
-  id: string;
-  text: string;
-}
+// across every category is checked for that date. Categories are fully
+// dynamic (add/rename/delete, custom icon+color) and persisted to
+// localStorage, and so is the list of items inside each one.
+// A category's header can show either a native emoji or a colored Lucide
+// icon (Notion-style icon/emoji picker). Both fields are optional — when
+// absent, the header falls back to a neutral gray ListChecks glyph.
+type RoutineIconKind = 'emoji' | 'icon';
+type RoutineIconColor = 'emerald' | 'amber' | 'cyan' | 'rose' | 'violet' | 'white';
 
-// A single user-defined category / group block inside the Custom Routine
-// Manager (e.g. "Morning Routine", "Daily Non-Negotiables", "Fitness"...).
-// Categories are fully dynamic: users can add, rename, and delete them
-// freely, and each one owns its own list of habit items.
 interface RoutineCategory {
   id: string;
   label: string;
   items: RoutineItem[];
+  iconKind?: RoutineIconKind;
+  iconValue?: string; // raw emoji char (iconKind 'emoji') or a key into ROUTINE_ICON_MAP (iconKind 'icon')
+  iconColor?: RoutineIconColor; // only meaningful when iconKind === 'icon'
+}
+
+// Lucide icon options offered in the "Icons" tab of the Category Icon Picker.
+const ROUTINE_ICON_OPTIONS: { key: string; Icon: LucideIcon }[] = [
+  { key: 'Sun', Icon: Sun },
+  { key: 'Moon', Icon: Moon },
+  { key: 'Zap', Icon: Zap },
+  { key: 'TrendingUp', Icon: TrendingUp },
+  { key: 'Activity', Icon: Activity },
+  { key: 'Dumbbell', Icon: Dumbbell },
+  { key: 'BookOpen', Icon: BookOpen },
+  { key: 'Target', Icon: Target },
+  { key: 'Flame', Icon: Flame },
+  { key: 'Shield', Icon: Shield },
+  { key: 'Star', Icon: Star },
+  { key: 'ListChecks', Icon: ListChecks },
+  { key: 'Clock', Icon: Clock },
+  { key: 'CheckCircle2', Icon: CheckCircle2 },
+  { key: 'Coffee', Icon: Coffee },
+  { key: 'Heart', Icon: Heart },
+  { key: 'Brain', Icon: Brain },
+  { key: 'Smile', Icon: Smile },
+];
+
+const ROUTINE_ICON_MAP: Record<string, LucideIcon> = Object.fromEntries(
+  ROUTINE_ICON_OPTIONS.map(({ key, Icon }) => [key, Icon])
+);
+
+// Native emoji options offered in the "Emoji" tab of the Category Icon Picker.
+const ROUTINE_EMOJI_OPTIONS: string[] = [
+  '🌅', '☀️', '🌙', '⭐', '✨', '🔥', '💧', '🏃', '🏋️', '💪',
+  '🧘', '📚', '✅', '🍎', '🥗', '🛌', '🧹', '💊', '🚿', '🦷',
+  '🧴', '📝', '🎯', '⚡', '☕', '🍳', '🚶', '🧠', '❤️', '🙏',
+  '🎧', '📱', '🚭', '🧊', '🥤', '🌿', '🕯️', '🛁', '🩺', '📅',
+  '⏰', '🎒', '💼', '🏆', '🎨', '🎵', '🐾',
+];
+
+const ROUTINE_ICON_COLORS: { id: RoutineIconColor; label: string; swatchClass: string; textClass: string }[] = [
+  { id: 'emerald', label: 'Emerald', swatchClass: 'bg-emerald-400', textClass: 'text-emerald-400' },
+  { id: 'amber', label: 'Amber', swatchClass: 'bg-amber-400', textClass: 'text-amber-400' },
+  { id: 'cyan', label: 'Cyan', swatchClass: 'bg-cyan-400', textClass: 'text-cyan-400' },
+  { id: 'rose', label: 'Rose', swatchClass: 'bg-rose-400', textClass: 'text-rose-400' },
+  { id: 'violet', label: 'Violet', swatchClass: 'bg-violet-400', textClass: 'text-violet-400' },
+  { id: 'white', label: 'White', swatchClass: 'bg-white', textClass: 'text-white' },
+];
+
+const ROUTINE_ICON_COLOR_CLASS: Record<RoutineIconColor, string> = Object.fromEntries(
+  ROUTINE_ICON_COLORS.map(c => [c.id, c.textClass])
+) as Record<RoutineIconColor, string>;
+
+// Shared renderer for a category's header glyph — used identically on the
+// live Discipline Hub dashboard and inside the Configure Challenge modal so
+// the chosen emoji/icon+color always looks the same in both places.
+const renderCategoryIcon = (
+  category: Pick<RoutineCategory, 'iconKind' | 'iconValue' | 'iconColor'>,
+  className: string = 'w-4 h-4',
+  colorClassOverride?: string
+) => {
+  if (category.iconKind === 'emoji' && category.iconValue) {
+    return (
+      <span className={cn('inline-flex items-center justify-center leading-none flex-shrink-0 text-base', className)}>
+        {category.iconValue}
+      </span>
+    );
+  }
+  const IconComp = (category.iconKind === 'icon' && category.iconValue && ROUTINE_ICON_MAP[category.iconValue]) || ListChecks;
+  const colorClass = colorClassOverride || (category.iconKind === 'icon' ? ROUTINE_ICON_COLOR_CLASS[category.iconColor || 'white'] : 'text-zinc-400');
+  return <IconComp className={cn(className, 'flex-shrink-0', colorClass)} />;
+};
+
+interface RoutineItem {
+  id: string;
+  text: string;
 }
 
 interface ChallengeConfig {
@@ -358,15 +434,18 @@ const DEFAULT_CHALLENGE_CONFIG: ChallengeConfig = {
   recheckTokens: 3,
   motto: '',
   categories: [
-    { id: 'cat-morning-default', label: '🌅 Morning Routine', items: makeRoutineItems('cat-morning-default', ['Brush teeth twice a day', 'Face wash / Skincare', 'Hydrate']) },
-    { id: 'cat-active-default', label: '⚡ Active / Trading Focus', items: makeRoutineItems('cat-active-default', ['Gym / Workout', 'Clean eating', 'Sleep on time']) },
-    { id: 'cat-night-default', label: '🌙 Night Routine', items: makeRoutineItems('cat-night-default', ['Night shower', 'Brush teeth', 'Moisturize']) },
+    { id: 'cat-morning-default', label: 'Morning Routine', iconKind: 'icon', iconValue: 'Sun', iconColor: 'amber', items: makeRoutineItems('cat-morning-default', ['Brush teeth twice a day', 'Face wash / Skincare', 'Hydrate']) },
+    { id: 'cat-active-default', label: 'Active / Trading Focus', iconKind: 'icon', iconValue: 'Zap', iconColor: 'cyan', items: makeRoutineItems('cat-active-default', ['Gym / Workout', 'Clean eating', 'Sleep on time']) },
+    { id: 'cat-night-default', label: 'Night Routine', iconKind: 'icon', iconValue: 'Moon', iconColor: 'violet', items: makeRoutineItems('cat-night-default', ['Night shower', 'Brush teeth', 'Moisturize']) },
   ],
 };
 
 interface ChallengePresetCategory {
   label: string;
   items: string[];
+  iconKind?: RoutineIconKind;
+  iconValue?: string;
+  iconColor?: RoutineIconColor;
 }
 
 interface ChallengePreset {
@@ -382,7 +461,7 @@ interface ChallengePreset {
 // 1-click templates offered in the Configure Challenge modal. Selecting one
 // auto-populates the draft (duration, tokens, motto, routine categories)
 // while still leaving every field — including the categories themselves —
-// open for further editing (add/rename/delete) before saving.
+// open for further editing (add/rename/delete, re-icon/re-color) before saving.
 const CHALLENGE_PRESETS: ChallengePreset[] = [
   {
     id: 'monk30',
@@ -392,9 +471,9 @@ const CHALLENGE_PRESETS: ChallengePreset[] = [
     recheckTokens: 3,
     motto: 'Discipline is the bridge between goals and results.',
     categories: [
-      { label: '🌅 Morning Routine', items: ['Wake up before 6:30 AM', 'No phone for first 30 min', 'Hydrate + stretch'] },
-      { label: '⚡ Active / Trading Focus', items: ['Deep work block (no social media)', 'Gym / physical training', 'Review trading/execution journal'] },
-      { label: '🌙 Night Routine', items: ['No screens after 10 PM', 'Plan tomorrow\'s priorities', 'Lights out by 11 PM'] },
+      { label: 'Morning Routine', iconKind: 'icon', iconValue: 'Sun', iconColor: 'amber', items: ['Wake up before 6:30 AM', 'No phone for first 30 min', 'Hydrate + stretch'] },
+      { label: 'Active / Trading Focus', iconKind: 'icon', iconValue: 'Zap', iconColor: 'cyan', items: ['Deep work block (no social media)', 'Gym / physical training', 'Review trading/execution journal'] },
+      { label: 'Night Routine', iconKind: 'icon', iconValue: 'Moon', iconColor: 'violet', items: ['No screens after 10 PM', 'Plan tomorrow\'s priorities', 'Lights out by 11 PM'] },
     ],
   },
   {
@@ -405,9 +484,9 @@ const CHALLENGE_PRESETS: ChallengePreset[] = [
     recheckTokens: 2,
     motto: 'Execute the plan. No exceptions.',
     categories: [
-      { label: '🌅 Morning Routine', items: ['Review daily execution checklist', 'Hydrate', 'Set top 3 priorities'] },
-      { label: '⚡ Active / Trading Focus', items: ['Follow trading/execution rules exactly', 'No revenge or impulsive actions', 'Log every decision'] },
-      { label: '🌙 Night Routine', items: ['End-of-day review', 'Rate rule adherence 1-10', 'Prep for tomorrow'] },
+      { label: 'Morning Routine', iconKind: 'icon', iconValue: 'Sun', iconColor: 'amber', items: ['Review daily execution checklist', 'Hydrate', 'Set top 3 priorities'] },
+      { label: 'Active / Trading Focus', iconKind: 'icon', iconValue: 'Zap', iconColor: 'cyan', items: ['Follow trading/execution rules exactly', 'No revenge or impulsive actions', 'Log every decision'] },
+      { label: 'Night Routine', iconKind: 'icon', iconValue: 'Moon', iconColor: 'violet', items: ['End-of-day review', 'Rate rule adherence 1-10', 'Prep for tomorrow'] },
     ],
   },
   {
@@ -418,9 +497,9 @@ const CHALLENGE_PRESETS: ChallengePreset[] = [
     recheckTokens: 0,
     motto: 'No compromises.',
     categories: [
-      { label: '🌅 Morning Routine', items: ['Follow a structured diet — no alcohol, no cheat meals', 'Drink 1 gallon of water', 'Read 10 pages of a non-fiction book'] },
-      { label: '⚡ Active / Trading Focus', items: ['45-min outdoor workout', '45-min indoor workout', 'Take a progress photo'] },
-      { label: '🌙 Night Routine', items: ['Log the day\'s progress', 'No screens after workouts wind down', 'Lights out on schedule'] },
+      { label: 'Morning Routine', iconKind: 'icon', iconValue: 'Sun', iconColor: 'amber', items: ['Follow a structured diet — no alcohol, no cheat meals', 'Drink 1 gallon of water', 'Read 10 pages of a non-fiction book'] },
+      { label: 'Active / Trading Focus', iconKind: 'icon', iconValue: 'Dumbbell', iconColor: 'cyan', items: ['45-min outdoor workout', '45-min indoor workout', 'Take a progress photo'] },
+      { label: 'Night Routine', iconKind: 'icon', iconValue: 'Moon', iconColor: 'violet', items: ['Log the day\'s progress', 'No screens after workouts wind down', 'Lights out on schedule'] },
     ],
   },
 ];
@@ -3272,6 +3351,16 @@ function App() {
   const [newRoutineItemText, setNewRoutineItemText] = useState<Record<string, string>>({});
   const [editingRoutineItem, setEditingRoutineItem] = useState<{ categoryId: string; id: string } | null>(null);
   const [editingRoutineItemText, setEditingRoutineItemText] = useState('');
+  // Notion-style Category Icon/Emoji Picker — only one popover open at a
+  // time, identified by the category id it belongs to.
+  const [iconPickerOpenFor, setIconPickerOpenFor] = useState<string | null>(null);
+  const [iconPickerTab, setIconPickerTab] = useState<'emoji' | 'icon'>('emoji');
+  const iconPickerRef = useRef<HTMLDivElement | null>(null);
+  // Delete-confirmation state for the Custom Routine Manager — deleting a
+  // whole category block or a single routine item always requires an
+  // explicit "Confirm Delete" to prevent accidental data loss.
+  const [categoryPendingDelete, setCategoryPendingDelete] = useState<{ id: string; label: string } | null>(null);
+  const [itemPendingDelete, setItemPendingDelete] = useState<{ categoryId: string; id: string; text: string } | null>(null);
 
   // User-saved challenge presets (persisted to localStorage, separate from
   // the built-in CHALLENGE_PRESETS templates) + the compact Preset Selector
@@ -3363,6 +3452,18 @@ function App() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isLoadPresetMenuOpen]);
+
+  // Close the Category Icon/Emoji Picker popover on outside click.
+  useEffect(() => {
+    if (!iconPickerOpenFor) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (iconPickerRef.current && !iconPickerRef.current.contains(e.target as Node)) {
+        setIconPickerOpenFor(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [iconPickerOpenFor]);
 
   // Toggle a single habit checkbox for a given date.
   const toggleLifeDisciplineItem = (dateKey: string, groupIdx: number, itemIdx: number) => {
@@ -3475,13 +3576,17 @@ function App() {
     setSavePresetNameDraft('');
     setIsManagePresetsOpen(false);
     setPresetPendingDelete(null);
+    setIconPickerOpenFor(null);
+    setIconPickerTab('emoji');
+    setCategoryPendingDelete(null);
+    setItemPendingDelete(null);
     setIsChallengeConfigOpen(true);
   };
 
   const applyChallengePreset = (preset: ChallengePreset) => {
     const newCategories: RoutineCategory[] = preset.categories.map(cat => {
       const catId = generateId();
-      return { id: catId, label: cat.label, items: cat.items.map(text => ({ id: generateId(), text })) };
+      return { id: catId, label: cat.label, iconKind: cat.iconKind, iconValue: cat.iconValue, iconColor: cat.iconColor, items: cat.items.map(text => ({ id: generateId(), text })) };
     });
     setChallengeConfigDraft(prev => ({
       ...prev,
@@ -3509,7 +3614,7 @@ function App() {
       durationDays: challengeConfigDraft.durationDays,
       recheckTokens: challengeConfigDraft.recheckTokens,
       motto: challengeConfigDraft.motto,
-      categories: challengeConfigDraft.categories.map(cat => ({ label: cat.label, items: cat.items.map(i => i.text) })),
+      categories: challengeConfigDraft.categories.map(cat => ({ label: cat.label, iconKind: cat.iconKind, iconValue: cat.iconValue, iconColor: cat.iconColor, items: cat.items.map(i => i.text) })),
     };
     setUserChallengePresets(prev => [...prev, newPreset]);
     setSavePresetNameDraft('');
@@ -3539,13 +3644,23 @@ function App() {
     setNewRoutineItemText(prev => ({ ...prev, [categoryId]: '' }));
   };
 
-  const deleteDraftRoutineItem = (categoryId: string, id: string) => {
+  // Deleting a routine item always routes through a confirmation prompt
+  // first (see itemPendingDelete + renderDeleteRoutineItemConfirm) — this is
+  // the function the "Confirm Delete" button actually calls.
+  const requestDeleteDraftRoutineItem = (categoryId: string, id: string, text: string) => {
+    setItemPendingDelete({ categoryId, id, text });
+  };
+
+  const confirmDeleteDraftRoutineItem = () => {
+    if (!itemPendingDelete) return;
+    const { categoryId, id } = itemPendingDelete;
     setChallengeConfigDraft(prev => ({
       ...prev,
       categories: prev.categories.map(cat =>
         cat.id === categoryId ? { ...cat, items: cat.items.filter(i => i.id !== id) } : cat
       ),
     }));
+    setItemPendingDelete(null);
   };
 
   const startEditDraftRoutineItem = (categoryId: string, item: RoutineItem) => {
@@ -3584,7 +3699,37 @@ function App() {
     }));
   };
 
-  const deleteDraftCategory = (categoryId: string) => {
+  // Sets a category's header glyph to a native emoji, or to a Lucide icon
+  // (defaulting its color to white the first time an icon is picked so it's
+  // always visibly colored, without clobbering a color the user already set).
+  const setDraftCategoryIcon = (categoryId: string, iconKind: RoutineIconKind, iconValue: string) => {
+    setChallengeConfigDraft(prev => ({
+      ...prev,
+      categories: prev.categories.map(cat =>
+        cat.id === categoryId
+          ? { ...cat, iconKind, iconValue, iconColor: iconKind === 'icon' ? (cat.iconColor || 'white') : cat.iconColor }
+          : cat
+      ),
+    }));
+  };
+
+  const setDraftCategoryIconColor = (categoryId: string, iconColor: RoutineIconColor) => {
+    setChallengeConfigDraft(prev => ({
+      ...prev,
+      categories: prev.categories.map(cat => (cat.id === categoryId ? { ...cat, iconColor } : cat)),
+    }));
+  };
+
+  // Deleting an entire category block always routes through a confirmation
+  // prompt first (see categoryPendingDelete + renderDeleteCategoryConfirm) —
+  // this is the function the "Confirm Delete" button actually calls.
+  const requestDeleteDraftCategory = (categoryId: string, label: string) => {
+    setCategoryPendingDelete({ id: categoryId, label: label.trim() || 'this category' });
+  };
+
+  const confirmDeleteDraftCategory = () => {
+    if (!categoryPendingDelete) return;
+    const categoryId = categoryPendingDelete.id;
     setChallengeConfigDraft(prev => ({
       ...prev,
       categories: prev.categories.filter(cat => cat.id !== categoryId),
@@ -3598,6 +3743,8 @@ function App() {
       setEditingRoutineItem(null);
       setEditingRoutineItemText('');
     }
+    if (iconPickerOpenFor === categoryId) setIconPickerOpenFor(null);
+    setCategoryPendingDelete(null);
   };
 
   // Saving starts a brand-new challenge: applies the draft config and resets
@@ -6842,7 +6989,7 @@ function App() {
                   )}
                 >
                   <div className="flex items-center gap-2 mb-3 pb-3 border-b border-zinc-800/60 select-none">
-                    <ListChecks className={cn('w-4 h-4 flex-shrink-0', groupComplete ? 'text-emerald-400' : 'text-zinc-400')} />
+                    {renderCategoryIcon(group, 'w-4 h-4', groupComplete ? 'text-emerald-400' : undefined)}
                     <span className="text-sm font-semibold text-white truncate">{group.label}</span>
                     <span
                       className={cn(
@@ -7359,7 +7506,101 @@ function App() {
                   return (
                     <div key={group.id} className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-3.5">
                       <div className="flex items-center gap-1.5 mb-3 pb-2.5 border-b border-zinc-800/60">
-                        <ListChecks className="w-4 h-4 text-zinc-500 flex-shrink-0" />
+                        <div className="relative flex-shrink-0" ref={iconPickerOpenFor === group.id ? iconPickerRef : null}>
+                          <button
+                            type="button"
+                            onClick={() => { setIconPickerOpenFor(prev => (prev === group.id ? null : group.id)); setIconPickerTab(group.iconKind === 'icon' ? 'icon' : 'emoji'); }}
+                            className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-zinc-700/70 border border-transparent hover:border-zinc-700 transition-colors flex-shrink-0"
+                            aria-label="Choose category icon or emoji"
+                            title="Choose icon or emoji"
+                          >
+                            {renderCategoryIcon(group, 'w-4 h-4')}
+                          </button>
+                          {iconPickerOpenFor === group.id && (
+                            <div
+                              className="absolute z-30 top-full left-0 mt-1.5 w-72 rounded-xl border border-zinc-800 bg-zinc-900 shadow-2xl p-3"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="flex items-center gap-1 mb-3 p-0.5 rounded-lg bg-zinc-800/60">
+                                <button
+                                  type="button"
+                                  onClick={() => setIconPickerTab('emoji')}
+                                  className={cn(
+                                    'flex-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all',
+                                    iconPickerTab === 'emoji' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'
+                                  )}
+                                >
+                                  Emoji
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setIconPickerTab('icon')}
+                                  className={cn(
+                                    'flex-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all',
+                                    iconPickerTab === 'icon' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'
+                                  )}
+                                >
+                                  Icons
+                                </button>
+                              </div>
+                              {iconPickerTab === 'emoji' ? (
+                                <div className="grid grid-cols-8 gap-1 max-h-44 overflow-y-auto">
+                                  {ROUTINE_EMOJI_OPTIONS.map(emoji => (
+                                    <button
+                                      key={emoji}
+                                      type="button"
+                                      onClick={() => { setDraftCategoryIcon(group.id, 'emoji', emoji); setIconPickerOpenFor(null); }}
+                                      className={cn(
+                                        'w-7 h-7 flex items-center justify-center rounded-md hover:bg-zinc-800 text-base transition-colors',
+                                        group.iconKind === 'emoji' && group.iconValue === emoji && 'bg-zinc-800 ring-1 ring-amber-500/50'
+                                      )}
+                                      aria-label={emoji}
+                                    >
+                                      {emoji}
+                                    </button>
+                                  ))}
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="grid grid-cols-8 gap-1 max-h-32 overflow-y-auto mb-3">
+                                    {ROUTINE_ICON_OPTIONS.map(({ key, Icon }) => (
+                                      <button
+                                        key={key}
+                                        type="button"
+                                        onClick={() => setDraftCategoryIcon(group.id, 'icon', key)}
+                                        className={cn(
+                                          'w-7 h-7 flex items-center justify-center rounded-md hover:bg-zinc-800 transition-colors',
+                                          group.iconKind === 'icon' && group.iconValue === key && 'bg-zinc-800 ring-1 ring-amber-500/50'
+                                        )}
+                                        aria-label={key}
+                                        title={key}
+                                      >
+                                        <Icon className={cn('w-4 h-4', group.iconKind === 'icon' ? ROUTINE_ICON_COLOR_CLASS[group.iconColor || 'white'] : 'text-zinc-400')} />
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">Icon Color</p>
+                                  <div className="flex items-center gap-1.5">
+                                    {ROUTINE_ICON_COLORS.map(c => (
+                                      <button
+                                        key={c.id}
+                                        type="button"
+                                        onClick={() => setDraftCategoryIconColor(group.id, c.id)}
+                                        className={cn(
+                                          'w-5 h-5 rounded-full border border-black/20 transition-all',
+                                          c.swatchClass,
+                                          group.iconColor === c.id ? 'ring-2 ring-offset-2 ring-offset-zinc-900 ring-white' : 'hover:scale-110'
+                                        )}
+                                        aria-label={c.label}
+                                        title={c.label}
+                                      />
+                                    ))}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
                         <input
                           type="text"
                           value={group.label}
@@ -7369,7 +7610,7 @@ function App() {
                           className="flex-1 min-w-0 px-1.5 py-1 rounded-md bg-transparent border border-transparent hover:border-zinc-700 focus:border-amber-500/50 text-sm font-semibold text-white placeholder:text-zinc-600 focus:outline-none transition-colors"
                         />
                         <button
-                          onClick={() => deleteDraftCategory(group.id)}
+                          onClick={() => requestDeleteDraftCategory(group.id, group.label)}
                           className="p-1 rounded text-zinc-500 hover:text-rose-400 hover:bg-zinc-700 transition-all flex-shrink-0"
                           aria-label={`Delete ${group.label || 'category'}`}
                           title="Delete this category block"
@@ -7404,7 +7645,7 @@ function App() {
                               <Edit2 className="w-3 h-3" />
                             </button>
                             <button
-                              onClick={() => deleteDraftRoutineItem(group.id, item.id)}
+                              onClick={() => requestDeleteDraftRoutineItem(group.id, item.id, item.text)}
                               className="opacity-0 group-hover:opacity-100 p-1 rounded text-zinc-500 hover:text-rose-400 hover:bg-zinc-700 transition-all flex-shrink-0"
                               aria-label="Delete item"
                             >
@@ -7558,6 +7799,82 @@ function App() {
                   className="px-4 py-2 bg-rose-500/90 hover:bg-rose-500 text-white rounded-lg text-sm font-medium transition-colors"
                 >
                   Delete
+                </button>
+              </div>
+            </div>
+          </ModalBackdrop>
+        )}
+
+        {/* DELETE CATEGORY CONFIRMATION — layered above the Configure
+            Challenge modal. Deleting a category block removes every routine
+            item filed under it, so this always requires an explicit
+            confirmation before anything is actually removed. */}
+        {categoryPendingDelete && (
+          <ModalBackdrop
+            onClose={() => setCategoryPendingDelete(null)}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
+          >
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full bg-rose-500/15 flex items-center justify-center flex-shrink-0">
+                  <Trash2 className="w-5 h-5 text-rose-400" />
+                </div>
+                <h3 className="text-lg font-bold text-white truncate">Delete "{categoryPendingDelete.label}"?</h3>
+              </div>
+              <p className="text-sm text-zinc-400 mb-6">
+                This permanently deletes the entire category block and every routine item inside it. This cannot be undone.
+              </p>
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCategoryPendingDelete(null)}
+                  className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDeleteDraftCategory}
+                  className="px-4 py-2 bg-rose-500/90 hover:bg-rose-500 text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  Confirm Delete
+                </button>
+              </div>
+            </div>
+          </ModalBackdrop>
+        )}
+
+        {/* DELETE ROUTINE ITEM CONFIRMATION — layered above the Configure
+            Challenge modal. */}
+        {itemPendingDelete && (
+          <ModalBackdrop
+            onClose={() => setItemPendingDelete(null)}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
+          >
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full bg-rose-500/15 flex items-center justify-center flex-shrink-0">
+                  <Trash2 className="w-5 h-5 text-rose-400" />
+                </div>
+                <h3 className="text-base font-bold text-white truncate">Delete "{itemPendingDelete.text}"?</h3>
+              </div>
+              <p className="text-sm text-zinc-400 mb-6">
+                This removes the routine item from this category. This cannot be undone.
+              </p>
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setItemPendingDelete(null)}
+                  className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDeleteDraftRoutineItem}
+                  className="px-4 py-2 bg-rose-500/90 hover:bg-rose-500 text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  Confirm Delete
                 </button>
               </div>
             </div>
