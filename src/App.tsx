@@ -7884,12 +7884,12 @@ function App() {
               from Day 1 (even if a challenge is already active, this
               overwrites it); 'edit' only ever updates Title/Motto/Routines
               in place, leaving the active run's progress untouched. */}
-          <div className="flex items-center justify-between gap-2 border-t border-zinc-800 px-6 py-4 flex-shrink-0">
-            <p className="text-xs text-zinc-500">
-              {challengeModalMode === 'configure'
-                ? 'Saving starts a new challenge run from Day 1.'
-                : 'Routines, categories, title & motto update in place — your active run is untouched.'}
-            </p>
+          <div className={cn('flex items-center gap-2 border-t border-zinc-800 px-6 py-4 flex-shrink-0', challengeModalMode === 'configure' ? 'justify-between' : 'justify-end')}>
+            {challengeModalMode === 'configure' && (
+              <p className="text-xs text-zinc-500">
+                Saving starts a new challenge run from Day 1.
+              </p>
+            )}
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setIsChallengeConfigOpen(false)}
@@ -7914,7 +7914,7 @@ function App() {
                 // only action available — updates in place, no reset.
                 <button
                   onClick={saveChallengeConfigUpdate}
-                  className="px-4 py-2 rounded-lg text-sm font-medium bg-amber-500 text-black hover:bg-amber-400 transition-all"
+                  className="px-3.5 py-1.5 rounded-lg text-sm font-medium bg-amber-500 text-black hover:bg-amber-400 transition-all"
                 >
                   Save Changes
                 </button>
