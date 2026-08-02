@@ -321,48 +321,53 @@ const SESSION_OPTIONS: SessionOption[] = ['NYC', 'London', 'Asia', 'Pre-market O
 // across every group is checked for that date. Routine groups are fixed
 // to 3 time-block categories (icons/labels below), but the items inside
 // each one are fully user-configurable and persisted to localStorage.
-type RoutineGroupId = 'morning' | 'active' | 'night';
-
 interface RoutineItem {
   id: string;
   text: string;
 }
 
-type ChallengeRoutines = Record<RoutineGroupId, RoutineItem[]>;
+// A single user-defined category / group block inside the Custom Routine
+// Manager (e.g. "Morning Routine", "Daily Non-Negotiables", "Fitness"...).
+// Categories are fully dynamic: users can add, rename, and delete them
+// freely, and each one owns its own list of habit items.
+interface RoutineCategory {
+  id: string;
+  label: string;
+  items: RoutineItem[];
+}
 
 interface ChallengeConfig {
   title: string;
   durationDays: number;
   recheckTokens: number; // max allowed grace re-checks for missed days
   motto: string; // optional identity / vision anchor
-  routines: ChallengeRoutines;
+  categories: RoutineCategory[];
 }
-
-const LIFE_DISCIPLINE_GROUP_META: { id: RoutineGroupId; label: string; icon: LucideIcon }[] = [
-  { id: 'morning', label: '🌅 Morning Routine', icon: Sun },
-  { id: 'active', label: '⚡ Active / Trading Focus', icon: TrendingUp },
-  { id: 'night', label: '🌙 Night Routine', icon: Moon },
-];
 
 const DURATION_PRESET_OPTIONS = [21, 30, 75, 100];
 
 // Note: uses fixed string ids (not the generateId() helper, which is
 // defined further down the file) since this default is built once at
 // module-evaluation time, before that helper's `const` has initialized.
-const makeRoutineItems = (groupId: RoutineGroupId, texts: string[]): RoutineItem[] =>
-  texts.map((text, i) => ({ id: `${groupId}-default-${i}`, text }));
+const makeRoutineItems = (categoryId: string, texts: string[]): RoutineItem[] =>
+  texts.map((text, i) => ({ id: `${categoryId}-default-${i}`, text }));
 
 const DEFAULT_CHALLENGE_CONFIG: ChallengeConfig = {
   title: 'Life Discipline Challenge',
   durationDays: 100,
   recheckTokens: 3,
   motto: '',
-  routines: {
-    morning: makeRoutineItems('morning', ['Brush teeth twice a day', 'Face wash / Skincare', 'Hydrate']),
-    active: makeRoutineItems('active', ['Gym / Workout', 'Clean eating', 'Sleep on time']),
-    night: makeRoutineItems('night', ['Night shower', 'Brush teeth', 'Moisturize']),
-  },
+  categories: [
+    { id: 'cat-morning-default', label: '🌅 Morning Routine', items: makeRoutineItems('cat-morning-default', ['Brush teeth twice a day', 'Face wash / Skincare', 'Hydrate']) },
+    { id: 'cat-active-default', label: '⚡ Active / Trading Focus', items: makeRoutineItems('cat-active-default', ['Gym / Workout', 'Clean eating', 'Sleep on time']) },
+    { id: 'cat-night-default', label: '🌙 Night Routine', items: makeRoutineItems('cat-night-default', ['Night shower', 'Brush teeth', 'Moisturize']) },
+  ],
 };
+
+interface ChallengePresetCategory {
+  label: string;
+  items: string[];
+}
 
 interface ChallengePreset {
   id: string;
@@ -371,12 +376,13 @@ interface ChallengePreset {
   durationDays: number;
   recheckTokens: number;
   motto: string;
-  routines: Record<RoutineGroupId, string[]>;
+  categories: ChallengePresetCategory[];
 }
 
 // 1-click templates offered in the Configure Challenge modal. Selecting one
-// auto-populates the draft (duration, tokens, motto, routines) while still
-// leaving every field open for further editing before saving.
+// auto-populates the draft (duration, tokens, motto, routine categories)
+// while still leaving every field — including the categories themselves —
+// open for further editing (add/rename/delete) before saving.
 const CHALLENGE_PRESETS: ChallengePreset[] = [
   {
     id: 'monk30',
@@ -385,11 +391,11 @@ const CHALLENGE_PRESETS: ChallengePreset[] = [
     durationDays: 30,
     recheckTokens: 3,
     motto: 'Discipline is the bridge between goals and results.',
-    routines: {
-      morning: ['Wake up before 6:30 AM', 'No phone for first 30 min', 'Hydrate + stretch'],
-      active: ['Deep work block (no social media)', 'Gym / physical training', 'Review trading/execution journal'],
-      night: ['No screens after 10 PM', 'Plan tomorrow\'s priorities', 'Lights out by 11 PM'],
-    },
+    categories: [
+      { label: '🌅 Morning Routine', items: ['Wake up before 6:30 AM', 'No phone for first 30 min', 'Hydrate + stretch'] },
+      { label: '⚡ Active / Trading Focus', items: ['Deep work block (no social media)', 'Gym / physical training', 'Review trading/execution journal'] },
+      { label: '🌙 Night Routine', items: ['No screens after 10 PM', 'Plan tomorrow\'s priorities', 'Lights out by 11 PM'] },
+    ],
   },
   {
     id: 'exec21',
@@ -398,11 +404,11 @@ const CHALLENGE_PRESETS: ChallengePreset[] = [
     durationDays: 21,
     recheckTokens: 2,
     motto: 'Execute the plan. No exceptions.',
-    routines: {
-      morning: ['Review daily execution checklist', 'Hydrate', 'Set top 3 priorities'],
-      active: ['Follow trading/execution rules exactly', 'No revenge or impulsive actions', 'Log every decision'],
-      night: ['End-of-day review', 'Rate rule adherence 1-10', 'Prep for tomorrow'],
-    },
+    categories: [
+      { label: '🌅 Morning Routine', items: ['Review daily execution checklist', 'Hydrate', 'Set top 3 priorities'] },
+      { label: '⚡ Active / Trading Focus', items: ['Follow trading/execution rules exactly', 'No revenge or impulsive actions', 'Log every decision'] },
+      { label: '🌙 Night Routine', items: ['End-of-day review', 'Rate rule adherence 1-10', 'Prep for tomorrow'] },
+    ],
   },
   {
     id: 'hard75',
@@ -411,11 +417,11 @@ const CHALLENGE_PRESETS: ChallengePreset[] = [
     durationDays: 75,
     recheckTokens: 0,
     motto: 'No compromises.',
-    routines: {
-      morning: ['Follow a structured diet — no alcohol, no cheat meals', 'Drink 1 gallon of water', 'Read 10 pages of a non-fiction book'],
-      active: ['45-min outdoor workout', '45-min indoor workout', 'Take a progress photo'],
-      night: ['Log the day\'s progress', 'No screens after workouts wind down', 'Lights out on schedule'],
-    },
+    categories: [
+      { label: '🌅 Morning Routine', items: ['Follow a structured diet — no alcohol, no cheat meals', 'Drink 1 gallon of water', 'Read 10 pages of a non-fiction book'] },
+      { label: '⚡ Active / Trading Focus', items: ['45-min outdoor workout', '45-min indoor workout', 'Take a progress photo'] },
+      { label: '🌙 Night Routine', items: ['Log the day\'s progress', 'No screens after workouts wind down', 'Lights out on schedule'] },
+    ],
   },
 ];
 
@@ -3237,8 +3243,8 @@ function App() {
   // self-contained habit tracker and shouldn't need to migrate alongside it.
   // Shape: { startDate, checks: { date: boolean[][] }, graceDays: { date: true },
   //          config: ChallengeConfig }
-  // checks[date][groupIndex][itemIndex] mirrors LIFE_DISCIPLINE_GROUP_META
-  // order, with each group's items pulled from config.routines[group.id].
+  // checks[date][categoryIndex][itemIndex] mirrors config.categories order,
+  // with each category's items pulled from config.categories[i].items.
   const [lifeDisciplineStartDate, setLifeDisciplineStartDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [lifeDisciplineChecks, setLifeDisciplineChecks] = useState<Record<string, boolean[][]>>({});
   // Dates that missed full completion but were "saved" using a re-check
@@ -3263,8 +3269,8 @@ function App() {
   const [isChallengeConfigOpen, setIsChallengeConfigOpen] = useState(false);
   const [challengeConfigDraft, setChallengeConfigDraft] = useState<ChallengeConfig>(DEFAULT_CHALLENGE_CONFIG);
   const [isCustomDuration, setIsCustomDuration] = useState(false);
-  const [newRoutineItemText, setNewRoutineItemText] = useState<Record<RoutineGroupId, string>>({ morning: '', active: '', night: '' });
-  const [editingRoutineItem, setEditingRoutineItem] = useState<{ group: RoutineGroupId; id: string } | null>(null);
+  const [newRoutineItemText, setNewRoutineItemText] = useState<Record<string, string>>({});
+  const [editingRoutineItem, setEditingRoutineItem] = useState<{ categoryId: string; id: string } | null>(null);
   const [editingRoutineItemText, setEditingRoutineItemText] = useState('');
 
   // User-saved challenge presets (persisted to localStorage, separate from
@@ -3294,7 +3300,7 @@ function App() {
   // Helper: build a fresh, empty checks matrix matching the current config's
   // routine group order and item counts.
   const emptyLifeDisciplineChecks = (config: ChallengeConfig): boolean[][] =>
-    LIFE_DISCIPLINE_GROUP_META.map(meta => config.routines[meta.id].map(() => false));
+    config.categories.map(cat => cat.items.map(() => false));
 
   useEffect(() => {
     const stored = localStorage.getItem('lifeDisciplineData');
@@ -3305,7 +3311,7 @@ function App() {
         if (parsed?.checks) setLifeDisciplineChecks(parsed.checks);
         if (parsed?.graceDays) setLifeDisciplineGraceDays(parsed.graceDays);
         if (parsed?.missedReasons) setLifeDisciplineMissedReasons(parsed.missedReasons);
-        if (parsed?.config?.routines) setChallengeConfig(parsed.config);
+        if (parsed?.config?.categories) setChallengeConfig(parsed.config);
       } catch (e) {
         console.error('Failed to load Life Discipline Hub data:', e);
       }
@@ -3374,17 +3380,19 @@ function App() {
   const completeAllLifeDisciplineToday = (dateKey: string) => {
     setLifeDisciplineChecks(prev => ({
       ...prev,
-      [dateKey]: LIFE_DISCIPLINE_GROUP_META.map(meta => challengeConfig.routines[meta.id].map(() => true)),
+      [dateKey]: challengeConfig.categories.map(cat => cat.items.map(() => true)),
     }));
     showLifeDisciplineToast('✨ All habits marked complete for today');
   };
 
-  // A date "counts" as complete only once every checkbox across every group is checked.
+  // A date "counts" as complete only once every checkbox across every
+  // category is checked (a challenge with zero categories is never "complete").
   const isLifeDisciplineDayComplete = (dateKey: string) => {
     const dayChecks = lifeDisciplineChecks[dateKey];
     if (!dayChecks) return false;
-    return LIFE_DISCIPLINE_GROUP_META.every((meta, gI) =>
-      challengeConfig.routines[meta.id].every((_, iI) => dayChecks[gI]?.[iI])
+    if (challengeConfig.categories.length === 0) return false;
+    return challengeConfig.categories.every((cat, gI) =>
+      cat.items.every((_, iI) => dayChecks[gI]?.[iI])
     );
   };
 
@@ -3457,14 +3465,10 @@ function App() {
   const openChallengeConfigModal = () => {
     setChallengeConfigDraft({
       ...challengeConfig,
-      routines: {
-        morning: challengeConfig.routines.morning.map(i => ({ ...i })),
-        active: challengeConfig.routines.active.map(i => ({ ...i })),
-        night: challengeConfig.routines.night.map(i => ({ ...i })),
-      },
+      categories: challengeConfig.categories.map(cat => ({ ...cat, items: cat.items.map(i => ({ ...i })) })),
     });
     setIsCustomDuration(!DURATION_PRESET_OPTIONS.includes(challengeConfig.durationDays));
-    setNewRoutineItemText({ morning: '', active: '', night: '' });
+    setNewRoutineItemText(Object.fromEntries(challengeConfig.categories.map(cat => [cat.id, ''])));
     setEditingRoutineItem(null);
     setIsLoadPresetMenuOpen(false);
     setIsSavingPresetDraft(false);
@@ -3475,18 +3479,19 @@ function App() {
   };
 
   const applyChallengePreset = (preset: ChallengePreset) => {
+    const newCategories: RoutineCategory[] = preset.categories.map(cat => {
+      const catId = generateId();
+      return { id: catId, label: cat.label, items: cat.items.map(text => ({ id: generateId(), text })) };
+    });
     setChallengeConfigDraft(prev => ({
       ...prev,
       title: prev.title?.trim() ? prev.title : preset.name,
       durationDays: preset.durationDays,
       recheckTokens: preset.recheckTokens,
       motto: preset.motto,
-      routines: {
-        morning: makeRoutineItems('morning', preset.routines.morning).map(i => ({ ...i, id: generateId() })),
-        active: makeRoutineItems('active', preset.routines.active).map(i => ({ ...i, id: generateId() })),
-        night: makeRoutineItems('night', preset.routines.night).map(i => ({ ...i, id: generateId() })),
-      },
+      categories: newCategories,
     }));
+    setNewRoutineItemText(Object.fromEntries(newCategories.map(cat => [cat.id, ''])));
     setIsCustomDuration(!DURATION_PRESET_OPTIONS.includes(preset.durationDays));
     setIsLoadPresetMenuOpen(false);
   };
@@ -3504,11 +3509,7 @@ function App() {
       durationDays: challengeConfigDraft.durationDays,
       recheckTokens: challengeConfigDraft.recheckTokens,
       motto: challengeConfigDraft.motto,
-      routines: {
-        morning: challengeConfigDraft.routines.morning.map(i => i.text),
-        active: challengeConfigDraft.routines.active.map(i => i.text),
-        night: challengeConfigDraft.routines.night.map(i => i.text),
-      },
+      categories: challengeConfigDraft.categories.map(cat => ({ label: cat.label, items: cat.items.map(i => i.text) })),
     };
     setUserChallengePresets(prev => [...prev, newPreset]);
     setSavePresetNameDraft('');
@@ -3526,25 +3527,29 @@ function App() {
     setPresetPendingDelete(null);
   };
 
-  const addDraftRoutineItem = (group: RoutineGroupId) => {
-    const text = newRoutineItemText[group].trim();
+  const addDraftRoutineItem = (categoryId: string) => {
+    const text = (newRoutineItemText[categoryId] || '').trim();
     if (!text) return;
     setChallengeConfigDraft(prev => ({
       ...prev,
-      routines: { ...prev.routines, [group]: [...prev.routines[group], { id: generateId(), text }] },
+      categories: prev.categories.map(cat =>
+        cat.id === categoryId ? { ...cat, items: [...cat.items, { id: generateId(), text }] } : cat
+      ),
     }));
-    setNewRoutineItemText(prev => ({ ...prev, [group]: '' }));
+    setNewRoutineItemText(prev => ({ ...prev, [categoryId]: '' }));
   };
 
-  const deleteDraftRoutineItem = (group: RoutineGroupId, id: string) => {
+  const deleteDraftRoutineItem = (categoryId: string, id: string) => {
     setChallengeConfigDraft(prev => ({
       ...prev,
-      routines: { ...prev.routines, [group]: prev.routines[group].filter(i => i.id !== id) },
+      categories: prev.categories.map(cat =>
+        cat.id === categoryId ? { ...cat, items: cat.items.filter(i => i.id !== id) } : cat
+      ),
     }));
   };
 
-  const startEditDraftRoutineItem = (group: RoutineGroupId, item: RoutineItem) => {
-    setEditingRoutineItem({ group, id: item.id });
+  const startEditDraftRoutineItem = (categoryId: string, item: RoutineItem) => {
+    setEditingRoutineItem({ categoryId, id: item.id });
     setEditingRoutineItemText(item.text);
   };
 
@@ -3554,16 +3559,45 @@ function App() {
     if (text) {
       setChallengeConfigDraft(prev => ({
         ...prev,
-        routines: {
-          ...prev.routines,
-          [editingRoutineItem.group]: prev.routines[editingRoutineItem.group].map(i =>
-            i.id === editingRoutineItem.id ? { ...i, text } : i
-          ),
-        },
+        categories: prev.categories.map(cat =>
+          cat.id === editingRoutineItem.categoryId
+            ? { ...cat, items: cat.items.map(i => (i.id === editingRoutineItem.id ? { ...i, text } : i)) }
+            : cat
+        ),
       }));
     }
     setEditingRoutineItem(null);
     setEditingRoutineItemText('');
+  };
+
+  // ---- Dynamic Category Block helpers (add / rename / delete whole groups) ----
+  const addDraftCategory = () => {
+    const newCat: RoutineCategory = { id: generateId(), label: 'New Category', items: [] };
+    setChallengeConfigDraft(prev => ({ ...prev, categories: [...prev.categories, newCat] }));
+    setNewRoutineItemText(prev => ({ ...prev, [newCat.id]: '' }));
+  };
+
+  const renameDraftCategory = (categoryId: string, label: string) => {
+    setChallengeConfigDraft(prev => ({
+      ...prev,
+      categories: prev.categories.map(cat => (cat.id === categoryId ? { ...cat, label } : cat)),
+    }));
+  };
+
+  const deleteDraftCategory = (categoryId: string) => {
+    setChallengeConfigDraft(prev => ({
+      ...prev,
+      categories: prev.categories.filter(cat => cat.id !== categoryId),
+    }));
+    setNewRoutineItemText(prev => {
+      const next = { ...prev };
+      delete next[categoryId];
+      return next;
+    });
+    if (editingRoutineItem?.categoryId === categoryId) {
+      setEditingRoutineItem(null);
+      setEditingRoutineItemText('');
+    }
   };
 
   // Saving starts a brand-new challenge: applies the draft config and resets
@@ -3575,6 +3609,7 @@ function App() {
       title: challengeConfigDraft.title.trim() || 'Life Discipline Challenge',
       durationDays: Math.min(365, Math.max(1, Math.round(challengeConfigDraft.durationDays) || 1)),
       recheckTokens: Math.max(0, Math.round(challengeConfigDraft.recheckTokens) || 0),
+      categories: challengeConfigDraft.categories.map(cat => ({ ...cat, label: cat.label.trim() || 'Untitled Category' })),
     };
     setChallengeConfig(cleaned);
     setLifeDisciplineStartDate(new Date().toISOString().slice(0, 10));
@@ -6632,9 +6667,10 @@ function App() {
     const todayKey = new Date().toISOString().slice(0, 10);
     const todayChecks = lifeDisciplineChecks[todayKey] || emptyLifeDisciplineChecks(challengeConfig);
 
-    // Live routine groups: fixed 3 time-block categories + meta (icon/label),
-    // items sourced from the active challenge config.
-    const routineGroups = LIFE_DISCIPLINE_GROUP_META.map(meta => ({ ...meta, items: challengeConfig.routines[meta.id] }));
+    // Live routine categories: fully user-configured — however many the
+    // user has added (could be 0, 1, 4, or more), in whatever order they
+    // were created, each with its own dynamic item list.
+    const routineGroups = challengeConfig.categories;
 
     const totalItems = routineGroups.reduce((sum, g) => sum + g.items.length, 0);
     const checkedItems = todayChecks.reduce((sum, group) => sum + group.filter(Boolean).length, 0);
@@ -6775,12 +6811,28 @@ function App() {
             }
           `}</style>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {routineGroups.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-10 text-center select-none">
+              <div className="w-12 h-12 rounded-full bg-zinc-800/60 border border-zinc-800 flex items-center justify-center">
+                <ListChecks className="w-5 h-5 text-zinc-500" />
+              </div>
+              <p className="text-sm text-zinc-400 max-w-xs">
+                No routine categories added yet. Click "+ Add Category" to start.
+              </p>
+              <button
+                onClick={openChallengeConfigModal}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium bg-zinc-800 text-white border border-zinc-700 hover:bg-zinc-700 transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                Add Category
+              </button>
+            </div>
+          ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {routineGroups.map((group, gI) => {
               const groupChecks = todayChecks[gI] || group.items.map(() => false);
               const groupCheckedCount = groupChecks.filter(Boolean).length;
               const groupComplete = group.items.length > 0 && groupCheckedCount === group.items.length;
-              const GroupIcon = group.icon;
               return (
                 <div
                   key={group.id}
@@ -6790,7 +6842,7 @@ function App() {
                   )}
                 >
                   <div className="flex items-center gap-2 mb-3 pb-3 border-b border-zinc-800/60 select-none">
-                    <GroupIcon className={cn('w-4 h-4 flex-shrink-0', groupComplete ? 'text-emerald-400' : 'text-zinc-400')} />
+                    <ListChecks className={cn('w-4 h-4 flex-shrink-0', groupComplete ? 'text-emerald-400' : 'text-zinc-400')} />
                     <span className="text-sm font-semibold text-white truncate">{group.label}</span>
                     <span
                       className={cn(
@@ -6841,6 +6893,7 @@ function App() {
               );
             })}
           </div>
+          )}
         </div>
 
         {/* DYNAMIC CHALLENGE PROGRESS GRID */}
@@ -7053,7 +7106,7 @@ function App() {
   const renderChallengeConfigModal = () => {
     if (!isChallengeConfigOpen) return null;
 
-    const draftGroups = LIFE_DISCIPLINE_GROUP_META.map(meta => ({ ...meta, items: challengeConfigDraft.routines[meta.id] }));
+    const draftGroups = challengeConfigDraft.categories;
 
     return (
       <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm">
@@ -7286,15 +7339,43 @@ function App() {
 
             {/* ROUTINE MANAGER */}
             <div>
-              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2.5 block">Custom Routine Manager</label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="flex items-center justify-between gap-2 mb-2.5">
+                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block">Custom Routine Manager</label>
+                <button
+                  onClick={addDraftCategory}
+                  className="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-zinc-800/60 border border-zinc-700 text-zinc-200 hover:border-amber-500/50 hover:bg-zinc-800 transition-all"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add Category / Group
+                </button>
+              </div>
+              {draftGroups.length === 0 && (
+                <p className="text-xs text-zinc-600 italic px-1">
+                  No routine categories added yet. Click "+ Add Category / Group" to start.
+                </p>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {draftGroups.map(group => {
-                  const GroupIcon = group.icon;
                   return (
                     <div key={group.id} className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-3.5">
-                      <div className="flex items-center gap-2 mb-3 pb-2.5 border-b border-zinc-800/60">
-                        <GroupIcon className="w-4 h-4 text-zinc-400 flex-shrink-0" />
-                        <span className="text-sm font-semibold text-white truncate">{group.label}</span>
+                      <div className="flex items-center gap-1.5 mb-3 pb-2.5 border-b border-zinc-800/60">
+                        <ListChecks className="w-4 h-4 text-zinc-500 flex-shrink-0" />
+                        <input
+                          type="text"
+                          value={group.label}
+                          onChange={(e) => renameDraftCategory(group.id, e.target.value)}
+                          placeholder="Category title..."
+                          aria-label="Category title"
+                          className="flex-1 min-w-0 px-1.5 py-1 rounded-md bg-transparent border border-transparent hover:border-zinc-700 focus:border-amber-500/50 text-sm font-semibold text-white placeholder:text-zinc-600 focus:outline-none transition-colors"
+                        />
+                        <button
+                          onClick={() => deleteDraftCategory(group.id)}
+                          className="p-1 rounded text-zinc-500 hover:text-rose-400 hover:bg-zinc-700 transition-all flex-shrink-0"
+                          aria-label={`Delete ${group.label || 'category'}`}
+                          title="Delete this category block"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                       <div className="space-y-1.5 mb-2.5">
                         {group.items.length === 0 && (
@@ -7302,7 +7383,7 @@ function App() {
                         )}
                         {group.items.map(item => (
                           <div key={item.id} className="flex items-center gap-1.5 group">
-                            {editingRoutineItem?.group === group.id && editingRoutineItem?.id === item.id ? (
+                            {editingRoutineItem?.categoryId === group.id && editingRoutineItem?.id === item.id ? (
                               <input
                                 autoFocus
                                 type="text"
@@ -7335,7 +7416,7 @@ function App() {
                       <div className="flex items-center gap-1.5">
                         <input
                           type="text"
-                          value={newRoutineItemText[group.id]}
+                          value={newRoutineItemText[group.id] || ''}
                           onChange={(e) => setNewRoutineItemText(prev => ({ ...prev, [group.id]: e.target.value }))}
                           onKeyDown={(e) => { if (e.key === 'Enter') addDraftRoutineItem(group.id); }}
                           placeholder="Add item..."
