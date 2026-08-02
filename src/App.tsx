@@ -2600,7 +2600,16 @@ const ModalBackdrop: React.FC<{
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
-    if (mouseDownOnBackdropRef.current && e.target === e.currentTarget) {
+    // Require BOTH the mousedown and mouseup to have landed on the backdrop
+    // element itself (not a modal-body descendant) before treating this as
+    // an intentional "click outside to close". This alone stops the common
+    // case of starting a text-selection drag inside the modal and releasing
+    // over the backdrop. As a second, independent guard, also bail out if
+    // there's an active text selection at release time — covers edge cases
+    // where a drag technically starts/ends on the backdrop but the user was
+    // mid-selection (e.g. selecting right up to the modal's edge).
+    const hasActiveSelection = (window.getSelection()?.toString().length ?? 0) > 0;
+    if (mouseDownOnBackdropRef.current && e.target === e.currentTarget && !hasActiveSelection) {
       onClose();
     }
     mouseDownOnBackdropRef.current = false;
@@ -3258,6 +3267,18 @@ function App() {
   const [editingRoutineItem, setEditingRoutineItem] = useState<{ group: RoutineGroupId; id: string } | null>(null);
   const [editingRoutineItemText, setEditingRoutineItemText] = useState('');
 
+  // User-saved challenge presets (persisted to localStorage, separate from
+  // the built-in CHALLENGE_PRESETS templates) + the compact Preset Selector
+  // Bar's transient UI state (dropdown open, inline "save as" naming row,
+  // and the Manage/Delete Presets modal).
+  const [userChallengePresets, setUserChallengePresets] = useState<ChallengePreset[]>([]);
+  const [isLoadPresetMenuOpen, setIsLoadPresetMenuOpen] = useState(false);
+  const [isSavingPresetDraft, setIsSavingPresetDraft] = useState(false);
+  const [savePresetNameDraft, setSavePresetNameDraft] = useState('');
+  const [isManagePresetsOpen, setIsManagePresetsOpen] = useState(false);
+  const [presetPendingDelete, setPresetPendingDelete] = useState<{ id: string; name: string } | null>(null);
+  const loadPresetMenuRef = useRef<HTMLDivElement | null>(null);
+
   // Lightweight local toast for Daily Checklist quick actions (e.g. "Complete All").
   const [lifeDisciplineToast, setLifeDisciplineToast] = useState<string | null>(null);
   const lifeDisciplineToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -3304,6 +3325,38 @@ function App() {
       console.error('Failed to save Life Discipline Hub data:', e);
     }
   }, [lifeDisciplineStartDate, lifeDisciplineChecks, lifeDisciplineGraceDays, lifeDisciplineMissedReasons, challengeConfig]);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('lifeDisciplineUserPresets');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) setUserChallengePresets(parsed);
+      } catch (e) {
+        console.error('Failed to load saved challenge presets:', e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('lifeDisciplineUserPresets', JSON.stringify(userChallengePresets));
+    } catch (e) {
+      console.error('Failed to save challenge presets:', e);
+    }
+  }, [userChallengePresets]);
+
+  // Close the "Load Preset" dropdown on outside click.
+  useEffect(() => {
+    if (!isLoadPresetMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (loadPresetMenuRef.current && !loadPresetMenuRef.current.contains(e.target as Node)) {
+        setIsLoadPresetMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isLoadPresetMenuOpen]);
 
   // Toggle a single habit checkbox for a given date.
   const toggleLifeDisciplineItem = (dateKey: string, groupIdx: number, itemIdx: number) => {
@@ -3413,6 +3466,11 @@ function App() {
     setIsCustomDuration(!DURATION_PRESET_OPTIONS.includes(challengeConfig.durationDays));
     setNewRoutineItemText({ morning: '', active: '', night: '' });
     setEditingRoutineItem(null);
+    setIsLoadPresetMenuOpen(false);
+    setIsSavingPresetDraft(false);
+    setSavePresetNameDraft('');
+    setIsManagePresetsOpen(false);
+    setPresetPendingDelete(null);
     setIsChallengeConfigOpen(true);
   };
 
@@ -3430,6 +3488,42 @@ function App() {
       },
     }));
     setIsCustomDuration(!DURATION_PRESET_OPTIONS.includes(preset.durationDays));
+    setIsLoadPresetMenuOpen(false);
+  };
+
+  // Saves the current draft's Title, Duration, Tokens, Motto and Routines as
+  // a new reusable, user-saved preset (persisted to localStorage). Built-in
+  // templates are untouched — this only ever appends to userChallengePresets.
+  const saveDraftAsPreset = () => {
+    const name = savePresetNameDraft.trim();
+    if (!name) return;
+    const newPreset: ChallengePreset = {
+      id: generateId(),
+      name,
+      description: `${challengeConfigDraft.durationDays}-day custom preset.`,
+      durationDays: challengeConfigDraft.durationDays,
+      recheckTokens: challengeConfigDraft.recheckTokens,
+      motto: challengeConfigDraft.motto,
+      routines: {
+        morning: challengeConfigDraft.routines.morning.map(i => i.text),
+        active: challengeConfigDraft.routines.active.map(i => i.text),
+        night: challengeConfigDraft.routines.night.map(i => i.text),
+      },
+    };
+    setUserChallengePresets(prev => [...prev, newPreset]);
+    setSavePresetNameDraft('');
+    setIsSavingPresetDraft(false);
+    showLifeDisciplineToast(`💾 Saved "${name}" as a preset`);
+  };
+
+  const requestDeleteUserChallengePreset = (id: string, name: string) => {
+    setPresetPendingDelete({ id, name });
+  };
+
+  const confirmDeleteUserChallengePreset = () => {
+    if (!presetPendingDelete) return;
+    setUserChallengePresets(prev => prev.filter(p => p.id !== presetPendingDelete.id));
+    setPresetPendingDelete(null);
   };
 
   const addDraftRoutineItem = (group: RoutineGroupId) => {
@@ -5129,9 +5223,9 @@ function App() {
     const nextThemeLabel = theme === 'dark' ? 'Light' : theme === 'light' ? 'Minecraft' : 'Dark';
 
     return (
-      <div
+      <ModalBackdrop
+        onClose={() => setIsSettingsModalOpen(false)}
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-        onClick={() => setIsSettingsModalOpen(false)}
       >
         <div
           className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl max-w-lg w-full"
@@ -5273,7 +5367,7 @@ function App() {
             </div>
           )}
         </div>
-      </div>
+      </ModalBackdrop>
     );
   };
 
@@ -6821,9 +6915,9 @@ function App() {
     if (!reCheckConfirmDate) return null;
     const dayNum = Math.round((new Date(reCheckConfirmDate + 'T00:00:00').getTime() - new Date(lifeDisciplineStartDate + 'T00:00:00').getTime()) / 86400000) + 1;
     return (
-      <div
+      <ModalBackdrop
+        onClose={() => setReCheckConfirmDate(null)}
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-        onClick={() => setReCheckConfirmDate(null)}
       >
         <div
           className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl"
@@ -6858,7 +6952,7 @@ function App() {
             </button>
           </div>
         </div>
-      </div>
+      </ModalBackdrop>
     );
   };
 
@@ -6866,9 +6960,9 @@ function App() {
     if (!missedReasonModal) return null;
     const isView = missedReasonModal.mode === 'view';
     return (
-      <div
+      <ModalBackdrop
+        onClose={() => setMissedReasonModal(null)}
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-        onClick={() => setMissedReasonModal(null)}
       >
         <div
           className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl"
@@ -6931,7 +7025,7 @@ function App() {
             )}
           </div>
         </div>
-      </div>
+      </ModalBackdrop>
     );
   };
   // Lets the user rename the active challenge, pick a duration (preset or
@@ -6944,12 +7038,24 @@ function App() {
     const draftGroups = LIFE_DISCIPLINE_GROUP_META.map(meta => ({ ...meta, items: challengeConfigDraft.routines[meta.id] }));
 
     return (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-        onClick={() => setIsChallengeConfigOpen(false)}
-      >
+      <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm">
+        {/* Centering wrapper lives *inside* the scrollable backdrop (rather
+            than the backdrop itself being a fixed-height flex centerer) so
+            that if the modal's own content is taller than the viewport —
+            or an inner `max-h`/flex calculation comes out wrong in a given
+            preview/embed context — the whole page can still scroll to
+            reach the rest of the modal instead of clipping it. This inner
+            wrapper is also the actual "click outside to close" surface —
+            ModalBackdrop only closes on a mousedown+mouseup pair that both
+            land on it directly (not a modal-body descendant) and bails if
+            there's an active text selection, so highlighting/dragging text
+            inside the modal and releasing over the backdrop never closes it. */}
+        <ModalBackdrop
+          onClose={() => setIsChallengeConfigOpen(false)}
+          className="min-h-full flex items-center justify-center p-4"
+        >
         <div
-          className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col"
+          className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -6969,25 +7075,100 @@ function App() {
             </button>
           </div>
 
-          <div className="overflow-y-auto px-6 py-5 space-y-6 flex-1 min-h-0">
-            {/* PRESETS */}
-            <div>
-              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2.5">Load Preset</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                {CHALLENGE_PRESETS.map(preset => (
-                  <button
-                    key={preset.id}
-                    onClick={() => applyChallengePreset(preset)}
-                    className="text-left px-3.5 py-3 rounded-xl bg-zinc-800/50 border border-zinc-800 hover:border-amber-500/50 hover:bg-zinc-800 transition-all"
-                  >
-                    <p className="text-sm font-medium text-white truncate">{preset.name}</p>
-                    <p className="text-xs text-zinc-500 mt-1 line-clamp-2">{preset.description}</p>
-                    <p className="text-[11px] text-zinc-600 mt-1.5">{preset.durationDays} days · {preset.recheckTokens} tokens</p>
-                  </button>
-                ))}
-              </div>
+          {/* PRESET SELECTOR BAR — compact toolbar replacing the old static
+              preset cards. Load Preset opens a dropdown listing both the
+              built-in templates and any user-saved presets; Save Current as
+              Preset stores the live draft fields as a new reusable preset;
+              Manage opens a small modal for deleting saved presets. */}
+          <div className="flex items-center justify-between gap-2 px-6 py-3 border-b border-zinc-800 flex-shrink-0">
+            <div className="relative" ref={loadPresetMenuRef}>
+              <button
+                onClick={() => setIsLoadPresetMenuOpen(v => !v)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-800/60 border border-zinc-700 text-zinc-200 hover:border-amber-500/50 hover:bg-zinc-800 transition-all"
+              >
+                <span>📁 Load Preset</span>
+                <ChevronDown className={cn('w-3.5 h-3.5 text-zinc-500 transition-transform', isLoadPresetMenuOpen && 'rotate-180')} />
+              </button>
+              {isLoadPresetMenuOpen && (
+                <div className="absolute z-10 left-0 mt-1.5 w-64 max-h-80 overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-900 shadow-2xl p-1.5">
+                  <p className="px-2 pt-1 pb-1.5 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Built-in Templates</p>
+                  {CHALLENGE_PRESETS.map(preset => (
+                    <button
+                      key={preset.id}
+                      onClick={() => applyChallengePreset(preset)}
+                      className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-zinc-800 transition-all"
+                    >
+                      <p className="text-sm text-white truncate">{preset.name}</p>
+                      <p className="text-[11px] text-zinc-500 mt-0.5">{preset.durationDays} days · {preset.recheckTokens} tokens</p>
+                    </button>
+                  ))}
+                  <div className="my-1.5 border-t border-zinc-800" />
+                  <p className="px-2 pt-1 pb-1.5 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Your Presets</p>
+                  {userChallengePresets.length === 0 ? (
+                    <p className="px-2.5 py-2 text-xs text-zinc-600 italic">No saved presets yet.</p>
+                  ) : (
+                    userChallengePresets.map(preset => (
+                      <button
+                        key={preset.id}
+                        onClick={() => applyChallengePreset(preset)}
+                        className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-zinc-800 transition-all"
+                      >
+                        <p className="text-sm text-white truncate">{preset.name}</p>
+                        <p className="text-[11px] text-zinc-500 mt-0.5">{preset.durationDays} days · {preset.recheckTokens} tokens</p>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
 
+            <div className="flex items-center gap-1.5">
+              {isSavingPresetDraft ? (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    autoFocus
+                    type="text"
+                    value={savePresetNameDraft}
+                    onChange={(e) => setSavePresetNameDraft(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') saveDraftAsPreset(); if (e.key === 'Escape') { setIsSavingPresetDraft(false); setSavePresetNameDraft(''); } }}
+                    placeholder="Preset name..."
+                    className="w-36 px-2.5 py-1.5 rounded-lg bg-zinc-800/60 border border-amber-500/50 text-xs text-white placeholder:text-zinc-600 focus:outline-none"
+                  />
+                  <button
+                    onClick={saveDraftAsPreset}
+                    className="p-1.5 rounded-lg bg-amber-500 text-black hover:bg-amber-400 transition-all"
+                    aria-label="Confirm save preset"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => { setIsSavingPresetDraft(false); setSavePresetNameDraft(''); }}
+                    className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all"
+                    aria-label="Cancel save preset"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { setIsLoadPresetMenuOpen(false); setSavePresetNameDraft(challengeConfigDraft.title || ''); setIsSavingPresetDraft(true); }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-800/60 border border-zinc-700 text-zinc-200 hover:border-amber-500/50 hover:bg-zinc-800 transition-all"
+                >
+                  + Save Current as Preset
+                </button>
+              )}
+              <button
+                onClick={() => { setIsLoadPresetMenuOpen(false); setIsManagePresetsOpen(true); }}
+                className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all"
+                aria-label="Manage saved presets"
+                title="Manage/Delete Presets"
+              >
+                <Settings className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-y-auto px-6 py-5 space-y-6 flex-1 min-h-0">
             {/* TITLE */}
             <div>
               <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 block">Challenge Title</label>
@@ -7173,6 +7354,113 @@ function App() {
             </div>
           </div>
         </div>
+        </ModalBackdrop>
+
+        {/* MANAGE / DELETE PRESETS — layered above the Configure Challenge
+            modal. Only user-saved presets can be deleted; built-in templates
+            are read-only and listed for reference only. */}
+        {isManagePresetsOpen && (
+          <ModalBackdrop
+            onClose={() => setIsManagePresetsOpen(false)}
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          >
+            <div
+              className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl max-w-sm w-full max-h-[80vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-zinc-800 flex-shrink-0">
+                <h3 className="text-sm font-semibold text-white">Manage Presets</h3>
+                <button
+                  onClick={() => setIsManagePresetsOpen(false)}
+                  className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all"
+                  aria-label="Close"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="overflow-y-auto px-5 py-4 flex-1 min-h-0">
+                <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mb-2">Your Presets</p>
+                {userChallengePresets.length === 0 ? (
+                  <p className="text-xs text-zinc-600 italic">You haven't saved any presets yet. Use "+ Save Current as Preset" to create one.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {userChallengePresets.map(preset => (
+                      <div key={preset.id} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-zinc-800/50 border border-zinc-800">
+                        <div className="min-w-0">
+                          <p className="text-sm text-white truncate">{preset.name}</p>
+                          <p className="text-[11px] text-zinc-500 mt-0.5">{preset.durationDays} days · {preset.recheckTokens} tokens</p>
+                        </div>
+                        <button
+                          onClick={() => requestDeleteUserChallengePreset(preset.id, preset.name)}
+                          className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-zinc-700 transition-all flex-shrink-0"
+                          aria-label={`Delete ${preset.name}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mt-4 mb-2">Built-in Templates</p>
+                <div className="space-y-1.5">
+                  {CHALLENGE_PRESETS.map(preset => (
+                    <div key={preset.id} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-zinc-800/20 border border-zinc-800/60">
+                      <div className="min-w-0">
+                        <p className="text-sm text-zinc-400 truncate">{preset.name}</p>
+                        <p className="text-[11px] text-zinc-600 mt-0.5">{preset.durationDays} days · {preset.recheckTokens} tokens</p>
+                      </div>
+                      <Lock className="w-3.5 h-3.5 text-zinc-600 flex-shrink-0" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center justify-end border-t border-zinc-800 px-5 py-3 flex-shrink-0">
+                <button
+                  onClick={() => setIsManagePresetsOpen(false)}
+                  className="px-3.5 py-2 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </ModalBackdrop>
+        )}
+
+        {/* DELETE PRESET CONFIRMATION — layered above Manage Presets. */}
+        {presetPendingDelete && (
+          <ModalBackdrop
+            onClose={() => setPresetPendingDelete(null)}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
+          >
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full bg-rose-500/15 flex items-center justify-center flex-shrink-0">
+                  <Trash2 className="w-5 h-5 text-rose-400" />
+                </div>
+                <h3 className="text-lg font-bold text-white">Delete "{presetPendingDelete.name}"?</h3>
+              </div>
+              <p className="text-sm text-zinc-400 mb-6">
+                This permanently removes this saved preset. This cannot be undone.
+              </p>
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPresetPendingDelete(null)}
+                  className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDeleteUserChallengePreset}
+                  className="px-4 py-2 bg-rose-500/90 hover:bg-rose-500 text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </ModalBackdrop>
+        )}
       </div>
     );
   };
