@@ -7905,7 +7905,7 @@ function App() {
                   onClick={saveChallengeConfig}
                   className="px-4 py-2 rounded-lg text-sm font-medium bg-amber-500 text-black hover:bg-amber-400 transition-all"
                 >
-                  🚀 Start Challenge
+                  Start Challenge
                 </button>
               )}
 
@@ -7916,7 +7916,7 @@ function App() {
                   onClick={saveChallengeConfigUpdate}
                   className="px-4 py-2 rounded-lg text-sm font-medium bg-amber-500 text-black hover:bg-amber-400 transition-all"
                 >
-                  💾 Save Changes
+                  Save Changes
                 </button>
               )}
             </div>
