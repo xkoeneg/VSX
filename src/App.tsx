@@ -3619,7 +3619,51 @@ function App() {
   // time, identified by the category id it belongs to.
   const [iconPickerOpenFor, setIconPickerOpenFor] = useState<string | null>(null);
   const [iconPickerTab, setIconPickerTab] = useState<'emoji' | 'icon'>('emoji');
-  const iconPickerRef = useRef<HTMLDivElement | null>(null);
+  // The popover uses `position: fixed` with coordinates computed from the
+  // trigger button's viewport rect (rather than being positioned relative
+  // to an in-flow `relative` ancestor). Fixed positioning escapes the
+  // modal body's `overflow-y-auto` clipping (that container has no
+  // transform/filter, so it never becomes a containing block for
+  // fixed-position descendants), so the popover can render over neighboring
+  // cards and the modal footer without being cut off. We anchor with
+  // `bottom` (not `top`) when flipped upward so we don't need to know the
+  // popover's rendered height in advance.
+  const [iconPickerPos, setIconPickerPos] = useState<{ top?: number; bottom?: number; left: number } | null>(null);
+  const iconPickerPopoverRef = useRef<HTMLDivElement | null>(null);
+  const iconPickerTriggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const ICON_PICKER_WIDTH = 288; // matches w-72
+  // Rough max height of the popover (tabs + compact grid + padding). Used
+  // purely to decide flip direction — the popover itself is still capped
+  // by its own max-height/overflow so this only needs to be a reasonable
+  // upper bound, not pixel-perfect.
+  const ICON_PICKER_EST_HEIGHT = 300;
+  const GAP = 6;
+
+  const computeIconPickerPos = (triggerEl: HTMLButtonElement) => {
+    const rect = triggerEl.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const flipUp = spaceBelow < ICON_PICKER_EST_HEIGHT && spaceAbove > spaceBelow;
+    const left = Math.min(Math.max(rect.left, 8), window.innerWidth - ICON_PICKER_WIDTH - 8);
+    if (flipUp) {
+      return { bottom: window.innerHeight - rect.top + GAP, left };
+    }
+    return { top: rect.bottom + GAP, left };
+  };
+
+  const toggleIconPicker = (groupId: string, iconKind: RoutineIconKind | undefined) => {
+    setIconPickerOpenFor(prev => {
+      const next = prev === groupId ? null : groupId;
+      if (next) {
+        const triggerEl = iconPickerTriggerRefs.current[groupId];
+        setIconPickerPos(triggerEl ? computeIconPickerPos(triggerEl) : null);
+      } else {
+        setIconPickerPos(null);
+      }
+      return next;
+    });
+    setIconPickerTab(iconKind === 'icon' ? 'icon' : 'emoji');
+  };
   // Delete-confirmation state for the Custom Routine Manager — deleting a
   // whole category block or a single routine item always requires an
   // explicit "Confirm Delete" to prevent accidental data loss.
@@ -3738,16 +3782,39 @@ function App() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isPresetSaveChoiceOpen]);
 
-  // Close the Category Icon/Emoji Picker popover on outside click.
+  // Close the Category Icon/Emoji Picker popover on outside click. Since the
+  // popover content is portal'd to document.body (to escape the modal's
+  // scrollable/clipped ancestor), we check both the trigger button and the
+  // portal content rather than a single wrapping ref.
   useEffect(() => {
     if (!iconPickerOpenFor) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (iconPickerRef.current && !iconPickerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const triggerEl = iconPickerTriggerRefs.current[iconPickerOpenFor];
+      const popoverEl = iconPickerPopoverRef.current;
+      if ((!triggerEl || !triggerEl.contains(target)) && (!popoverEl || !popoverEl.contains(target))) {
         setIconPickerOpenFor(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [iconPickerOpenFor]);
+
+  // Keep the portal'd popover glued to its trigger button as the modal (or
+  // page) scrolls or the window resizes, since fixed-position coordinates
+  // don't auto-follow the trigger the way an in-flow absolute popover would.
+  useEffect(() => {
+    if (!iconPickerOpenFor) return;
+    const reposition = () => {
+      const triggerEl = iconPickerTriggerRefs.current[iconPickerOpenFor];
+      if (triggerEl) setIconPickerPos(computeIconPickerPos(triggerEl));
+    };
+    window.addEventListener('scroll', reposition, true);
+    window.addEventListener('resize', reposition);
+    return () => {
+      window.removeEventListener('scroll', reposition, true);
+      window.removeEventListener('resize', reposition);
+    };
   }, [iconPickerOpenFor]);
 
   // Toggle a single habit checkbox for a given date.
@@ -7941,19 +8008,22 @@ function App() {
                   return (
                     <div key={group.id} className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-3.5">
                       <div className="flex items-center gap-1.5 mb-3 pb-2.5 border-b border-zinc-800/60">
-                        <div className="relative flex-shrink-0" ref={iconPickerOpenFor === group.id ? iconPickerRef : null}>
+                        <div className="relative flex-shrink-0">
                           <button
                             type="button"
-                            onClick={() => { setIconPickerOpenFor(prev => (prev === group.id ? null : group.id)); setIconPickerTab(group.iconKind === 'icon' ? 'icon' : 'emoji'); }}
+                            ref={(el) => { iconPickerTriggerRefs.current[group.id] = el; }}
+                            onClick={() => toggleIconPicker(group.id, group.iconKind)}
                             className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-zinc-700/70 border border-transparent hover:border-zinc-700 transition-colors flex-shrink-0"
                             aria-label="Choose category icon or emoji"
                             title="Choose icon or emoji"
                           >
                             {renderCategoryIcon(group, 'w-4 h-4')}
                           </button>
-                          {iconPickerOpenFor === group.id && (
+                          {iconPickerOpenFor === group.id && iconPickerPos && (
                             <div
-                              className="absolute z-30 top-full left-0 mt-1.5 w-72 rounded-xl border border-zinc-800 bg-zinc-900 shadow-2xl p-3"
+                              ref={iconPickerPopoverRef}
+                              style={{ position: 'fixed', top: iconPickerPos.top, bottom: iconPickerPos.bottom, left: iconPickerPos.left }}
+                              className="z-50 w-72 max-h-[320px] overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-900 shadow-2xl p-3 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent"
                               onClick={(e) => e.stopPropagation()}
                             >
                               <div className="flex items-center gap-1 mb-3 p-0.5 rounded-lg bg-zinc-800/60">
@@ -7979,12 +8049,12 @@ function App() {
                                 </button>
                               </div>
                               {iconPickerTab === 'emoji' ? (
-                                <div className="grid grid-cols-8 gap-1 max-h-44 overflow-y-auto">
+                                <div className="grid grid-cols-8 gap-1 max-h-[210px] overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent pr-0.5">
                                   {ROUTINE_EMOJI_OPTIONS.map(emoji => (
                                     <button
                                       key={emoji}
                                       type="button"
-                                      onClick={() => { setDraftCategoryIcon(group.id, 'emoji', emoji); setIconPickerOpenFor(null); }}
+                                      onClick={() => { setDraftCategoryIcon(group.id, 'emoji', emoji); setIconPickerOpenFor(null); setIconPickerPos(null); }}
                                       className={cn(
                                         'w-7 h-7 flex items-center justify-center rounded-md hover:bg-zinc-800 text-base transition-colors',
                                         group.iconKind === 'emoji' && group.iconValue === emoji && 'bg-zinc-800 ring-1 ring-amber-500/50'
@@ -7997,7 +8067,7 @@ function App() {
                                 </div>
                               ) : (
                                 <>
-                                  <div className="grid grid-cols-8 gap-1 max-h-32 overflow-y-auto mb-3">
+                                  <div className="grid grid-cols-8 gap-1 max-h-[200px] overflow-y-auto mb-3 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent pr-0.5">
                                     {ROUTINE_ICON_OPTIONS.map(({ key, Icon }) => (
                                       <button
                                         key={key}
