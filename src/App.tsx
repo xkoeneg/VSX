@@ -3616,97 +3616,10 @@ function App() {
   const [editingRoutineItem, setEditingRoutineItem] = useState<{ categoryId: string; id: string } | null>(null);
   const [editingRoutineItemText, setEditingRoutineItemText] = useState('');
   // Notion-style Category Icon/Emoji Picker — only one popover open at a
-  // time, identified by the category id it belongs to. The popover is
-  // rendered ONCE at the modal's top level (not nested inside each
-  // category card) and positioned with `position: absolute`, offset
-  // relative to the modal's own outer container (see modalContainerRef
-  // below) rather than the browser viewport. This is deliberately NOT
-  // `position: fixed` computed from raw getBoundingClientRect/viewport
-  // coordinates — that approach is fragile inside embedded/sandboxed
-  // preview contexts (this file is often viewed through an iframe-based
-  // artifact preview) where the true browser viewport and the visible
-  // render surface can disagree, which is exactly what produced the
-  // "popover opens way up at the top of the modal, nowhere near the
-  // button I clicked" bug. Anchoring to the modal container's own
-  // getBoundingClientRect and expressing the offset in that container's
-  // *local* coordinate space sidesteps that entirely, since both the
-  // button and the container are measured — and the popover is painted —
-  // within the exact same coordinate system.
+  // time, identified by the category id it belongs to.
   const [iconPickerOpenFor, setIconPickerOpenFor] = useState<string | null>(null);
   const [iconPickerTab, setIconPickerTab] = useState<'emoji' | 'icon'>('emoji');
-  // Tracks the wrapper around whichever trigger button is currently open,
-  // purely for outside-click detection (see the effect below) — not used
-  // for positioning.
   const iconPickerRef = useRef<HTMLDivElement | null>(null);
-  const iconPickerPopoverRef = useRef<HTMLDivElement | null>(null);
-  // The modal's outer (non-scrolling) container — header/toolbar/body/
-  // footer are all its children, and only the body itself scrolls. The
-  // popover is rendered as a sibling of the scrollable body, positioned
-  // absolute against this container, so `overflow-y-auto` on the body
-  // never clips it and it always stays correctly anchored under its
-  // trigger regardless of scroll position.
-  const modalContainerRef = useRef<HTMLDivElement | null>(null);
-  const [iconPickerPos, setIconPickerPos] = useState<{ top: number; left: number } | null>(null);
-  // Given the trigger button's own bounding rect (and the modal
-  // container's), returns absolute-position coordinates *local to the
-  // container* — anchored directly under that specific button, clamped
-  // horizontally/vertically so it never runs outside the modal's own
-  // bounds, and flipped to open *above* the button instead when there
-  // isn't enough room below (e.g. a category near the bottom of the list).
-  const getIconPickerAnchoredPosition = (btnRect: DOMRect, containerRect: DOMRect | null) => {
-    const POPOVER_WIDTH = 288; // w-72
-    const POPOVER_MAX_HEIGHT = 320;
-    const GAP = 6;
-    const PADDING = 8;
-    // Fallback (should basically never happen — the container ref is set
-    // on the same render the modal mounts): treat as if the container
-    // starts at the viewport origin.
-    const cRect = containerRect ?? ({ top: 0, left: 0, width: window.innerWidth, height: window.innerHeight } as DOMRect);
-    let top = btnRect.bottom - cRect.top + GAP;
-    let left = btnRect.left - cRect.left;
-    if (left + POPOVER_WIDTH + PADDING > cRect.width) {
-      left = Math.max(PADDING, cRect.width - POPOVER_WIDTH - PADDING);
-    }
-    if (left < PADDING) left = PADDING;
-    if (top + POPOVER_MAX_HEIGHT + PADDING > cRect.height) {
-      // Not enough room below — flip to open above the trigger instead.
-      const btnTopLocal = btnRect.top - cRect.top;
-      const flippedTop = btnTopLocal - GAP - POPOVER_MAX_HEIGHT;
-      top = flippedTop > PADDING ? flippedTop : Math.max(PADDING, cRect.height - POPOVER_MAX_HEIGHT - PADDING);
-    }
-    return { top, left };
-  };
-  // Toggles the picker for a given category, computing its anchored
-  // position directly from the button that was clicked (e.currentTarget)
-  // and the modal container — synchronous and race-free.
-  const toggleIconPickerFor = (group: RoutineCategory, e: React.MouseEvent<HTMLButtonElement>) => {
-    if (iconPickerOpenFor === group.id) {
-      setIconPickerOpenFor(null);
-      setIconPickerPos(null);
-      return;
-    }
-    const btnRect = e.currentTarget.getBoundingClientRect();
-    const containerRect = modalContainerRef.current ? modalContainerRef.current.getBoundingClientRect() : null;
-    setIconPickerPos(getIconPickerAnchoredPosition(btnRect, containerRect));
-    setIconPickerOpenFor(group.id);
-    setIconPickerTab(group.iconKind === 'icon' ? 'icon' : 'emoji');
-  };
-  // Close the picker on scroll/resize instead of letting it drift out of
-  // sync with its trigger button. The modal body's internal scroll
-  // doesn't bubble, so this listens in the capture phase to catch it —
-  // and since we never programmatically scroll or focus anything when
-  // opening the picker, opening one further down the category list never
-  // snaps the modal back to the top.
-  useEffect(() => {
-    if (!iconPickerOpenFor) return;
-    const closeIt = () => setIconPickerOpenFor(null);
-    window.addEventListener('resize', closeIt);
-    document.addEventListener('scroll', closeIt, true);
-    return () => {
-      window.removeEventListener('resize', closeIt);
-      document.removeEventListener('scroll', closeIt, true);
-    };
-  }, [iconPickerOpenFor]);
   // Delete-confirmation state for the Custom Routine Manager — deleting a
   // whole category block or a single routine item always requires an
   // explicit "Confirm Delete" to prevent accidental data loss.
@@ -3829,10 +3742,7 @@ function App() {
   useEffect(() => {
     if (!iconPickerOpenFor) return;
     const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as Node;
-      const insideButton = iconPickerRef.current?.contains(target);
-      const insidePopover = iconPickerPopoverRef.current?.contains(target);
-      if (!insideButton && !insidePopover) {
+      if (iconPickerRef.current && !iconPickerRef.current.contains(e.target as Node)) {
         setIconPickerOpenFor(null);
       }
     };
@@ -7765,8 +7675,7 @@ function App() {
           className="min-h-full flex items-center justify-center p-4"
         >
         <div
-          ref={modalContainerRef}
-          className="relative bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col"
+          className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -8035,13 +7944,97 @@ function App() {
                         <div className="relative flex-shrink-0" ref={iconPickerOpenFor === group.id ? iconPickerRef : null}>
                           <button
                             type="button"
-                            onClick={(e) => toggleIconPickerFor(group, e)}
+                            onClick={() => { setIconPickerOpenFor(prev => (prev === group.id ? null : group.id)); setIconPickerTab(group.iconKind === 'icon' ? 'icon' : 'emoji'); }}
                             className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-zinc-700/70 border border-transparent hover:border-zinc-700 transition-colors flex-shrink-0"
                             aria-label="Choose category icon or emoji"
                             title="Choose icon or emoji"
                           >
                             {renderCategoryIcon(group, 'w-4 h-4')}
                           </button>
+                          {iconPickerOpenFor === group.id && (
+                            <div
+                              className="absolute z-30 top-full left-0 mt-1.5 w-72 rounded-xl border border-zinc-800 bg-zinc-900 shadow-2xl p-3"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="flex items-center gap-1 mb-3 p-0.5 rounded-lg bg-zinc-800/60">
+                                <button
+                                  type="button"
+                                  onClick={() => setIconPickerTab('emoji')}
+                                  className={cn(
+                                    'flex-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all',
+                                    iconPickerTab === 'emoji' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'
+                                  )}
+                                >
+                                  Emoji
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setIconPickerTab('icon')}
+                                  className={cn(
+                                    'flex-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all',
+                                    iconPickerTab === 'icon' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'
+                                  )}
+                                >
+                                  Icons
+                                </button>
+                              </div>
+                              {iconPickerTab === 'emoji' ? (
+                                <div className="grid grid-cols-8 gap-1 max-h-44 overflow-y-auto">
+                                  {ROUTINE_EMOJI_OPTIONS.map(emoji => (
+                                    <button
+                                      key={emoji}
+                                      type="button"
+                                      onClick={() => { setDraftCategoryIcon(group.id, 'emoji', emoji); setIconPickerOpenFor(null); }}
+                                      className={cn(
+                                        'w-7 h-7 flex items-center justify-center rounded-md hover:bg-zinc-800 text-base transition-colors',
+                                        group.iconKind === 'emoji' && group.iconValue === emoji && 'bg-zinc-800 ring-1 ring-amber-500/50'
+                                      )}
+                                      aria-label={emoji}
+                                    >
+                                      {emoji}
+                                    </button>
+                                  ))}
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="grid grid-cols-8 gap-1 max-h-32 overflow-y-auto mb-3">
+                                    {ROUTINE_ICON_OPTIONS.map(({ key, Icon }) => (
+                                      <button
+                                        key={key}
+                                        type="button"
+                                        onClick={() => setDraftCategoryIcon(group.id, 'icon', key)}
+                                        className={cn(
+                                          'w-7 h-7 flex items-center justify-center rounded-md hover:bg-zinc-800 transition-colors',
+                                          group.iconKind === 'icon' && group.iconValue === key && 'bg-zinc-800 ring-1 ring-amber-500/50'
+                                        )}
+                                        aria-label={key}
+                                        title={key}
+                                      >
+                                        <Icon className={cn('w-4 h-4', group.iconKind === 'icon' ? ROUTINE_ICON_COLOR_CLASS[group.iconColor || 'white'] : 'text-zinc-400')} />
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">Icon Color</p>
+                                  <div className="flex items-center gap-1.5">
+                                    {ROUTINE_ICON_COLORS.map(c => (
+                                      <button
+                                        key={c.id}
+                                        type="button"
+                                        onClick={() => setDraftCategoryIconColor(group.id, c.id)}
+                                        className={cn(
+                                          'w-5 h-5 rounded-full border border-black/20 transition-all',
+                                          c.swatchClass,
+                                          group.iconColor === c.id ? 'ring-2 ring-offset-2 ring-offset-zinc-900 ring-white' : 'hover:scale-110'
+                                        )}
+                                        aria-label={c.label}
+                                        title={c.label}
+                                      />
+                                    ))}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <input
                           type="text"
@@ -8162,104 +8155,6 @@ function App() {
               )}
             </div>
           </div>
-
-          {/* Category Icon/Emoji Picker popover — rendered once here (not
-              nested per-card) so it's a sibling of the scrollable body
-              rather than a descendant of it. That means the body's
-              `overflow-y-auto` never clips it, and since it's positioned
-              `absolute` against this modal container (not `fixed` against
-              the viewport), it stays correctly anchored under whichever
-              trigger button was actually clicked regardless of scroll. */}
-          {(() => {
-            const openGroup = draftGroups.find(g => g.id === iconPickerOpenFor);
-            if (!openGroup || !iconPickerPos) return null;
-            return (
-              <div
-                ref={iconPickerPopoverRef}
-                className="absolute z-[9999] w-72 rounded-xl border border-zinc-800 bg-zinc-900 shadow-2xl p-3"
-                style={{ top: iconPickerPos.top, left: iconPickerPos.left }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center gap-1 mb-3 p-0.5 rounded-lg bg-zinc-800/60">
-                  <button
-                    type="button"
-                    onClick={() => setIconPickerTab('emoji')}
-                    className={cn(
-                      'flex-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all',
-                      iconPickerTab === 'emoji' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'
-                    )}
-                  >
-                    Emoji
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIconPickerTab('icon')}
-                    className={cn(
-                      'flex-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all',
-                      iconPickerTab === 'icon' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'
-                    )}
-                  >
-                    Icons
-                  </button>
-                </div>
-                {iconPickerTab === 'emoji' ? (
-                  <div className="grid grid-cols-8 gap-1 max-h-44 overflow-y-auto">
-                    {ROUTINE_EMOJI_OPTIONS.map(emoji => (
-                      <button
-                        key={emoji}
-                        type="button"
-                        onClick={() => { setDraftCategoryIcon(openGroup.id, 'emoji', emoji); setIconPickerOpenFor(null); }}
-                        className={cn(
-                          'w-7 h-7 flex items-center justify-center rounded-md hover:bg-zinc-800 text-base transition-colors',
-                          openGroup.iconKind === 'emoji' && openGroup.iconValue === emoji && 'bg-zinc-800 ring-1 ring-amber-500/50'
-                        )}
-                        aria-label={emoji}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-8 gap-1 max-h-32 overflow-y-auto mb-3">
-                      {ROUTINE_ICON_OPTIONS.map(({ key, Icon }) => (
-                        <button
-                          key={key}
-                          type="button"
-                          onClick={() => setDraftCategoryIcon(openGroup.id, 'icon', key)}
-                          className={cn(
-                            'w-7 h-7 flex items-center justify-center rounded-md hover:bg-zinc-800 transition-colors',
-                            openGroup.iconKind === 'icon' && openGroup.iconValue === key && 'bg-zinc-800 ring-1 ring-amber-500/50'
-                          )}
-                          aria-label={key}
-                          title={key}
-                        >
-                          <Icon className={cn('w-4 h-4', openGroup.iconKind === 'icon' ? ROUTINE_ICON_COLOR_CLASS[openGroup.iconColor || 'white'] : 'text-zinc-400')} />
-                        </button>
-                      ))}
-                    </div>
-                    <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">Icon Color</p>
-                    <div className="flex items-center gap-1.5">
-                      {ROUTINE_ICON_COLORS.map(c => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => setDraftCategoryIconColor(openGroup.id, c.id)}
-                          className={cn(
-                            'w-5 h-5 rounded-full border border-black/20 transition-all',
-                            c.swatchClass,
-                            openGroup.iconColor === c.id ? 'ring-2 ring-offset-2 ring-offset-zinc-900 ring-white' : 'hover:scale-110'
-                          )}
-                          aria-label={c.label}
-                          title={c.label}
-                        />
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            );
-          })()}
         </div>
         </ModalBackdrop>
 
