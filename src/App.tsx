@@ -2923,6 +2923,60 @@ const PageHeader: React.FC<{
   </div>
 );
 
+// ---- Design system tokens (Global UI audit) --------------------------------
+// Single source of truth for card, button, and section-header styling so
+// every tab (Dashboard, Trade History, Discipline Tracker, Life Discipline
+// Hub, Rules Playbook, Performance Calendar) renders the same visual
+// primitives instead of each view drifting to its own bg/border/radius.
+
+// Primary action button — "+ Add Account", "+ Add Trade", "Configure
+// Challenge". Fixed h-9 height keeps every header action bar on the same
+// Y-axis regardless of page.
+const BTN_PRIMARY =
+  'h-9 px-4 inline-flex items-center justify-center gap-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed';
+
+// Secondary / filter button — "All Accounts", "Select", other header
+// filters. Same h-9 height as BTN_PRIMARY so mixed rows stay aligned.
+const BTN_SECONDARY =
+  'h-9 px-3 inline-flex items-center justify-center gap-2 text-xs font-medium rounded-lg border border-slate-700/80 bg-slate-900/60 text-slate-300 hover:bg-slate-800/60 hover:border-slate-600 transition-colors flex-shrink-0';
+
+// Card surfaces. `main` = top-level section container (rounded-xl / 12px,
+// p-5..p-6). `sub` = nested tile inside a main card, e.g. a metric tile
+// (rounded-lg / 8px, p-4).
+const CARD_MAIN =
+  'bg-slate-900/40 backdrop-blur-md border border-slate-800/80 hover:border-slate-700/60 transition-colors rounded-xl';
+const CARD_SUB =
+  'bg-slate-900/40 backdrop-blur-md border border-slate-800/80 hover:border-slate-700/60 transition-colors rounded-lg';
+
+// Section title inside a card — "STRATEGY MODELS", "STREAK PROGRESS",
+// "TRADING RULES", etc.
+const SECTION_LABEL = 'text-xs font-bold tracking-wider text-slate-400 uppercase';
+
+// Reusable Card wrapper. `tone="main"` for the primary container on a tab,
+// `tone="sub"` for a smaller nested tile (e.g. a metric tile inside a main
+// card). Extra classes (layout, grid-span, etc.) merge in via `className`.
+const Card: React.FC<{
+  tone?: 'main' | 'sub';
+  className?: string;
+  children: React.ReactNode;
+}> = ({ tone = 'main', className, children }) => (
+  <div
+    className={cn(
+      tone === 'main' ? CARD_MAIN : CARD_SUB,
+      tone === 'main' ? 'p-5 sm:p-6' : 'p-4',
+      className
+    )}
+  >
+    {children}
+  </div>
+);
+
+// Reusable section-title label for the top of a card, e.g. STRATEGY MODELS.
+const SectionLabel: React.FC<{ children: React.ReactNode; className?: string }> = ({
+  children,
+  className,
+}) => <h3 className={cn(SECTION_LABEL, className)}>{children}</h3>;
+
 function App() {
   // State
   const [view, setView] = useState<ViewType>('dashboard');
@@ -4827,12 +4881,12 @@ function App() {
     bgSecondary: theme !== 'light' ? 'bg-zinc-800' : 'bg-zinc-100',
     bgTertiary: theme !== 'light' ? 'bg-zinc-950' : 'bg-zinc-50',
     bgHover: theme !== 'light' ? 'hover:bg-zinc-700' : 'hover:bg-zinc-200',
-    bgCard: theme !== 'light' ? 'bg-zinc-900/40' : 'bg-white',
-    bgCardHover: theme !== 'light' ? 'hover:bg-zinc-900/70' : 'hover:bg-zinc-50',
+    bgCard: theme !== 'light' ? 'bg-slate-900/40 backdrop-blur-md' : 'bg-white',
+    bgCardHover: theme !== 'light' ? 'hover:border-slate-700/60' : 'hover:bg-zinc-50',
     // Border classes
-    border: theme !== 'light' ? 'border-zinc-800' : 'border-zinc-200',
+    border: theme !== 'light' ? 'border-slate-800/80' : 'border-zinc-200',
     borderSecondary: theme !== 'light' ? 'border-zinc-700' : 'border-zinc-300',
-    borderHover: theme !== 'light' ? 'hover:border-zinc-700' : 'hover:border-zinc-300',
+    borderHover: theme !== 'light' ? 'hover:border-slate-700/60' : 'hover:border-zinc-300',
     // Text classes
     text: theme !== 'light' ? 'text-white' : 'text-zinc-900',
     textSecondary: theme !== 'light' ? 'text-zinc-400' : 'text-zinc-600',
@@ -4841,9 +4895,10 @@ function App() {
     input: theme !== 'light'
       ? 'bg-zinc-900/50 border-zinc-800 text-white focus:border-zinc-600'
       : 'bg-white border-zinc-200 text-zinc-900 focus:border-zinc-400',
-    // Button secondary
+    // Button secondary (small in-card buttons — header action bar buttons use
+    // BTN_SECONDARY instead, which is fixed h-9 for cross-page alignment)
     btnSecondary: theme !== 'light'
-      ? 'bg-zinc-800 hover:bg-zinc-700 text-white'
+      ? 'bg-slate-900/60 hover:bg-slate-800/60 text-white border border-slate-700/80'
       : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-900',
   };
 
@@ -5510,9 +5565,9 @@ function App() {
   // Render helpers
   const renderStatCard = (title: string, value: string | number, icon: React.ReactNode, color: string = 'text-zinc-400') => (
     <div className={cn(
-      "group rounded-2xl p-4 flex items-center gap-3 min-w-0 transition-all duration-200",
+      "group rounded-xl p-4 flex items-center gap-3 min-w-0 transition-all duration-200",
       theme !== 'light'
-        ? 'bg-zinc-900/40 border border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-900/70'
+        ? 'bg-slate-900/40 backdrop-blur-md border border-slate-800/80 hover:border-slate-700/60 transition-colors'
         : 'bg-white border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50'
     )}>
       <div className={cn('p-2.5 rounded-xl flex-shrink-0', theme !== 'light' ? 'bg-zinc-800/60' : 'bg-zinc-100', color)}>{icon}</div>
@@ -5885,7 +5940,7 @@ function App() {
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       >
         <div
-          className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl max-w-lg w-full"
+          className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-2xl max-w-lg w-full"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -6039,10 +6094,8 @@ function App() {
               <button
                 onClick={() => setShowAccountDropdown(!showAccountDropdown)}
                 className={cn(
-                  "flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors",
-                  theme !== 'light'
-                    ? 'bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700'
-                    : 'bg-zinc-100 border border-zinc-200 text-zinc-700 hover:bg-zinc-200'
+                  BTN_SECONDARY,
+                  theme === 'light' && 'bg-zinc-100 border-zinc-200 text-zinc-700 hover:bg-zinc-200 hover:border-zinc-300'
                 )}
               >
                 <Filter className="w-4 h-4 flex-shrink-0" />
@@ -6097,12 +6150,7 @@ function App() {
 
             <button
               onClick={() => { resetCalculator(); setShowAddAccount(true); }}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors flex-shrink-0",
-                theme !== 'light'
-                  ? 'bg-zinc-800 hover:bg-zinc-700 text-white'
-                  : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-900'
-              )}
+              className={cn(BTN_PRIMARY, theme === 'light' && 'bg-zinc-900 hover:bg-zinc-800')}
             >
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">Add Account</span>
@@ -6115,7 +6163,7 @@ function App() {
       <div className="flex flex-col gap-4">
         {/* Total P&L */}
         <div className={cn(
-          "relative overflow-hidden border rounded-2xl p-4 sm:p-6 transition-colors duration-300 min-w-0",
+          "relative overflow-hidden border rounded-xl p-4 sm:p-6 transition-colors duration-300 min-w-0",
           theme !== 'light'
             ? 'bg-gradient-to-br from-zinc-900 via-zinc-900/90 to-zinc-900/60 border-zinc-800'
             : 'bg-gradient-to-br from-white via-zinc-50 to-zinc-100 border-zinc-200'
@@ -6168,7 +6216,7 @@ function App() {
           return (
             <div
               className={cn(
-                'relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-l-4 bg-zinc-900/40 border-zinc-800/80 p-4 sm:px-5 sm:py-3.5 min-w-0 transition-all duration-300',
+                'relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-l-4 bg-slate-900/40 backdrop-blur-md border-slate-800/80 p-4 sm:px-5 sm:py-3.5 min-w-0 transition-all duration-300',
                 isHealthy && 'border-l-emerald-500 shadow-[0_0_18px_rgba(16,185,129,0.12)]',
                 isWarning && 'border-l-amber-500 shadow-[0_0_18px_rgba(245,158,11,0.10)]',
                 isCritical && 'border-l-rose-500 shadow-[0_0_18px_rgba(244,63,94,0.12)]'
@@ -6230,9 +6278,9 @@ function App() {
         {/* Win / Loss Ratio — replaces the redundant Total Trades count with
             an actionable breakdown of wins vs. losses, dual-color coded. */}
         <div className={cn(
-          "group rounded-2xl p-4 flex items-center gap-3 min-w-0 transition-all duration-200",
+          "group rounded-xl p-4 flex items-center gap-3 min-w-0 transition-all duration-200",
           theme !== 'light'
-            ? 'bg-zinc-900/40 border border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-900/70'
+            ? 'bg-slate-900/40 backdrop-blur-md border border-slate-800/80 hover:border-slate-700/60 transition-colors'
             : 'bg-white border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50'
         )}>
           <div className={cn('p-2.5 rounded-xl flex-shrink-0', theme !== 'light' ? 'bg-zinc-800/60' : 'bg-zinc-100')}>
@@ -6257,9 +6305,9 @@ function App() {
             Chart summary badges above) with the current run of 100%
             rule-compliant trades, the more actionable discipline signal. */}
         <div className={cn(
-          "group rounded-2xl p-4 flex items-center gap-3 min-w-0 transition-all duration-200",
+          "group rounded-xl p-4 flex items-center gap-3 min-w-0 transition-all duration-200",
           theme !== 'light'
-            ? 'bg-zinc-900/40 border border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-900/70'
+            ? 'bg-slate-900/40 backdrop-blur-md border border-slate-800/80 hover:border-slate-700/60 transition-colors'
             : 'bg-white border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50'
         )}>
           <div className={cn(
@@ -6286,7 +6334,7 @@ function App() {
 
       {/* Accounts */}
       <div>
-        <h3 className={cn("text-xs font-semibold uppercase tracking-wider mb-3", tc.textMuted)}>Accounts</h3>
+        <h3 className={cn(SECTION_LABEL, "mb-3")}>Accounts</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {accounts.map(account => {
             const accountTrades = trades.filter(t => t.accountId === account.id);
@@ -6296,9 +6344,9 @@ function App() {
 
             return (
               <div key={account.id} className={cn(
-                'group relative rounded-2xl p-4 min-w-0 overflow-hidden transition-all duration-200',
+                'group relative rounded-xl p-4 min-w-0 overflow-hidden transition-all duration-200',
                 theme !== 'light'
-                  ? 'bg-zinc-900/40 border border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-900/70'
+                  ? 'bg-slate-900/40 backdrop-blur-md border border-slate-800/80 hover:border-slate-700/60 transition-colors'
                   : 'bg-white border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50',
                 metrics.isBreached && 'border-rose-500/30'
               )}>
@@ -6363,7 +6411,7 @@ function App() {
             );
           })}
           {accounts.length === 0 && (
-            <div className="col-span-full text-center text-zinc-600 py-8 border border-dashed border-zinc-800 rounded-2xl">
+            <div className="col-span-full text-center text-zinc-600 py-8 border border-dashed border-zinc-800 rounded-xl">
               No accounts yet. Add your first account to get started.
             </div>
           )}
@@ -6371,10 +6419,10 @@ function App() {
       </div>
 
       {/* Recent trades */}
-      <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-4 sm:p-6">
+      <div className={cn(CARD_MAIN, 'p-4 sm:p-6')}>
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <h3 className="text-lg font-semibold text-white tracking-tight">Recent Trades</h3>
-          <button onClick={() => { resetTradeForm(); resetCalculator(); setShowAddTrade(true); }} className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors">
+          <button onClick={() => { resetTradeForm(); resetCalculator(); setShowAddTrade(true); }} className={BTN_PRIMARY}>
             <Plus className="w-4 h-4" />
             <span>Add Trade</span>
           </button>
@@ -6584,10 +6632,8 @@ function App() {
               <button
                 onClick={() => setShowAccountDropdown(!showAccountDropdown)}
                 className={cn(
-                  "flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors",
-                  theme !== 'light'
-                    ? 'bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700'
-                    : 'bg-zinc-100 border border-zinc-200 text-zinc-700 hover:bg-zinc-200'
+                  BTN_SECONDARY,
+                  theme === 'light' && 'bg-zinc-100 border-zinc-200 text-zinc-700 hover:bg-zinc-200 hover:border-zinc-300'
                 )}
               >
                 <Filter className="w-4 h-4 flex-shrink-0" />
@@ -6644,18 +6690,14 @@ function App() {
               type="button"
               onClick={toggleTradeSelectMode}
               className={cn(
-                'flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm transition-colors border',
-                tradeSelectMode
-                  ? 'bg-white text-black border-white hover:bg-zinc-200'
-                  : theme !== 'light'
-                    ? 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700'
-                    : 'bg-zinc-100 border-zinc-200 text-zinc-700 hover:bg-zinc-200'
+                BTN_SECONDARY,
+                tradeSelectMode && 'bg-white text-black border-white hover:bg-zinc-200 hover:border-white'
               )}
             >
               <Check className="w-4 h-4" />
               <span className="hidden sm:inline">{tradeSelectMode ? 'Cancel' : 'Select'}</span>
             </button>
-            <button onClick={() => { resetTradeForm(); resetCalculator(); setShowAddTrade(true); }} className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors">
+            <button onClick={() => { resetTradeForm(); resetCalculator(); setShowAddTrade(true); }} className={BTN_PRIMARY}>
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">Add Trade</span>
             </button>
@@ -6698,7 +6740,7 @@ function App() {
           gallery + table below to just that outcome; clicking the active one again
           clears it back to 'all'. TOTAL is informational only, not clickable. */}
       <div className={cn(
-        "flex items-center justify-between bg-zinc-900/40 border border-zinc-800/80 rounded-xl px-5 py-3 mb-4",
+        "flex items-center justify-between bg-slate-900/40 backdrop-blur-md border border-slate-800/80 hover:border-slate-700/60 transition-colors rounded-xl px-5 py-3 mb-4",
         theme === 'light' && 'bg-white border-zinc-200'
       )}>
         <span className="text-xs font-medium tracking-wide">
@@ -6770,7 +6812,7 @@ function App() {
         <div>
           {/* Frame — matches the Discipline Tracker card tone/border exactly. The frame IS the
               scroll container: cards scroll edge-to-edge against its inner walls, no nested wrapper. */}
-          <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl max-h-[520px] overflow-y-auto overscroll-contain scroll-smooth p-5 shadow-[0_20px_45px_rgba(0,0,0,0.5),inset_0_2px_12px_rgba(0,0,0,0.25)] scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
+          <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800/80 hover:border-slate-700/60 transition-colors rounded-xl max-h-[520px] overflow-y-auto overscroll-contain scroll-smooth p-5 shadow-[0_20px_45px_rgba(0,0,0,0.5),inset_0_2px_12px_rgba(0,0,0,0.25)] scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {recentTrades.map(renderFeaturedCard)}
             </div>
@@ -6794,7 +6836,7 @@ function App() {
 
         <div className={cn(
           "rounded-xl overflow-hidden",
-          theme !== 'light' ? 'bg-zinc-900/40 border border-zinc-800/80' : 'bg-white border border-zinc-200'
+          theme !== 'light' ? 'bg-slate-900/40 backdrop-blur-md border border-slate-800/80 hover:border-slate-700/60 transition-colors' : 'bg-white border border-zinc-200'
         )}>
           {recentPreviewTrades.length > 0 ? (
             <div className="overflow-x-auto">
@@ -6919,7 +6961,7 @@ function App() {
               </div>
               <h3 className="text-base font-medium text-white mb-1.5">No trades yet</h3>
               <p className="text-zinc-500 mb-3 text-sm">Add your first trade to get started</p>
-              <button onClick={() => { resetTradeForm(); setShowAddTrade(true); }} className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors">
+              <button onClick={() => { resetTradeForm(); setShowAddTrade(true); }} className={cn(BTN_PRIMARY, 'mx-auto')}>
                 <Plus className="w-4 h-4" />
                 Add Trade
               </button>
@@ -6970,7 +7012,7 @@ function App() {
             <div className="relative" ref={accountDropdownRef}>
               <button
                 onClick={() => setShowAccountDropdown(!showAccountDropdown)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700"
+                className={BTN_SECONDARY}
               >
                 <Filter className="w-4 h-4 flex-shrink-0" />
                 <span className="hidden sm:inline truncate max-w-[120px]">{selectedAccounts.includes('all') ? 'All Accounts' : `${selectedAccounts.length} Selected`}</span>
@@ -7041,7 +7083,7 @@ function App() {
               </button>
             </div>
 
-            <button onClick={() => { resetTradeForm(); resetCalculator(); setShowAddTrade(true); }} className="flex items-center gap-2 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors flex-shrink-0">
+            <button onClick={() => { resetTradeForm(); resetCalculator(); setShowAddTrade(true); }} className={BTN_PRIMARY}>
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">Add Trade</span>
             </button>
@@ -7049,7 +7091,7 @@ function App() {
         </div>
 
         {/* Filter bar */}
-        <div className="flex items-center gap-2 flex-wrap p-3 bg-zinc-900/40 border border-zinc-800/80 rounded-xl">
+        <div className="flex items-center gap-2 flex-wrap p-3 bg-slate-900/40 backdrop-blur-md border border-slate-800/80 hover:border-slate-700/60 transition-colors rounded-xl">
           <div className="relative flex-1 min-w-[180px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none" />
             <input
@@ -7121,7 +7163,7 @@ function App() {
         {/* Full-page table / gallery */}
         {dbPagedTrades.length > 0 ? (
           dbViewMode === 'gallery' ? (
-            <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl p-4">
+            <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800/80 hover:border-slate-700/60 transition-colors rounded-xl p-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {dbPagedTrades.map(trade => renderFeaturedCard(trade))}
               </div>
@@ -7157,7 +7199,7 @@ function App() {
               )}
             </div>
           ) : (
-          <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl overflow-hidden">
+          <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800/80 hover:border-slate-700/60 transition-colors rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1100px]">
                 <thead>
@@ -7262,7 +7304,7 @@ function App() {
           </div>
           )
         ) : (
-          <div className="text-center py-12 bg-zinc-900/40 border border-zinc-800/80 rounded-xl">
+          <div className="text-center py-12 bg-slate-900/40 backdrop-blur-md border border-slate-800/80 hover:border-slate-700/60 transition-colors rounded-xl">
             <div className="w-14 h-14 mx-auto rounded-full bg-zinc-800 flex items-center justify-center mb-3">
               <Database className="w-7 h-7 text-zinc-600" />
             </div>
@@ -7362,7 +7404,7 @@ function App() {
           actions={
             <button
               onClick={() => openChallengeConfigModal('configure')}
-              className="flex-shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-all bg-zinc-800 text-white border border-zinc-700 hover:bg-zinc-700"
+              className={BTN_PRIMARY}
             >
               <Settings className="w-4 h-4" />
               Configure Challenge
@@ -7373,7 +7415,7 @@ function App() {
         {/* ACTIVE CHALLENGE BANNER — the Challenge Title + Identity/Vision
             Motto from the Configure Challenge modal live here, not in the
             static page header above. */}
-        <div className="bg-gradient-to-r from-amber-500/10 via-zinc-900/40 to-zinc-900/40 border border-amber-500/20 rounded-2xl px-5 py-4 min-w-0">
+        <div className="bg-gradient-to-r from-amber-500/10 via-zinc-900/40 to-zinc-900/40 border border-amber-500/20 rounded-xl px-5 py-4 min-w-0">
           <p className="text-base sm:text-lg font-bold text-white truncate flex items-center gap-2">
             <Flame className="w-5 h-5 text-amber-400 flex-shrink-0" />
             <span className="text-amber-400">ACTIVE CHALLENGE:</span>
@@ -7394,7 +7436,7 @@ function App() {
         </div>
 
         {/* DAILY CHECKLIST SECTION */}
-        <div className="relative bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-5 min-w-0">
+        <div className="relative bg-slate-900/40 backdrop-blur-md border border-slate-800/80 hover:border-slate-700/60 transition-colors rounded-xl p-5 min-w-0">
           <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
             <h3 className="text-base font-semibold text-white flex items-center gap-2 select-none">
               <Shield className="w-4 h-4 text-zinc-400 flex-shrink-0" />
@@ -7530,7 +7572,7 @@ function App() {
         </div>
 
         {/* DYNAMIC CHALLENGE PROGRESS GRID */}
-        <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-5 min-w-0">
+        <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800/80 hover:border-slate-700/60 transition-colors rounded-xl p-5 min-w-0">
           <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
             <h3 className="text-base font-semibold text-white flex items-center gap-2 select-none">
               <Target className="w-4 h-4 text-zinc-400 flex-shrink-0" />
@@ -7628,7 +7670,7 @@ function App() {
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       >
         <div
-          className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl"
+          className="w-full max-w-sm rounded-xl border border-zinc-800 bg-zinc-900 shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="p-5">
@@ -7673,7 +7715,7 @@ function App() {
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       >
         <div
-          className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl"
+          className="w-full max-w-md rounded-xl border border-zinc-800 bg-zinc-900 shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between px-5 pt-5 pb-3">
@@ -7769,7 +7811,7 @@ function App() {
           className="min-h-full flex items-center justify-center p-4"
         >
         <div
-          className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col"
+          className="bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -8267,7 +8309,7 @@ function App() {
             className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
           >
             <div
-              className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl max-w-sm w-full max-h-[80vh] flex flex-col"
+              className="bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl max-w-sm w-full max-h-[80vh] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-zinc-800 flex-shrink-0">
@@ -8675,10 +8717,10 @@ function App() {
           {/* Trades Needing Review — thin left column, sleek compact list of unreviewed trades */}
           <div className={cn(
             "lg:col-span-3 h-full flex flex-col rounded-xl p-4 min-w-0 border",
-            theme !== 'light' ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-white border-zinc-200'
+            theme !== 'light' ? 'bg-slate-900/40 backdrop-blur-md border-slate-800/80 hover:border-slate-700/60 transition-colors' : 'bg-white border-zinc-200'
           )}>
             <div className="flex items-center justify-between gap-2 mb-3 flex-shrink-0">
-              <h3 className={cn("text-xs font-semibold flex items-center gap-1.5 truncate", tc.text)}>
+              <h3 className={cn(SECTION_LABEL, "flex items-center gap-1.5 truncate")}>
                 <span>⚠️</span>
                 <span className="truncate">Pending Review</span>
                 {pendingReviewTrades.length > 0 && (
@@ -8786,11 +8828,11 @@ function App() {
           {/* Streak Progress Grid — center column */}
           <div className={cn(
             "lg:col-span-5 rounded-xl p-5 min-w-0 h-full flex flex-col border",
-            theme !== 'light' ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-white border-zinc-200'
+            theme !== 'light' ? 'bg-slate-900/40 backdrop-blur-md border-slate-800/80 hover:border-slate-700/60 transition-colors' : 'bg-white border-zinc-200'
           )}>
             <div className="flex-1 min-h-0 flex flex-col">
               <div className="flex items-center justify-between flex-wrap gap-2 mb-4 flex-shrink-0">
-                <h3 className={cn("text-sm font-semibold flex items-center gap-2 truncate", tc.text)}>
+                <h3 className={cn(SECTION_LABEL, "flex items-center gap-2 truncate")}>
                   <Flame className="w-4 h-4 text-amber-400 flex-shrink-0" />
                   STREAK PROGRESS
                 </h3>
@@ -8878,12 +8920,12 @@ function App() {
           {/* Mini Discipline Calendar — right column, compact and sleek */}
           <div className={cn(
             "lg:col-span-4 rounded-xl p-5 min-w-0 h-full flex flex-col justify-between select-none border",
-            theme !== 'light' ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-white border-zinc-200'
+            theme !== 'light' ? 'bg-slate-900/40 backdrop-blur-md border-slate-800/80 hover:border-slate-700/60 transition-colors' : 'bg-white border-zinc-200'
           )}>
             <div>
               <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
-                <h3 className={cn("text-sm font-semibold flex items-center gap-2 truncate", tc.text)}>
-                  <Shield className={cn("w-4 h-4 flex-shrink-0", tc.textMuted)} />
+                <h3 className={cn(SECTION_LABEL, "flex items-center gap-2 truncate")}>
+                  <Shield className="w-4 h-4 flex-shrink-0 text-slate-400" />
                   MINI DISCIPLINE CALENDAR
                 </h3>
                 <div className="flex items-center gap-2 flex-shrink-0">
@@ -9061,7 +9103,7 @@ function App() {
         </div>
 
         {/* Psychology & Behavioral Analytics — now positioned above the log, full width, two columns */}
-        <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-5 min-w-0">
+        <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800/80 hover:border-slate-700/60 transition-colors rounded-xl p-5 min-w-0">
           <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
             <h3 className="text-base font-semibold text-white flex items-center gap-2 truncate">
               <Brain className="w-4 h-4 text-violet-400 flex-shrink-0" />
@@ -9187,7 +9229,7 @@ function App() {
         </div>
 
         {/* Rule Adherence Log — full width so trades have room to show every emotion/mistake tag, not just the first couple */}
-        <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-5 min-w-0">
+        <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800/80 hover:border-slate-700/60 transition-colors rounded-xl p-5 min-w-0">
           <h3 className="text-base font-semibold text-white flex items-center gap-2 mb-4">
             <Shield className="w-4 h-4 text-zinc-400 flex-shrink-0" />
             <span className="truncate">Rule Adherence Log</span>
@@ -9295,11 +9337,11 @@ function App() {
           {/* SECTION 1: ACTIVE STRATEGY MODELS — wrapped in a system card container to match other dashboard widgets */}
           <div className="min-w-0 lg:col-span-2 h-full">
             <div className={cn(
-              "h-full flex flex-col rounded-2xl p-6 shadow-xl border",
-              theme !== 'light' ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-white border-zinc-200'
+              "h-full flex flex-col rounded-xl p-6 shadow-xl border",
+              theme !== 'light' ? 'bg-slate-900/40 backdrop-blur-md border-slate-800/80 hover:border-slate-700/60 transition-colors' : 'bg-white border-zinc-200'
             )}>
               <div className="flex items-center justify-between flex-wrap gap-3">
-                <h3 className={cn("text-sm font-bold tracking-wide flex items-center gap-1.5", tc.text)}>
+                <h3 className={cn(SECTION_LABEL, "flex items-center gap-1.5")}>
                   <Layers className="w-4 h-4 text-emerald-400" strokeWidth={2} />
                   STRATEGY MODELS
                 </h3>
@@ -9384,10 +9426,10 @@ function App() {
                       title="Drag to reorder — click to view"
                       className={cn(
                         "group snap-start w-[calc((100%-2*1rem)/3)] min-w-[calc((100%-2*1rem)/3)] shrink-0 h-full flex flex-col border rounded-xl overflow-hidden cursor-grab active:cursor-grabbing transition-all duration-200 ease-out text-left",
-                        theme !== 'light' ? 'bg-zinc-900/40' : 'bg-white',
+                        theme !== 'light' ? 'bg-slate-900/40 backdrop-blur-md' : 'bg-white',
                         dragOverStrategyId === strategy.id
                           ? "border-sky-400 ring-2 ring-sky-400/60"
-                          : theme !== 'light' ? "border-zinc-800/80 hover:border-zinc-700" : "border-zinc-200 hover:border-zinc-300",
+                          : theme !== 'light' ? "border-slate-800/80 hover:border-slate-700/60 transition-colors" : "border-zinc-200 hover:border-zinc-300",
                         draggingStrategyId === strategy.id && "opacity-40"
                       )}
                     >
@@ -9423,7 +9465,7 @@ function App() {
           {/* SECTION 1b: DAILY TRADING CREED / OPERATING MANIFESTO — quote card, matches Strategy Models column height */}
           <div className="min-w-0 lg:col-span-1 h-full">
             <div
-              className="h-full flex flex-col rounded-2xl p-6 relative overflow-hidden border border-emerald-500/20 shadow-xl backdrop-blur-sm"
+              className="h-full flex flex-col rounded-xl p-6 relative overflow-hidden border border-emerald-500/20 shadow-xl backdrop-blur-sm"
               style={{
                 background: 'radial-gradient(120% 100% at 100% 0%, rgba(16,185,129,0.16) 0%, rgba(8,145,178,0.08) 35%, rgba(15,15,20,0.92) 65%), linear-gradient(160deg, rgba(24,25,32,0.95), rgba(9,10,14,0.98))',
               }}
@@ -9437,7 +9479,7 @@ function App() {
                   <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
                     <span className="text-sm leading-none" aria-hidden="true">📜</span>
                   </div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 truncate">Daily Trading Creed</h3>
+                  <h3 className={SECTION_LABEL}>Daily Trading Creed</h3>
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <button
@@ -9522,7 +9564,7 @@ function App() {
 
         {/* HORIZONTAL PRE-SESSION PROTOCOL STRIP — full width, sits above Trading Rules */}
         <div className={cn(
-          "relative overflow-hidden min-w-0 border rounded-2xl px-5 py-4 shadow-md space-y-3 transition-colors duration-300 select-none",
+          "relative overflow-hidden min-w-0 border rounded-xl px-5 py-4 shadow-md space-y-3 transition-colors duration-300 select-none",
           theme !== 'light'
             ? 'bg-gradient-to-br from-zinc-900 via-zinc-900/90 to-zinc-900/60 border-zinc-800'
             : 'bg-gradient-to-br from-white via-zinc-50 to-zinc-100 border-zinc-200'
@@ -9592,8 +9634,8 @@ function App() {
 
         {/* SECTION 2: TRADING CHARTER & MANDATES — single unified, read-only card */}
         <div className={cn(
-          "min-w-0 rounded-2xl p-6 shadow-xl border",
-          theme !== 'light' ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-white border-zinc-200'
+          "min-w-0 rounded-xl p-6 shadow-xl border",
+          theme !== 'light' ? 'bg-slate-900/40 backdrop-blur-md border-slate-800/80 hover:border-slate-700/60 transition-colors' : 'bg-white border-zinc-200'
         )}>
           <div className="flex items-center justify-between flex-wrap gap-4 mb-6">
             <div className="flex items-center gap-3 min-w-0">
@@ -9601,7 +9643,7 @@ function App() {
                 <ShieldCheck className="w-5 h-5 text-emerald-400" strokeWidth={2} />
               </div>
               <div className="min-w-0">
-                <h3 className={cn("text-sm font-bold uppercase tracking-wide truncate", tc.text)}>Trading Rules</h3>
+                <h3 className={cn(SECTION_LABEL, "truncate")}>Trading Rules</h3>
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
@@ -9727,7 +9769,7 @@ function App() {
             {notices.map(notice => (
               <div
                 key={notice.id}
-                className="group relative text-left rounded-xl overflow-hidden border border-zinc-800 bg-zinc-900/50 hover:border-zinc-700 transition-all cursor-pointer min-w-0"
+                className="group relative text-left rounded-xl overflow-hidden border border-slate-800/80 bg-slate-900/40 backdrop-blur-md hover:border-slate-700/60 transition-colors cursor-pointer min-w-0"
                 onClick={() => setActiveNoticeId(notice.id)}
               >
                 <div className="aspect-video w-full overflow-hidden bg-zinc-800 flex items-center justify-center">
@@ -9781,7 +9823,7 @@ function App() {
         {/* Scenarios & Lessons table */}
         <div className="min-w-0">
           <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-            <h2 className="text-sm uppercase tracking-wider text-zinc-500">Scenarios &amp; Lessons</h2>
+            <h2 className={SECTION_LABEL}>Scenarios &amp; Lessons</h2>
             <button
               onClick={() => setShowAddScenario(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs transition-colors flex-shrink-0"
@@ -9792,7 +9834,7 @@ function App() {
           </div>
 
           {noticeScenarios.length > 0 ? (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 overflow-x-auto">
+            <div className="rounded-xl border border-slate-800/80 bg-slate-900/40 backdrop-blur-md overflow-x-auto">
               <table className="w-full text-sm min-w-[640px]">
                 <thead>
                   <tr className="border-b border-zinc-800 text-left text-xs uppercase tracking-wider text-zinc-500">
@@ -9838,7 +9880,7 @@ function App() {
               </table>
             </div>
           ) : (
-            <div className="text-center py-10 rounded-xl border border-zinc-800 bg-zinc-900/50">
+            <div className="text-center py-10 rounded-xl border border-slate-800/80 bg-slate-900/40 backdrop-blur-md">
               <p className="text-zinc-500 text-sm mb-3">No scenarios logged yet</p>
               <button
                 onClick={() => setShowAddScenario(true)}
@@ -9950,7 +9992,7 @@ function App() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {wikiEntries.map(entry => (
-          <div key={entry.id} className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4 group min-w-0">
+          <div key={entry.id} className={cn(CARD_SUB, 'group min-w-0')}>
             <div className="flex items-start justify-between mb-2 gap-2">
               <div className="min-w-0 flex-1">
                 <h3 className="font-semibold text-white truncate">{entry.title}</h3>
@@ -10017,7 +10059,7 @@ function App() {
               <div className="relative" ref={accountDropdownRef}>
                 <button
                   onClick={() => setShowAccountDropdown(!showAccountDropdown)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700"
+                  className={BTN_SECONDARY}
                 >
                   <Filter className="w-4 h-4 flex-shrink-0" />
                   <span className="hidden sm:inline truncate max-w-[120px]">{selectedAccounts.includes('all') ? 'All Accounts' : `${selectedAccounts.length} Selected`}</span>
@@ -10076,7 +10118,7 @@ function App() {
         />
 
         {/* Hero summary bar — big net P&L front and center like a prop-firm dashboard, stats trailing */}
-        <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-4 sm:p-5 flex flex-wrap items-center gap-x-4 sm:gap-x-8 gap-y-4">
+        <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800/80 hover:border-slate-700/60 transition-colors rounded-xl p-4 sm:p-5 flex flex-wrap items-center gap-x-4 sm:gap-x-8 gap-y-4">
           <div className="flex items-center gap-3 pr-4 sm:pr-8 border-r border-zinc-800/80">
             <div className={cn('w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0', totalPnL >= 0 ? 'bg-emerald-500/15 border border-emerald-500/25' : 'bg-rose-500/15 border border-rose-500/25')}>
               <DollarSign className={cn('w-5 h-5', totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400')} />
@@ -10112,7 +10154,7 @@ function App() {
           </div>
         </div>
 
-        <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-3 sm:p-4">
+        <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800/80 hover:border-slate-700/60 transition-colors rounded-xl p-3 sm:p-4">
           {/* Desktop/tablet: original 8-column grid (7 days + Week recap column) */}
           <div className="hidden md:block">
             <div className="grid grid-cols-8 gap-2 mb-2">
@@ -10406,7 +10448,7 @@ function App() {
             <X className="w-4 h-4" />
           </button>
 
-          <div className="max-w-5xl w-full grid grid-cols-1 md:grid-cols-2 gap-6 bg-[#121318] p-6 rounded-2xl border border-white/10 max-h-[85vh] overflow-y-auto">
+          <div className="max-w-5xl w-full grid grid-cols-1 md:grid-cols-2 gap-6 bg-[#121318] p-6 rounded-xl border border-white/10 max-h-[85vh] overflow-y-auto">
             {/* ================= LEFT COLUMN — Trade Preview (static) ================= */}
             <div className="min-w-0 flex flex-col gap-4">
               <div className="min-w-0">
@@ -12478,7 +12520,7 @@ function App() {
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-1.5 min-w-0">
             <meta.Icon className={cn("w-4 h-4 flex-shrink-0", meta.color)} strokeWidth={2} />
-            <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 break-words leading-snug">{getPillarShortLabel(pillar, customPillars)}</h4>
+            <h4 className={cn(SECTION_LABEL, "break-words leading-snug")}>{getPillarShortLabel(pillar, customPillars)}</h4>
           </div>
           <div className="flex items-center gap-0.5 flex-shrink-0">
             <button
@@ -13277,7 +13319,7 @@ function App() {
         onClose={handleCancel}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
       >
-        <div className="bg-[#121318] border border-white/10 rounded-2xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-[#121318] border border-white/10 rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 rounded-full bg-rose-500/15 flex items-center justify-center flex-shrink-0">
               <Trash2 className="w-5 h-5 text-rose-400" />
@@ -13521,6 +13563,18 @@ function App() {
         .theme-light-fix [class~="border-zinc-500"] { border-color: #d4d4d8 !important; }
         .theme-light-fix [class~="hover:border-zinc-500"]:hover { border-color: #71717a !important; }
         .theme-light-fix [class~="bg-zinc-500"] { background-color: #d4d4d8 !important; }
+        /* Slate design-token classes (Card / BTN_SECONDARY / SectionLabel) —
+           same remap as their zinc equivalents above, so the light-fix
+           fallback keeps covering elements migrated to the new tokens. */
+        .theme-light-fix [class~="bg-slate-900/40"] { background-color: #ffffff !important; }
+        .theme-light-fix [class~="bg-slate-900/60"] { background-color: #ffffff !important; }
+        .theme-light-fix [class~="border-slate-800/80"] { border-color: #e4e4e7 !important; }
+        .theme-light-fix [class~="border-slate-700/80"] { border-color: #d4d4d8 !important; }
+        .theme-light-fix [class~="hover:border-slate-700/60"]:hover { border-color: #a1a1aa !important; }
+        .theme-light-fix [class~="hover:bg-slate-800/60"]:hover { background-color: #e4e4e7 !important; }
+        .theme-light-fix [class~="hover:border-slate-600"]:hover { border-color: #a1a1aa !important; }
+        .theme-light-fix [class~="text-slate-300"] { color: #3f3f46 !important; }
+        .theme-light-fix [class~="text-slate-400"] { color: #52525b !important; }
 
         /* ---- Minecraft theme ----
            The base markup is authored with dark zinc-* utility classes.
@@ -13576,6 +13630,8 @@ function App() {
         .theme-minecraft [class~="bg-zinc-700"],
         .theme-minecraft [class~="bg-zinc-700/50"],
         .theme-minecraft [class~="bg-zinc-600"],
+        .theme-minecraft [class~="bg-slate-900/40"],
+        .theme-minecraft [class~="bg-slate-900/60"],
         .theme-minecraft [class*="from-zinc-"],
         .theme-minecraft [class*="to-zinc-"],
         .theme-minecraft [class*="via-zinc-"] {
@@ -13599,7 +13655,9 @@ function App() {
         .theme-minecraft [class~="border-zinc-700/80"],
         .theme-minecraft [class~="border-zinc-600"],
         .theme-minecraft [class~="border-zinc-600/50"],
-        .theme-minecraft [class~="border-zinc-500"] {
+        .theme-minecraft [class~="border-zinc-500"],
+        .theme-minecraft [class~="border-slate-800/80"],
+        .theme-minecraft [class~="border-slate-700/80"] {
           border-color: #1e1e1e !important;
           border-style: solid !important;
         }
@@ -13647,7 +13705,9 @@ function App() {
         .theme-minecraft [class~="text-white"] { color: #ffffff !important; }
         .theme-minecraft [class~="text-zinc-300"],
         .theme-minecraft [class~="text-zinc-400"],
-        .theme-minecraft [class~="text-zinc-500"] { color: #aaaaaa !important; }
+        .theme-minecraft [class~="text-zinc-500"],
+        .theme-minecraft [class~="text-slate-300"],
+        .theme-minecraft [class~="text-slate-400"] { color: #aaaaaa !important; }
         .theme-minecraft [class*="text-emerald"],
         .theme-minecraft [class*="text-green"] { color: #55ff55 !important; }
         .theme-minecraft [class*="text-blue"],
