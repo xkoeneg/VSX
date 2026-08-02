@@ -7327,7 +7327,6 @@ function App() {
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="min-w-0">
             <h2 className="text-2xl font-bold text-white truncate flex items-center gap-2">
-              <Flame className="w-6 h-6 text-amber-400 flex-shrink-0" />
               Life Discipline Hub
             </h2>
             <p className="text-zinc-500 text-sm truncate">
@@ -7348,7 +7347,7 @@ function App() {
             static page header above. */}
         <div className="bg-gradient-to-r from-amber-500/10 via-zinc-900/40 to-zinc-900/40 border border-amber-500/20 rounded-2xl px-5 py-4 min-w-0">
           <p className="text-base sm:text-lg font-bold text-white truncate flex items-center gap-2">
-            <span aria-hidden="true">🔥</span>
+            <Flame className="w-5 h-5 text-amber-400 flex-shrink-0" />
             <span className="text-amber-400">ACTIVE CHALLENGE:</span>
             <span className="truncate">{challengeConfig.title}</span>
           </p>
@@ -7882,10 +7881,13 @@ function App() {
 
           <div className="overflow-y-auto px-6 py-5 space-y-6 flex-1 min-h-0">
             {/* CHALLENGE IDENTITY — Title + Motto grouped together since
-                these two fields are exactly what populates the "🔥 ACTIVE
+                these two fields are exactly what populates the "ACTIVE
                 CHALLENGE" banner on the Life Discipline Hub page. */}
             <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-4">
-              <p className="text-xs font-semibold text-amber-400 uppercase tracking-wider">🔥 Challenge Identity</p>
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-400 uppercase tracking-wider">
+                <Flame className="w-3.5 h-3.5 flex-shrink-0" />
+                Challenge Identity
+              </p>
               <div>
                 <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 block">Challenge Title</label>
                 <input
