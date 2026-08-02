@@ -6691,15 +6691,17 @@ function App() {
 
     return (
       <div className="space-y-4 min-w-0">
-        {/* PAGE HEADER */}
+        {/* PAGE HEADER — static route title, never overwritten by the
+            Configure Challenge modal's Challenge Title/Motto fields. Those
+            live in the dedicated Active Challenge banner below instead. */}
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="min-w-0">
             <h2 className="text-2xl font-bold text-white truncate flex items-center gap-2">
               <Flame className="w-6 h-6 text-amber-400 flex-shrink-0" />
-              {challengeConfig.title}
+              Life Discipline Hub
             </h2>
             <p className="text-zinc-500 text-sm truncate">
-              {challengeConfig.motto ? challengeConfig.motto : 'Tracking daily execution, one habit at a time'}
+              Tracking daily execution, one habit at a time
             </p>
           </div>
           <button
@@ -6709,6 +6711,22 @@ function App() {
             <Settings className="w-4 h-4" />
             Configure Challenge
           </button>
+        </div>
+
+        {/* ACTIVE CHALLENGE BANNER — the Challenge Title + Identity/Vision
+            Motto from the Configure Challenge modal live here, not in the
+            static page header above. */}
+        <div className="bg-gradient-to-r from-amber-500/10 via-zinc-900/40 to-zinc-900/40 border border-amber-500/20 rounded-2xl px-5 py-4 min-w-0">
+          <p className="text-base sm:text-lg font-bold text-white truncate flex items-center gap-2">
+            <span aria-hidden="true">🔥</span>
+            <span className="text-amber-400">ACTIVE CHALLENGE:</span>
+            <span className="truncate">{challengeConfig.title}</span>
+          </p>
+          {challengeConfig.motto && (
+            <p className="mt-1.5 text-sm italic text-zinc-400 truncate">
+              <span aria-hidden="true">💬</span> "{challengeConfig.motto}"
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -7169,16 +7187,33 @@ function App() {
           </div>
 
           <div className="overflow-y-auto px-6 py-5 space-y-6 flex-1 min-h-0">
-            {/* TITLE */}
-            <div>
-              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 block">Challenge Title</label>
-              <input
-                type="text"
-                value={challengeConfigDraft.title}
-                onChange={(e) => setChallengeConfigDraft(prev => ({ ...prev, title: e.target.value }))}
-                placeholder="e.g. Monk Mode, 100-Day Trading Focus"
-                className="w-full px-3.5 py-2.5 rounded-lg bg-zinc-800/60 border border-zinc-700 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
-              />
+            {/* CHALLENGE IDENTITY — Title + Motto grouped together since
+                these two fields are exactly what populates the "🔥 ACTIVE
+                CHALLENGE" banner on the Life Discipline Hub page. */}
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-4">
+              <p className="text-xs font-semibold text-amber-400 uppercase tracking-wider">🔥 Challenge Identity</p>
+              <div>
+                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 block">Challenge Title</label>
+                <input
+                  type="text"
+                  value={challengeConfigDraft.title}
+                  onChange={(e) => setChallengeConfigDraft(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="e.g. Monk Mode, 100-Day Trading Focus"
+                  className="w-full px-3.5 py-2.5 rounded-lg bg-zinc-800/60 border border-zinc-700 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 block">
+                  Identity / Vision Motto <span className="text-zinc-600 normal-case font-normal">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={challengeConfigDraft.motto}
+                  onChange={(e) => setChallengeConfigDraft(prev => ({ ...prev, motto: e.target.value }))}
+                  placeholder="e.g. Discipline is the bridge between goals and results."
+                  className="w-full px-3.5 py-2.5 rounded-lg bg-zinc-800/60 border border-zinc-700 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                />
+              </div>
             </div>
 
             {/* DURATION */}
@@ -7246,20 +7281,6 @@ function App() {
                   setChallengeConfigDraft(prev => ({ ...prev, recheckTokens: Number.isFinite(val) ? val : prev.recheckTokens }));
                 }}
                 className="w-24 px-3 py-2 rounded-lg bg-zinc-800/60 border border-zinc-700 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500/40"
-              />
-            </div>
-
-            {/* MOTTO */}
-            <div>
-              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 block">
-                Identity / Vision Motto <span className="text-zinc-600 normal-case font-normal">(optional)</span>
-              </label>
-              <input
-                type="text"
-                value={challengeConfigDraft.motto}
-                onChange={(e) => setChallengeConfigDraft(prev => ({ ...prev, motto: e.target.value }))}
-                placeholder="e.g. Discipline is the bridge between goals and results."
-                className="w-full px-3.5 py-2.5 rounded-lg bg-zinc-800/60 border border-zinc-700 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
               />
             </div>
 
