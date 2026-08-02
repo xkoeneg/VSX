@@ -3335,6 +3335,20 @@ function App() {
   const [lifeDisciplineMissedReasons, setLifeDisciplineMissedReasons] = useState<Record<string, string>>({});
   const [challengeConfig, setChallengeConfig] = useState<ChallengeConfig>(DEFAULT_CHALLENGE_CONFIG);
 
+  // ---- Anti-cheating: "is there an active run in progress?" ----
+  // A challenge is considered ACTIVE (already running) the moment any
+  // progress has been recorded against it — a checked habit, a spent
+  // re-check token, or a logged missed-day reason. A brand-new challenge
+  // that hasn't logged anything yet is NOT active, so tokens/duration stay
+  // editable right up until the first piece of real progress exists.
+  // This flag — not the draft — is what the Configure Challenge modal uses
+  // to decide whether to lock the Token Allowance / Duration fields, so it
+  // can't be spoofed by editing the draft itself.
+  const hasActiveChallengeProgress =
+    Object.keys(lifeDisciplineChecks).length > 0 ||
+    Object.keys(lifeDisciplineGraceDays).length > 0 ||
+    Object.keys(lifeDisciplineMissedReasons).length > 0;
+
   // Re-Check Token confirmation modal ("Use 1 Re-Check Token to mark Day X
   // as Complete?") — holds the dateKey of the failed day being redeemed.
   const [reCheckConfirmDate, setReCheckConfirmDate] = useState<string | null>(null);
@@ -3348,6 +3362,13 @@ function App() {
   const [isChallengeConfigOpen, setIsChallengeConfigOpen] = useState(false);
   const [challengeConfigDraft, setChallengeConfigDraft] = useState<ChallengeConfig>(DEFAULT_CHALLENGE_CONFIG);
   const [isCustomDuration, setIsCustomDuration] = useState(false);
+  // Anti-cheating "Reset & Start New Run" flow: on an already-active
+  // challenge, Token Allowance + Duration are locked. To change them the
+  // user must explicitly confirm a warning modal (which clears all active
+  // history) — only after confirming does isResetFlowUnlocked flip true,
+  // unlocking those two fields in the draft for the upcoming new run.
+  const [isResetWarningOpen, setIsResetWarningOpen] = useState(false);
+  const [isResetFlowUnlocked, setIsResetFlowUnlocked] = useState(false);
   const [newRoutineItemText, setNewRoutineItemText] = useState<Record<string, string>>({});
   const [editingRoutineItem, setEditingRoutineItem] = useState<{ categoryId: string; id: string } | null>(null);
   const [editingRoutineItemText, setEditingRoutineItemText] = useState('');
@@ -3373,6 +3394,16 @@ function App() {
   const [isManagePresetsOpen, setIsManagePresetsOpen] = useState(false);
   const [presetPendingDelete, setPresetPendingDelete] = useState<{ id: string; name: string } | null>(null);
   const loadPresetMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // Dashboard in-line quick edit: a lightweight popover/drawer opened from
+  // the Daily Checklist header for fast habit additions (and small
+  // removals) without opening the full Configure Challenge modal. This is
+  // always available — adding/renaming/removing categories & routine items
+  // is a safe mid-run edit and is never subject to the anti-cheat lock.
+  const [isManageRoutinesOpen, setIsManageRoutinesOpen] = useState(false);
+  const [quickAddRoutineCategoryId, setQuickAddRoutineCategoryId] = useState<string>('');
+  const [quickAddRoutineText, setQuickAddRoutineText] = useState('');
+  const manageRoutinesRef = useRef<HTMLDivElement | null>(null);
 
   // Lightweight local toast for Daily Checklist quick actions (e.g. "Complete All").
   const [lifeDisciplineToast, setLifeDisciplineToast] = useState<string | null>(null);
@@ -3452,6 +3483,18 @@ function App() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isLoadPresetMenuOpen]);
+
+  // Close the Manage Routines quick-edit drawer on outside click.
+  useEffect(() => {
+    if (!isManageRoutinesOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (manageRoutinesRef.current && !manageRoutinesRef.current.contains(e.target as Node)) {
+        setIsManageRoutinesOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isManageRoutinesOpen]);
 
   // Close the Category Icon/Emoji Picker popover on outside click.
   useEffect(() => {
@@ -3562,6 +3605,39 @@ function App() {
     }
   };
 
+  // ---- Dashboard "⚙️ Manage Routines" quick-edit drawer (live, non-draft) ----
+  // These mutate challengeConfig directly rather than going through the
+  // draft used by the full Configure Challenge modal — safe because
+  // category/routine-item changes never touch active day counts, streak
+  // history, or completed/failed tile progress.
+  const openManageRoutinesDrawer = () => {
+    setQuickAddRoutineCategoryId(challengeConfig.categories[0]?.id || '');
+    setQuickAddRoutineText('');
+    setIsManageRoutinesOpen(true);
+  };
+
+  const quickAddLiveRoutineItem = () => {
+    const text = quickAddRoutineText.trim();
+    if (!text || !quickAddRoutineCategoryId) return;
+    setChallengeConfig(prev => ({
+      ...prev,
+      categories: prev.categories.map(cat =>
+        cat.id === quickAddRoutineCategoryId ? { ...cat, items: [...cat.items, { id: generateId(), text }] } : cat
+      ),
+    }));
+    setQuickAddRoutineText('');
+    showLifeDisciplineToast(`✅ Added "${text}"`);
+  };
+
+  const quickDeleteLiveRoutineItem = (categoryId: string, itemId: string) => {
+    setChallengeConfig(prev => ({
+      ...prev,
+      categories: prev.categories.map(cat =>
+        cat.id === categoryId ? { ...cat, items: cat.items.filter(i => i.id !== itemId) } : cat
+      ),
+    }));
+  };
+
   // ---- Configure Challenge modal helpers ----
   const openChallengeConfigModal = () => {
     setChallengeConfigDraft({
@@ -3580,6 +3656,8 @@ function App() {
     setIconPickerTab('emoji');
     setCategoryPendingDelete(null);
     setItemPendingDelete(null);
+    setIsResetWarningOpen(false);
+    setIsResetFlowUnlocked(false);
     setIsChallengeConfigOpen(true);
   };
 
@@ -3747,24 +3825,58 @@ function App() {
     setCategoryPendingDelete(null);
   };
 
-  // Saving starts a brand-new challenge: applies the draft config and resets
-  // progress (start date, checklist state, and spent grace tokens) so the
-  // new duration / routines / token allowance begin from Day 1.
-  const saveChallengeConfig = () => {
-    const cleaned: ChallengeConfig = {
-      ...challengeConfigDraft,
-      title: challengeConfigDraft.title.trim() || 'Life Discipline Challenge',
-      durationDays: Math.min(365, Math.max(1, Math.round(challengeConfigDraft.durationDays) || 1)),
-      recheckTokens: Math.max(0, Math.round(challengeConfigDraft.recheckTokens) || 0),
-      categories: challengeConfigDraft.categories.map(cat => ({ ...cat, label: cat.label.trim() || 'Untitled Category' })),
-    };
+  // Shared cleanup applied to the draft before it becomes the live config,
+  // regardless of which footer action triggered the save.
+  const cleanChallengeConfigDraft = (): ChallengeConfig => ({
+    ...challengeConfigDraft,
+    title: challengeConfigDraft.title.trim() || 'Life Discipline Challenge',
+    durationDays: Math.min(365, Math.max(1, Math.round(challengeConfigDraft.durationDays) || 1)),
+    recheckTokens: Math.max(0, Math.round(challengeConfigDraft.recheckTokens) || 0),
+    categories: challengeConfigDraft.categories.map(cat => ({ ...cat, label: cat.label.trim() || 'Untitled Category' })),
+  });
+
+  // "Save & Update Active Challenge" — the safe, everyday path. Applies
+  // Title / Motto / Category & Routine Item edits to the live config while
+  // leaving the active day count, streak history, and every completed/
+  // failed tile completely untouched. Token Allowance and Duration are
+  // never changed here even if somehow present in the draft — they can
+  // only ever be edited via the explicit Reset & Start New Run flow below.
+  const saveChallengeConfigUpdate = () => {
+    const cleaned = cleanChallengeConfigDraft();
+    setChallengeConfig(prev => ({
+      ...cleaned,
+      // Anti-cheat: hard-pin these two to whatever is already live,
+      // regardless of active-mode lock state or draft contents.
+      durationDays: prev.durationDays,
+      recheckTokens: prev.recheckTokens,
+    }));
+    setIsChallengeConfigOpen(false);
+    setIsResetFlowUnlocked(false);
+    setIsResetWarningOpen(false);
+  };
+
+  // "Reset & Start New Run" (danger action, gated by an explicit warning
+  // confirmation) — this is the ONLY path that may change Token Allowance
+  // or Duration. Applies the full draft (including the now-unlocked
+  // token/duration fields) and wipes all active-run progress: start date
+  // resets to today, and every checklist/grace/missed-reason record clears
+  // so the new configuration begins cleanly from Day 1.
+  const resetAndStartNewChallengeRun = () => {
+    const cleaned = cleanChallengeConfigDraft();
     setChallengeConfig(cleaned);
     setLifeDisciplineStartDate(new Date().toISOString().slice(0, 10));
     setLifeDisciplineChecks({});
     setLifeDisciplineGraceDays({});
     setLifeDisciplineMissedReasons({});
     setIsChallengeConfigOpen(false);
+    setIsResetFlowUnlocked(false);
+    setIsResetWarningOpen(false);
   };
+
+  // Brand-new challenge (no active progress yet, e.g. first-ever setup):
+  // tokens/duration are already unlocked in the UI, so a single "Start
+  // Challenge" action both applies the draft and lays down Day 1.
+  const saveChallengeConfig = () => resetAndStartNewChallengeRun();
 
   // Initialize selected account
   useEffect(() => {
@@ -6926,19 +7038,106 @@ function App() {
               <Shield className="w-4 h-4 text-zinc-400 flex-shrink-0" />
               <span className="truncate">Daily Checklist — {formatDate(todayKey)}</span>
             </h3>
-            <button
-              onClick={() => completeAllLifeDisciplineToday(todayKey)}
-              disabled={todayComplete || totalItems === 0}
-              className={cn(
-                'flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium transition-all select-none',
-                todayComplete || totalItems === 0
-                  ? 'bg-zinc-800/50 text-zinc-600 cursor-not-allowed'
-                  : 'bg-emerald-500 text-black hover:bg-emerald-400 cursor-pointer'
-              )}
-            >
-              <Zap className="w-4 h-4" />
-              {todayComplete ? 'All Complete ✨' : '⚡ Complete All'}
-            </button>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="relative" ref={manageRoutinesRef}>
+                <button
+                  onClick={() => (isManageRoutinesOpen ? setIsManageRoutinesOpen(false) : openManageRoutinesDrawer())}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-zinc-800/60 border border-zinc-700 text-zinc-200 hover:border-zinc-600 hover:bg-zinc-800 transition-all"
+                  title="Quick-add or remove habits without opening full settings"
+                >
+                  <Settings className="w-4 h-4" />
+                  <span className="hidden sm:inline">Manage Routines</span>
+                </button>
+                {isManageRoutinesOpen && (
+                  <div className="absolute z-20 right-0 mt-1.5 w-72 max-h-96 overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-900 shadow-2xl p-3">
+                    <p className="px-1 pb-2 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Quick Add Habit</p>
+                    {challengeConfig.categories.length === 0 ? (
+                      <p className="px-1 pb-2 text-xs text-zinc-600 italic">Add a category first via Configure Challenge.</p>
+                    ) : (
+                      <div className="flex flex-col gap-1.5 mb-3">
+                        <select
+                          value={quickAddRoutineCategoryId}
+                          onChange={(e) => setQuickAddRoutineCategoryId(e.target.value)}
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-zinc-800/60 border border-zinc-700 text-xs text-white focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                        >
+                          {challengeConfig.categories.map(cat => (
+                            <option key={cat.id} value={cat.id}>{cat.label || 'Untitled Category'}</option>
+                          ))}
+                        </select>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="text"
+                            value={quickAddRoutineText}
+                            onChange={(e) => setQuickAddRoutineText(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') quickAddLiveRoutineItem(); }}
+                            placeholder="New habit text..."
+                            className="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg bg-zinc-800/60 border border-zinc-700 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                          />
+                          <button
+                            onClick={quickAddLiveRoutineItem}
+                            disabled={!quickAddRoutineText.trim() || !quickAddRoutineCategoryId}
+                            className="flex-shrink-0 p-1.5 rounded-lg bg-amber-500 text-black hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            aria-label="Add habit"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {challengeConfig.categories.length > 0 && (
+                      <>
+                        <div className="border-t border-zinc-800 my-2" />
+                        <p className="px-1 pb-1.5 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Current Habits</p>
+                        <div className="space-y-2.5">
+                          {challengeConfig.categories.map(cat => (
+                            <div key={cat.id}>
+                              <p className="px-1 text-[11px] text-zinc-500 mb-1 truncate">{cat.label || 'Untitled Category'}</p>
+                              {cat.items.length === 0 ? (
+                                <p className="px-1 text-[11px] text-zinc-700 italic">No habits yet</p>
+                              ) : (
+                                cat.items.map(item => (
+                                  <div key={item.id} className="flex items-center justify-between gap-2 px-1 py-1 rounded-lg hover:bg-zinc-800/50 group">
+                                    <span className="text-xs text-zinc-300 truncate">{item.text}</span>
+                                    <button
+                                      onClick={() => quickDeleteLiveRoutineItem(cat.id, item.id)}
+                                      className="flex-shrink-0 p-1 rounded text-zinc-600 hover:text-rose-400 hover:bg-rose-500/10 opacity-0 group-hover:opacity-100 transition-all"
+                                      aria-label={`Remove ${item.text}`}
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                    <div className="border-t border-zinc-800 mt-2 pt-2">
+                      <button
+                        onClick={() => { setIsManageRoutinesOpen(false); openChallengeConfigModal(); }}
+                        className="w-full text-center text-xs text-zinc-500 hover:text-white transition-colors py-1"
+                      >
+                        Open full Configure Challenge settings →
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => completeAllLifeDisciplineToday(todayKey)}
+                disabled={todayComplete || totalItems === 0}
+                className={cn(
+                  'flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium transition-all select-none',
+                  todayComplete || totalItems === 0
+                    ? 'bg-zinc-800/50 text-zinc-600 cursor-not-allowed'
+                    : 'bg-emerald-500 text-black hover:bg-emerald-400 cursor-pointer'
+                )}
+              >
+                <Zap className="w-4 h-4" />
+                {todayComplete ? 'All Complete ✨' : '⚡ Complete All'}
+              </button>
+            </div>
           </div>
 
           {/* Toast feedback for quick actions */}
@@ -7416,73 +7615,121 @@ function App() {
               </div>
             </div>
 
-            {/* DURATION */}
-            <div>
-              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 block">Duration</label>
-              <div className="flex flex-wrap items-center gap-2">
-                {DURATION_PRESET_OPTIONS.map(days => (
-                  <button
-                    key={days}
-                    onClick={() => {
-                      setIsCustomDuration(false);
-                      setChallengeConfigDraft(prev => ({ ...prev, durationDays: days }));
-                    }}
-                    className={cn(
-                      'px-3.5 py-2 rounded-lg text-sm font-medium border transition-all',
-                      !isCustomDuration && challengeConfigDraft.durationDays === days
-                        ? 'bg-amber-500 border-amber-400 text-black'
-                        : 'bg-zinc-800/50 border-zinc-700 text-zinc-300 hover:border-zinc-600'
-                    )}
-                  >
-                    {days} Days
-                  </button>
-                ))}
-                <button
-                  onClick={() => setIsCustomDuration(true)}
-                  className={cn(
-                    'px-3.5 py-2 rounded-lg text-sm font-medium border transition-all',
-                    isCustomDuration
-                      ? 'bg-amber-500 border-amber-400 text-black'
-                      : 'bg-zinc-800/50 border-zinc-700 text-zinc-300 hover:border-zinc-600'
-                  )}
-                >
-                  Custom
-                </button>
-                {isCustomDuration && (
-                  <input
-                    type="number"
-                    min={1}
-                    max={365}
-                    value={challengeConfigDraft.durationDays}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value, 10);
-                      setChallengeConfigDraft(prev => ({ ...prev, durationDays: Number.isFinite(val) ? val : prev.durationDays }));
-                    }}
-                    className="w-24 px-3 py-2 rounded-lg bg-zinc-800/60 border border-zinc-700 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500/40"
-                  />
-                )}
-                {isCustomDuration && <span className="text-xs text-zinc-500">days (1–365)</span>}
-              </div>
-            </div>
+            {/* Anti-cheating lock: once a challenge is actively running,
+                Duration and Token Allowance are frozen so day counts and
+                streak math can never be quietly altered mid-run. Both
+                unlock only via the explicit "Reset & Start New Run" flow. */}
+            {(() => {
+              const fieldsLocked = hasActiveChallengeProgress && !isResetFlowUnlocked;
+              return (
+                <>
+                  {/* DURATION */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block">Duration</label>
+                      {fieldsLocked && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-zinc-800 border border-zinc-700 text-zinc-400">
+                          🔒 Locked during active run
+                        </span>
+                      )}
+                    </div>
+                    <fieldset disabled={fieldsLocked} className={cn(fieldsLocked && 'opacity-50 cursor-not-allowed')}>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {DURATION_PRESET_OPTIONS.map(days => (
+                          <button
+                            key={days}
+                            disabled={fieldsLocked}
+                            onClick={() => {
+                              setIsCustomDuration(false);
+                              setChallengeConfigDraft(prev => ({ ...prev, durationDays: days }));
+                            }}
+                            className={cn(
+                              'px-3.5 py-2 rounded-lg text-sm font-medium border transition-all',
+                              fieldsLocked && 'cursor-not-allowed',
+                              !isCustomDuration && challengeConfigDraft.durationDays === days
+                                ? 'bg-amber-500 border-amber-400 text-black'
+                                : 'bg-zinc-800/50 border-zinc-700 text-zinc-300 hover:border-zinc-600'
+                            )}
+                          >
+                            {days} Days
+                          </button>
+                        ))}
+                        <button
+                          disabled={fieldsLocked}
+                          onClick={() => setIsCustomDuration(true)}
+                          className={cn(
+                            'px-3.5 py-2 rounded-lg text-sm font-medium border transition-all',
+                            fieldsLocked && 'cursor-not-allowed',
+                            isCustomDuration
+                              ? 'bg-amber-500 border-amber-400 text-black'
+                              : 'bg-zinc-800/50 border-zinc-700 text-zinc-300 hover:border-zinc-600'
+                          )}
+                        >
+                          Custom
+                        </button>
+                        {isCustomDuration && (
+                          <input
+                            type="number"
+                            min={1}
+                            max={365}
+                            disabled={fieldsLocked}
+                            value={challengeConfigDraft.durationDays}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              setChallengeConfigDraft(prev => ({ ...prev, durationDays: Number.isFinite(val) ? val : prev.durationDays }));
+                            }}
+                            className="w-24 px-3 py-2 rounded-lg bg-zinc-800/60 border border-zinc-700 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500/40 disabled:cursor-not-allowed"
+                          />
+                        )}
+                        {isCustomDuration && <span className="text-xs text-zinc-500">days (1–365)</span>}
+                      </div>
+                    </fieldset>
+                  </div>
 
-            {/* RE-CHECK TOKENS */}
-            <div>
-              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 block">
-                Re-check Token Allowance
-              </label>
-              <p className="text-xs text-zinc-500 mb-2">Max number of grace re-checks allowed for missed days.</p>
-              <input
-                type="number"
-                min={0}
-                max={99}
-                value={challengeConfigDraft.recheckTokens}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value, 10);
-                  setChallengeConfigDraft(prev => ({ ...prev, recheckTokens: Number.isFinite(val) ? val : prev.recheckTokens }));
-                }}
-                className="w-24 px-3 py-2 rounded-lg bg-zinc-800/60 border border-zinc-700 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500/40"
-              />
-            </div>
+                  {/* RE-CHECK TOKENS */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block">
+                        Re-check Token Allowance
+                      </label>
+                      {fieldsLocked && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-zinc-800 border border-zinc-700 text-zinc-400">
+                          🔒 Locked during active run
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-zinc-500 mb-2">Max number of grace re-checks allowed for missed days.</p>
+                    <input
+                      type="number"
+                      min={0}
+                      max={99}
+                      disabled={fieldsLocked}
+                      value={challengeConfigDraft.recheckTokens}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        setChallengeConfigDraft(prev => ({ ...prev, recheckTokens: Number.isFinite(val) ? val : prev.recheckTokens }));
+                      }}
+                      className={cn(
+                        'w-24 px-3 py-2 rounded-lg bg-zinc-800/60 border border-zinc-700 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500/40 disabled:cursor-not-allowed',
+                        fieldsLocked && 'opacity-50'
+                      )}
+                    />
+                  </div>
+                </>
+              );
+            })()}
+
+            {isResetFlowUnlocked && (
+              <div className="rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold text-red-400">New run unlocked</p>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    Duration and Token Allowance are now editable. Saving below will clear all active-run progress and restart from Day 1.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* ROUTINE MANAGER */}
             <div>
@@ -7678,9 +7925,19 @@ function App() {
             </div>
           </div>
 
-          {/* Footer */}
+          {/* Footer — dual-action anti-cheating footer for an already-active
+              challenge (safe update vs. explicit reset), collapsing to a
+              single "Start Challenge" action when there's no active
+              progress yet (brand-new setup, or mid-way through the
+              Reset & Start New Run flow). */}
           <div className="flex items-center justify-between gap-2 border-t border-zinc-800 px-6 py-4 flex-shrink-0">
-            <p className="text-xs text-zinc-500">Saving starts a new challenge run from Day 1.</p>
+            <p className="text-xs text-zinc-500">
+              {!hasActiveChallengeProgress
+                ? 'Saving starts a new challenge run from Day 1.'
+                : isResetFlowUnlocked
+                ? 'This will clear active-run progress and restart from Day 1.'
+                : 'Routines, categories, title & motto update in place — your active run is untouched.'}
+            </p>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setIsChallengeConfigOpen(false)}
@@ -7688,12 +7945,55 @@ function App() {
               >
                 Cancel
               </button>
-              <button
-                onClick={saveChallengeConfig}
-                className="px-4 py-2 rounded-lg text-sm font-medium bg-amber-500 text-black hover:bg-amber-400 transition-all"
-              >
-                Save & Start Challenge
-              </button>
+
+              {!hasActiveChallengeProgress && (
+                // Brand-new challenge — nothing to protect yet, so a single
+                // action both applies the draft and starts Day 1.
+                <button
+                  onClick={saveChallengeConfig}
+                  className="px-4 py-2 rounded-lg text-sm font-medium bg-amber-500 text-black hover:bg-amber-400 transition-all"
+                >
+                  🚀 Start Challenge
+                </button>
+              )}
+
+              {hasActiveChallengeProgress && isResetFlowUnlocked && (
+                // User confirmed the reset warning and edited the now-
+                // unlocked duration/tokens — this commits the new run.
+                <>
+                  <button
+                    onClick={() => setIsResetFlowUnlocked(false)}
+                    className="px-3.5 py-2 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all"
+                  >
+                    Cancel Reset
+                  </button>
+                  <button
+                    onClick={resetAndStartNewChallengeRun}
+                    className="px-4 py-2 rounded-lg text-sm font-medium bg-red-500 text-white hover:bg-red-400 transition-all"
+                  >
+                    🔁 Confirm New Run
+                  </button>
+                </>
+              )}
+
+              {hasActiveChallengeProgress && !isResetFlowUnlocked && (
+                // The everyday dual-action case: safe update (primary) vs.
+                // the gated danger action to change tokens/duration.
+                <>
+                  <button
+                    onClick={() => setIsResetWarningOpen(true)}
+                    className="px-3.5 py-2 rounded-lg text-sm font-medium text-red-400 border border-red-500/30 hover:bg-red-500/10 transition-all"
+                  >
+                    ⚠️ Reset & Start New Run
+                  </button>
+                  <button
+                    onClick={saveChallengeConfigUpdate}
+                    className="px-4 py-2 rounded-lg text-sm font-medium bg-amber-500 text-black hover:bg-amber-400 transition-all"
+                  >
+                    💾 Save & Update Active Challenge
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -7880,6 +8180,47 @@ function App() {
             </div>
           </ModalBackdrop>
         )}
+      </div>
+    );
+  };
+
+  // Warning modal shown before unlocking Token Allowance / Duration on an
+  // already-active challenge. Confirming does NOT reset progress yet — it
+  // just unlocks the fields in the Configure Challenge modal so the user
+  // can pick new values; the actual reset happens when they hit "Confirm
+  // New Run" in that modal's footer, so they can still back out cleanly.
+  const renderResetChallengeWarningModal = () => {
+    if (!isResetWarningOpen) return null;
+    return (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="w-full max-w-sm mx-4 rounded-xl border border-red-500/30 bg-zinc-900 shadow-2xl">
+          <div className="p-5">
+            <div className="flex items-center gap-2.5 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-4 h-4 text-red-400" />
+              </div>
+              <h2 className="text-base font-semibold text-white">Start a New Run?</h2>
+            </div>
+            <p className="text-sm text-zinc-400">
+              Changing Token Allowance or Duration mid-run isn't allowed. Continuing will let you set new values, but when you confirm the new run it will <span className="text-white font-medium">clear all active-run progress</span> — every completed/failed day and spent re-check token — and restart the challenge from Day 1.
+            </p>
+            <p className="text-xs text-zinc-500 mt-2">Your categories, routine items, title, and motto won't be affected.</p>
+          </div>
+          <div className="flex items-center justify-end gap-2 border-t border-zinc-800 px-5 py-3">
+            <button
+              onClick={() => setIsResetWarningOpen(false)}
+              className="px-3 py-1.5 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => { setIsResetFlowUnlocked(true); setIsResetWarningOpen(false); }}
+              className="px-3 py-1.5 rounded-lg text-sm bg-red-500 text-white hover:bg-red-400 transition-all font-medium"
+            >
+              Continue
+            </button>
+          </div>
+        </div>
       </div>
     );
   };
@@ -13132,6 +13473,7 @@ function App() {
       {renderLightbox()}
       {renderSettingsModal()}
       {renderChallengeConfigModal()}
+      {renderResetChallengeWarningModal()}
       {renderReCheckConfirmModal()}
       {renderMissedReasonModal()}
 
