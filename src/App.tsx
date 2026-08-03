@@ -417,6 +417,17 @@ const WEEKDAY_FULL_NAME: Record<WeekDay, string> = {
   Sun: 'Sunday', Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday', Sat: 'Saturday',
 };
 
+// The single, fixed "Weekly / Day-Specific Routines" card in the Configure
+// Challenge modal is just another entry in ChallengeConfig.categories, but
+// pinned to this reserved id so it can always be found/filtered rather than
+// treated as one of the user's freely-added "+ Add Category / Group" blocks.
+// Regular category cards are strictly 100% Everyday Daily Routines — every
+// item added to them is plain (no frequency/day picker at all); the Weekly
+// Card is the only place Specific-Days items live, and every item inside it
+// is Specific-Days only (no "Daily" option).
+const WEEKLY_CATEGORY_ID = '__weekly_fixed__';
+const WEEKLY_CATEGORY_LABEL = '📅 Weekly / Day-Specific Routines';
+
 interface RoutineItem {
   id: string;
   text: string;
@@ -3732,10 +3743,6 @@ function App() {
   const [newRoutineItemText, setNewRoutineItemText] = useState<Record<string, string>>({});
   const [editingRoutineItem, setEditingRoutineItem] = useState<{ categoryId: string; id: string } | null>(null);
   const [editingRoutineItemText, setEditingRoutineItemText] = useState('');
-  // Which routine item's inline Frequency/Schedule editor (Daily vs
-  // Specific Days) is currently expanded — only one at a time, identified
-  // by category + item id, mirroring the icon picker's single-open pattern.
-  const [scheduleEditorOpenFor, setScheduleEditorOpenFor] = useState<{ categoryId: string; itemId: string } | null>(null);
   // Notion-style Category Icon/Emoji Picker — only one popover open at a
   // time, identified by the category id it belongs to.
   const [iconPickerOpenFor, setIconPickerOpenFor] = useState<string | null>(null);
@@ -4228,7 +4235,6 @@ function App() {
     setIsCustomDuration(!DURATION_PRESET_OPTIONS.includes(challengeConfig.durationDays));
     setNewRoutineItemText(Object.fromEntries(challengeConfig.categories.map(cat => [cat.id, ''])));
     setEditingRoutineItem(null);
-    setScheduleEditorOpenFor(null);
     setIsLoadPresetMenuOpen(false);
     setIsSavingPresetDraft(false);
     setSavePresetNameDraft('');
@@ -4312,6 +4318,25 @@ function App() {
     setNewRoutineItemText(prev => ({ ...prev, [categoryId]: '' }));
   };
 
+  // Adds an item to the single fixed Weekly Card. Unlike addDraftRoutineItem
+  // (plain daily items in regular category cards), every item here is
+  // created Specific-Days from the start — there is no "Daily" option inside
+  // this card. The reserved category is created lazily on first use so a
+  // fresh challenge with the toggle on doesn't need a pre-seeded empty block.
+  const addDraftWeeklyItem = () => {
+    const text = (newRoutineItemText[WEEKLY_CATEGORY_ID] || '').trim();
+    if (!text) return;
+    const newItem: RoutineItem = { id: generateId(), text, frequency: 'specific', days: [] };
+    setChallengeConfigDraft(prev => {
+      const exists = prev.categories.some(cat => cat.id === WEEKLY_CATEGORY_ID);
+      const categories = exists
+        ? prev.categories.map(cat => (cat.id === WEEKLY_CATEGORY_ID ? { ...cat, items: [...cat.items, newItem] } : cat))
+        : [...prev.categories, { id: WEEKLY_CATEGORY_ID, label: WEEKLY_CATEGORY_LABEL, items: [newItem] }];
+      return { ...prev, categories };
+    });
+    setNewRoutineItemText(prev => ({ ...prev, [WEEKLY_CATEGORY_ID]: '' }));
+  };
+
   // Deleting a routine item always routes through a confirmation prompt
   // first (see itemPendingDelete + renderDeleteRoutineItemConfirm) — this is
   // the function the "Confirm Delete" button actually calls.
@@ -4328,9 +4353,6 @@ function App() {
         cat.id === categoryId ? { ...cat, items: cat.items.filter(i => i.id !== id) } : cat
       ),
     }));
-    if (scheduleEditorOpenFor?.categoryId === categoryId && scheduleEditorOpenFor?.itemId === id) {
-      setScheduleEditorOpenFor(null);
-    }
     setItemPendingDelete(null);
   };
 
@@ -4363,28 +4385,6 @@ function App() {
   // later brings back exactly what was configured before.
   const toggleWeeklyRoutinesEnabled = () => {
     setChallengeConfigDraft(prev => ({ ...prev, weeklyRoutinesEnabled: !prev.weeklyRoutinesEnabled }));
-    setScheduleEditorOpenFor(null);
-  };
-
-  const toggleItemScheduleEditor = (categoryId: string, itemId: string) => {
-    setScheduleEditorOpenFor(prev =>
-      prev && prev.categoryId === categoryId && prev.itemId === itemId ? null : { categoryId, itemId }
-    );
-  };
-
-  // Sets an item's Frequency to Daily or Specific Days. Switching to
-  // Specific Days starts with no days selected yet (itemAppliesOnDate
-  // treats that as "applies every day" until at least one is picked, so
-  // the item never silently disappears mid-edit).
-  const setDraftItemFrequency = (categoryId: string, itemId: string, frequency: 'daily' | 'specific') => {
-    setChallengeConfigDraft(prev => ({
-      ...prev,
-      categories: prev.categories.map(cat =>
-        cat.id === categoryId
-          ? { ...cat, items: cat.items.map(i => (i.id === itemId ? { ...i, frequency, days: frequency === 'daily' ? [] : (i.days || []) } : i)) }
-          : cat
-      ),
-    }));
   };
 
   const toggleDraftItemDay = (categoryId: string, itemId: string, day: WeekDay) => {
@@ -4465,7 +4465,6 @@ function App() {
       setEditingRoutineItemText('');
     }
     if (iconPickerOpenFor === categoryId) setIconPickerOpenFor(null);
-    if (scheduleEditorOpenFor?.categoryId === categoryId) setScheduleEditorOpenFor(null);
     setCategoryPendingDelete(null);
   };
 
@@ -8250,7 +8249,12 @@ function App() {
   const renderChallengeConfigModal = () => {
     if (!isChallengeConfigOpen) return null;
 
-    const draftGroups = challengeConfigDraft.categories;
+    // Regular "+ Add Category / Group" cards are strictly 100% Everyday
+    // Daily Routines — the reserved Weekly Card lives outside this list and
+    // is rendered separately, on its own row, below.
+    const draftGroups = challengeConfigDraft.categories.filter(cat => cat.id !== WEEKLY_CATEGORY_ID);
+    const weeklyDraftGroup = challengeConfigDraft.categories.find(cat => cat.id === WEEKLY_CATEGORY_ID);
+    const weeklyDraftItems = weeklyDraftGroup?.items || [];
     // Once a challenge is active, Duration, Re-check Token Allowance, and
     // Load Preset are hidden for good — they're only ever set when a
     // challenge is first configured.
@@ -8693,11 +8697,10 @@ function App() {
                           <p className="text-xs text-zinc-600 italic">No items yet.</p>
                         )}
                         {group.items.map(item => {
-                          const isScheduleOpen = scheduleEditorOpenFor?.categoryId === group.id && scheduleEditorOpenFor?.itemId === item.id;
-                          const isSpecific = item.frequency === 'specific';
-                          const scheduleLabel = isSpecific
-                            ? (item.days && item.days.length > 0 ? item.days.join('/') : 'Pick days')
-                            : 'Daily';
+                          // Daily cards are strictly 100% Everyday Daily Routines —
+                          // plain "Item Name + Delete" only, no frequency badges or
+                          // schedule editor here. Specific-Days scheduling lives
+                          // exclusively in the single fixed Weekly Card below.
                           return (
                             <div key={item.id} className="group">
                               <div className="flex items-center gap-1.5">
@@ -8714,22 +8717,6 @@ function App() {
                                 ) : (
                                   <span className="flex-1 min-w-0 text-xs text-zinc-300 truncate">{item.text}</span>
                                 )}
-                                {challengeConfigDraft.weeklyRoutinesEnabled && (
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleItemScheduleEditor(group.id, item.id)}
-                                    className={cn(
-                                      'flex-shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border transition-all whitespace-nowrap',
-                                      isSpecific
-                                        ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20'
-                                        : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600'
-                                    )}
-                                    title="Set Frequency / Schedule"
-                                  >
-                                    <CalendarDays className="w-3 h-3" />
-                                    {scheduleLabel}
-                                  </button>
-                                )}
                                 <button
                                   onClick={() => startEditDraftRoutineItem(group.id, item)}
                                   className="opacity-0 group-hover:opacity-100 p-1 rounded text-zinc-500 hover:text-white hover:bg-zinc-700 transition-all flex-shrink-0"
@@ -8745,59 +8732,6 @@ function App() {
                                   <Trash2 className="w-3 h-3" />
                                 </button>
                               </div>
-                              {isScheduleOpen && (
-                                <div className="mt-1.5 mb-0.5 p-2 rounded-md bg-zinc-900 border border-zinc-700 space-y-2">
-                                  <div className="flex items-center gap-1.5">
-                                    <button
-                                      type="button"
-                                      onClick={() => setDraftItemFrequency(group.id, item.id, 'daily')}
-                                      className={cn(
-                                        'px-2 py-1 rounded text-[10px] font-medium transition-all',
-                                        !isSpecific ? 'bg-amber-500 text-black' : 'bg-zinc-800 text-zinc-400 hover:text-white'
-                                      )}
-                                    >
-                                      Daily
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => setDraftItemFrequency(group.id, item.id, 'specific')}
-                                      className={cn(
-                                        'px-2 py-1 rounded text-[10px] font-medium transition-all',
-                                        isSpecific ? 'bg-cyan-500 text-black' : 'bg-zinc-800 text-zinc-400 hover:text-white'
-                                      )}
-                                    >
-                                      Specific Days
-                                    </button>
-                                  </div>
-                                  {isSpecific && (
-                                    <div className="flex flex-wrap gap-1">
-                                      {WEEKDAY_CHECKBOX_ORDER.map(day => {
-                                        const active = !!item.days?.includes(day);
-                                        return (
-                                          <button
-                                            key={day}
-                                            type="button"
-                                            onClick={() => toggleDraftItemDay(group.id, item.id, day)}
-                                            className={cn(
-                                              'w-8 py-1 rounded text-[10px] font-semibold border transition-all',
-                                              active
-                                                ? 'bg-cyan-500 border-cyan-400 text-black'
-                                                : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-600'
-                                            )}
-                                          >
-                                            {day}
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                  {isSpecific && (!item.days || item.days.length === 0) && (
-                                    <p className="text-[10px] text-amber-400/80 italic">
-                                      No days selected yet — applies daily until you pick at least one.
-                                    </p>
-                                  )}
-                                </div>
-                              )}
                             </div>
                           );
                         })}
@@ -8823,6 +8757,107 @@ function App() {
                   );
                 })}
               </div>
+
+              {/* SINGLE FIXED WEEKLY CARD — only rendered while "Enable
+                  Weekly / Day-Specific Routines" is on. Always exactly one
+                  card, on its own row below the daily cards grid; it can
+                  never be added again or removed like a regular category —
+                  there's no "+ Add Category" affordance for it and no
+                  delete button on its header. Every item inside is
+                  Specific-Days only (day picker, no "Daily" option). */}
+              {challengeConfigDraft.weeklyRoutinesEnabled && (
+                <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-800/30 p-3.5">
+                  <div className="flex items-center gap-1.5 mb-3 pb-2.5 border-b border-zinc-800/60">
+                    <span className="text-sm flex-shrink-0" aria-hidden="true">📅</span>
+                    <span className="flex-1 min-w-0 text-sm font-semibold text-white truncate">
+                      Weekly / Day-Specific Routines
+                    </span>
+                  </div>
+                  <div className="space-y-1.5 mb-2.5">
+                    {weeklyDraftItems.length === 0 && (
+                      <p className="text-xs text-zinc-600 italic">No items yet.</p>
+                    )}
+                    {weeklyDraftItems.map(item => (
+                      <div key={item.id} className="group">
+                        <div className="flex items-center gap-1.5">
+                          {editingRoutineItem?.categoryId === WEEKLY_CATEGORY_ID && editingRoutineItem?.id === item.id ? (
+                            <input
+                              autoFocus
+                              type="text"
+                              value={editingRoutineItemText}
+                              onChange={(e) => setEditingRoutineItemText(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') commitEditDraftRoutineItem(); if (e.key === 'Escape') setEditingRoutineItem(null); }}
+                              onBlur={commitEditDraftRoutineItem}
+                              className="flex-1 min-w-0 px-2 py-1 rounded-md bg-zinc-900 border border-amber-500/50 text-xs text-white focus:outline-none"
+                            />
+                          ) : (
+                            <span className="flex-1 min-w-0 text-xs text-zinc-300 truncate">{item.text}</span>
+                          )}
+                          <button
+                            onClick={() => startEditDraftRoutineItem(WEEKLY_CATEGORY_ID, item)}
+                            className="opacity-0 group-hover:opacity-100 p-1 rounded text-zinc-500 hover:text-white hover:bg-zinc-700 transition-all flex-shrink-0"
+                            aria-label="Edit item"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={() => requestDeleteDraftRoutineItem(WEEKLY_CATEGORY_ID, item.id, item.text)}
+                            className="opacity-0 group-hover:opacity-100 p-1 rounded text-zinc-500 hover:text-rose-400 hover:bg-zinc-700 transition-all flex-shrink-0"
+                            aria-label="Delete item"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                        {/* Day Picker — the only scheduling control here; no
+                            "Daily" toggle, since every item in this card is
+                            Specific-Days by definition. */}
+                        <div className="flex flex-wrap gap-1 mt-1.5 mb-0.5">
+                          {WEEKDAY_CHECKBOX_ORDER.map(day => {
+                            const active = !!item.days?.includes(day);
+                            return (
+                              <button
+                                key={day}
+                                type="button"
+                                onClick={() => toggleDraftItemDay(WEEKLY_CATEGORY_ID, item.id, day)}
+                                className={cn(
+                                  'w-8 py-1 rounded text-[10px] font-semibold border transition-all',
+                                  active
+                                    ? 'bg-cyan-500 border-cyan-400 text-black'
+                                    : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-600'
+                                )}
+                              >
+                                {day}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {(!item.days || item.days.length === 0) && (
+                          <p className="text-[10px] text-amber-400/80 italic">
+                            No days selected yet — applies daily until you pick at least one.
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={newRoutineItemText[WEEKLY_CATEGORY_ID] || ''}
+                      onChange={(e) => setNewRoutineItemText(prev => ({ ...prev, [WEEKLY_CATEGORY_ID]: e.target.value }))}
+                      onKeyDown={(e) => { if (e.key === 'Enter') addDraftWeeklyItem(); }}
+                      placeholder="Add item..."
+                      className="flex-1 min-w-0 px-2 py-1.5 rounded-md bg-zinc-900 border border-zinc-700 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
+                    />
+                    <button
+                      onClick={addDraftWeeklyItem}
+                      className="p-1.5 rounded-md bg-zinc-700 text-white hover:bg-zinc-600 transition-all flex-shrink-0"
+                      aria-label="Add item"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
