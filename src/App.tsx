@@ -7879,10 +7879,10 @@ function App() {
                 <CalendarDays className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Challenge Timeline</p>
                 <p className="text-sm font-bold text-white truncate">
                   {formatDate(lifeDisciplineStartDate)} <span className="text-zinc-500 font-normal">→</span> {formatDate(endDateKey)}
                 </p>
+                <p className="text-[11px] text-zinc-500">Challenge timeline</p>
               </div>
             </div>
             <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-zinc-800/50 border border-zinc-800">
