@@ -10654,8 +10654,8 @@ function App() {
           }
         />
 
-        {/* Category tabs */}
-        <div className="flex flex-wrap gap-2">
+        {/* Category tabs — fill the full width, one on the left, one on the right */}
+        <div className="grid grid-cols-2 gap-2">
           {(Object.keys(NOTICE_TYPE_META) as NoticeType[]).map(t => {
             const meta = NOTICE_TYPE_META[t];
             const count = t === 'mistake' ? mistakeCount : insightCount;
@@ -10665,7 +10665,7 @@ function App() {
                 key={t}
                 onClick={() => { setNoticeTypeFilter(t); setNoticeSessionFilter('all'); setNoticeTagFilter('all'); }}
                 className={cn(
-                  'flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all',
+                  'flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all w-full',
                   active
                     ? t === 'mistake'
                       ? 'bg-rose-500/10 border-rose-500/40 text-rose-300'
@@ -10674,9 +10674,9 @@ function App() {
                 )}
               >
                 <span>{meta.emoji}</span>
-                <span>{meta.tabLabel}</span>
+                <span className="truncate">{meta.tabLabel}</span>
                 <span className={cn(
-                  'px-1.5 py-0.5 rounded-full text-[11px]',
+                  'px-1.5 py-0.5 rounded-full text-[11px] flex-shrink-0',
                   active ? 'bg-black/30' : 'bg-zinc-800 text-zinc-500'
                 )}>
                   {count}
@@ -10685,6 +10685,7 @@ function App() {
             );
           })}
         </div>
+
 
         {/* Filters: Session / Tag */}
         <div className="flex flex-wrap items-center gap-3">
