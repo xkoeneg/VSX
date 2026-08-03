@@ -10650,24 +10650,26 @@ function App() {
             </button>
           </div>
 
-          {list.length > 0 ? (
-            <div className="space-y-2">
-              {list.map(renderCompactCard)}
-            </div>
-          ) : (
-            <div className="text-center py-8 rounded-lg border border-dashed border-zinc-800 bg-zinc-900/30">
-              <p className="text-zinc-600 text-xs mb-2">
-                {notices.some(n => n.type === type) ? 'No matches for these filters' : `No ${meta.tabLabel.toLowerCase()} yet`}
-              </p>
-              <button
-                onClick={() => handleOpenAddNotice(type)}
-                className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
-              >
-                <Plus className="w-3 h-3" />
-                Add {meta.shortLabel}
-              </button>
-            </div>
-          )}
+          <div className="notice-column-scroll h-[560px] overflow-y-auto pr-1 overscroll-contain">
+            {list.length > 0 ? (
+              <div className="space-y-2">
+                {list.map(renderCompactCard)}
+              </div>
+            ) : (
+              <div className="text-center py-8 rounded-lg border border-dashed border-zinc-800 bg-zinc-900/30">
+                <p className="text-zinc-600 text-xs mb-2">
+                  {notices.some(n => n.type === type) ? 'No matches for these filters' : `No ${meta.tabLabel.toLowerCase()} yet`}
+                </p>
+                <button
+                  onClick={() => handleOpenAddNotice(type)}
+                  className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+                >
+                  <Plus className="w-3 h-3" />
+                  Add {meta.shortLabel}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       );
     };
@@ -14208,6 +14210,28 @@ function App() {
         }
         .trade-table-scroll::-webkit-scrollbar-thumb:hover {
           background-color: rgba(161,161,170,0.7);
+        }
+
+        /* Market Notices columns — thin dark scrollbar so exactly ~5 cards
+           show before the list scrolls, matching the app's slate/zinc theme. */
+        .notice-column-scroll {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(51,65,85,0.5) transparent;
+        }
+        .notice-column-scroll::-webkit-scrollbar {
+          width: 6px;
+        }
+        .notice-column-scroll::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .notice-column-scroll::-webkit-scrollbar-thumb {
+          background-color: rgba(51,65,85,0.5);
+          border-radius: 9999px;
+          border: 1px solid transparent;
+          background-clip: padding-box;
+        }
+        .notice-column-scroll::-webkit-scrollbar-thumb:hover {
+          background-color: rgb(71,85,105);
         }
 
         /* Active Strategy Models carousel — scrollbar fully hidden so it reads
