@@ -3757,6 +3757,12 @@ function App() {
   //   is active; Duration/Tokens/Load Preset are hidden, and saving only
   //   updates Title/Motto/Routines in place without touching progress.
   const [challengeModalMode, setChallengeModalMode] = useState<'configure' | 'edit'>('configure');
+  // Reset Challenge — only reachable from the Edit Challenge modal. Wipes
+  // all progress (checks/grace days/missed reasons/re-check notes) and
+  // restarts Day 1 today, but keeps Title/Motto/Routines/Duration/Tokens
+  // exactly as currently configured. Always gated behind an explicit
+  // confirmation dialog since it's destructive and can't be undone.
+  const [isResetChallengeConfirmOpen, setIsResetChallengeConfirmOpen] = useState(false);
   const [challengeConfigDraft, setChallengeConfigDraft] = useState<ChallengeConfig>(DEFAULT_CHALLENGE_CONFIG);
   const [isCustomDuration, setIsCustomDuration] = useState(false);
   const [newRoutineItemText, setNewRoutineItemText] = useState<Record<string, string>>({});
@@ -4513,6 +4519,30 @@ function App() {
       recheckTokens: prev.recheckTokens,
     }));
     setIsChallengeConfigOpen(false);
+  };
+
+  // Reset Challenge — wipes every recorded day (checks, grace/re-check
+  // days, missed-day reasons + notes) and restarts Day 1 from today, using
+  // whatever Title/Motto/Routines/Duration/Tokens are currently configured
+  // (including any unsaved edits sitting in the draft, so a user can tweak
+  // routines and reset in one go). Only ever invoked after the confirmation
+  // dialog below — never wired directly to a click handler.
+  const resetChallengeProgress = () => {
+    const cleaned = cleanChallengeConfigDraft();
+    setChallengeConfig(prev => ({
+      ...cleaned,
+      durationDays: prev.durationDays,
+      recheckTokens: prev.recheckTokens,
+    }));
+    setLifeDisciplineStartDate(getLocalDateKey());
+    setLifeDisciplineChecks({});
+    setLifeDisciplineGraceDays({});
+    setLifeDisciplineMissedReasons({});
+    setLifeDisciplineRecheckNotes({});
+    setHasStartedChallenge(true);
+    setIsResetChallengeConfirmOpen(false);
+    setIsChallengeConfigOpen(false);
+    showLifeDisciplineToast('Challenge reset — Day 1 starts today');
   };
 
   // Brand-new challenge (no active progress yet, e.g. first-ever setup):
@@ -9059,12 +9089,25 @@ function App() {
               from Day 1 (even if a challenge is already active, this
               overwrites it); 'edit' only ever updates Title/Motto/Routines
               in place, leaving the active run's progress untouched. */}
-          <div className={cn('flex items-center gap-2 border-t border-zinc-800 px-6 py-4 flex-shrink-0', challengeModalMode === 'configure' ? 'justify-between' : 'justify-end')}>
+          <div className={cn('flex items-center gap-2 border-t border-zinc-800 px-6 py-4 flex-shrink-0', challengeModalMode === 'configure' ? 'justify-between' : 'justify-between')}>
             {challengeModalMode === 'configure' && (
               <p className="text-xs text-zinc-500">
                 Saving starts a new challenge run from Day 1.
               </p>
             )}
+
+            {challengeModalMode === 'edit' && (
+              // Wipes all progress and restarts Day 1 today. Always gated
+              // behind a confirmation dialog — see isResetChallengeConfirmOpen.
+              <button
+                onClick={() => setIsResetChallengeConfirmOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-all"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                Reset Challenge
+              </button>
+            )}
+
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setIsChallengeConfigOpen(false)}
@@ -9085,8 +9128,8 @@ function App() {
               )}
 
               {challengeModalMode === 'edit' && (
-                // Duration/Tokens are hidden in edit mode, so this is the
-                // only action available — updates in place, no reset.
+                // Duration/Tokens are hidden in edit mode, so this only
+                // updates Title/Motto/Routines in place — no reset.
                 <button
                   onClick={saveChallengeConfigUpdate}
                   className="px-3.5 py-1.5 rounded-lg text-sm font-medium bg-amber-500 text-black hover:bg-amber-400 transition-all"
@@ -9098,6 +9141,46 @@ function App() {
           </div>
         </div>
         </ModalBackdrop>
+
+        {/* RESET CHALLENGE CONFIRMATION — layered above the Edit Challenge
+            modal. Wipes every completed/failed/re-checked day and restarts
+            Day 1 from today; Title/Motto/Routines/Duration/Tokens are kept
+            as-is. Destructive and irreversible, so it always requires this
+            explicit confirmation before anything is actually cleared. */}
+        {isResetChallengeConfirmOpen && (
+          <ModalBackdrop
+            onClose={() => setIsResetChallengeConfirmOpen(false)}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
+          >
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full bg-rose-500/15 flex items-center justify-center flex-shrink-0">
+                  <RefreshCw className="w-5 h-5 text-rose-400" />
+                </div>
+                <h3 className="text-lg font-bold text-white">Reset Challenge?</h3>
+              </div>
+              <p className="text-sm text-zinc-400 mb-6">
+                This clears every completed, failed, and re-checked day — plus all logged reasons and re-check tokens used — and restarts Day 1 today. Title, motto, and routines stay as configured. This cannot be undone.
+              </p>
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsResetChallengeConfirmOpen(false)}
+                  className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={resetChallengeProgress}
+                  className="px-4 py-2 bg-rose-500/90 hover:bg-rose-500 text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  Confirm Reset
+                </button>
+              </div>
+            </div>
+          </ModalBackdrop>
+        )}
 
         {/* MANAGE / DELETE PRESETS — layered above the Configure Challenge
             modal. Only user-saved presets can be deleted; built-in templates
