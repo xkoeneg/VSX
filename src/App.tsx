@@ -7999,6 +7999,26 @@ function App() {
     const showUndoAction = status === 'grace' && !isEditingDayReason;
     const showChecklistSaveAction = status === 'failed' && isEditingDayChecklist && !isEditingDayReason;
 
+    // Weekly Specifics for this day — Specific-Days items scheduled for
+    // this date's weekday. Kept out of the Checklist Summary's per-category
+    // lists (same split as the live dashboard) and surfaced in their own
+    // section instead, so a category that's entirely Specific-Days items
+    // doesn't clutter this day's summary with irrelevant entries.
+    const weeklyRoutinesEnabledForModal = !!challengeConfig.weeklyRoutinesEnabled;
+    const dayWeekday = getWeekdayForDateKey(dateKey);
+    const isWeeklySpecificItem = (item: RoutineItem) =>
+      weeklyRoutinesEnabledForModal && item.frequency === 'specific' && !!item.days && item.days.length > 0;
+    const weeklyItemsForDay: { gI: number; item: RoutineItem; iI: number }[] = [];
+    if (weeklyRoutinesEnabledForModal) {
+      challengeConfig.categories.forEach((cat, gI) => {
+        cat.items.forEach((item, iI) => {
+          if (isWeeklySpecificItem(item) && item.days!.includes(dayWeekday)) {
+            weeklyItemsForDay.push({ gI, item, iI });
+          }
+        });
+      });
+    }
+
     const badge: Record<typeof status, { label: string; className: string }> = {
       complete: { label: 'Complete', className: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' },
       failed: { label: 'Failed', className: 'bg-rose-500/15 text-rose-300 border-rose-500/30' },
@@ -8074,14 +8094,14 @@ function App() {
                         {cat.items.length === 0 ? (
                           <p className="text-xs text-zinc-600 italic pl-5">No items in this category.</p>
                         ) : (() => {
-                          // Only show items actually scheduled for this
-                          // date — a Thursday-only item shouldn't appear
-                          // (let alone count as Failed) on a Monday.
+                          // Weekly Specifics items live in their own section
+                          // below — this only ever lists the category's
+                          // plain, everyday items.
                           const itemsForDate = cat.items
                             .map((item, iI) => ({ item, iI }))
-                            .filter(({ item }) => itemAppliesOnDate(item, dateKey, challengeConfig));
+                            .filter(({ item }) => !isWeeklySpecificItem(item));
                           if (itemsForDate.length === 0) {
-                            return <p className="text-xs text-zinc-600 italic pl-5">No items scheduled for this day.</p>;
+                            return <p className="text-xs text-zinc-600 italic pl-5">All items here are scheduled on specific days — see Weekly Specifics below.</p>;
                           }
                           return itemsForDate.map(({ item, iI }) => {
                             // RE-CHECKED days render every item as completed —
@@ -8104,11 +8124,6 @@ function App() {
                                 <span className={cn('text-xs', checked ? 'text-zinc-300' : 'text-zinc-500')}>
                                   {item.text}
                                 </span>
-                                {challengeConfig.weeklyRoutinesEnabled && item.frequency === 'specific' && item.days && item.days.length > 0 && (
-                                  <span className="ml-auto flex-shrink-0 text-[9px] font-semibold text-cyan-300/80 bg-cyan-500/10 border border-cyan-500/20 rounded px-1.5 py-0.5">
-                                    📅 {item.days.length === 7 ? 'Daily' : item.days.join('/')}
-                                  </span>
-                                )}
                               </>
                             );
                             const containerClass = cn(
@@ -8149,6 +8164,60 @@ function App() {
                 </div>
               )}
             </div>
+
+            {/* Weekly Specifics — Specific-Days items scheduled for this
+                day's weekday, pulled out of the per-category lists above,
+                mirroring the "{Day} Specifics" section on the live dashboard. */}
+            {weeklyRoutinesEnabledForModal && weeklyItemsForDay.length > 0 && (
+              <div>
+                <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wide mb-2.5">
+                  {WEEKDAY_FULL_NAME[dayWeekday]} Specifics
+                </h3>
+                <div className="space-y-1.5">
+                  {weeklyItemsForDay.map(({ gI, item, iI }) => {
+                    const checked = status === 'grace' ? true : !!dayChecks[gI]?.[iI];
+                    const interactive = status === 'failed' && isEditingDayChecklist;
+                    const itemContent = (
+                      <>
+                        {checked ? (
+                          <span className="flex-shrink-0 text-emerald-400 bg-emerald-500/10 p-1 rounded-md border border-emerald-500/20">
+                            <Check className="w-3.5 h-3.5" />
+                          </span>
+                        ) : (
+                          <span className="flex-shrink-0 text-red-400 bg-red-500/10 p-1 rounded-md border border-red-500/20">
+                            <X className="w-3.5 h-3.5" />
+                          </span>
+                        )}
+                        <span className={cn('text-xs', checked ? 'text-zinc-300' : 'text-zinc-500')}>
+                          {item.text}
+                        </span>
+                        <span className="ml-auto flex-shrink-0 text-[9px] font-semibold text-cyan-300/80 bg-cyan-500/10 border border-cyan-500/20 rounded px-1.5 py-0.5">
+                          📅 {item.days!.join('/')}
+                        </span>
+                      </>
+                    );
+                    const containerClass = cn(
+                      'flex items-center gap-2.5 bg-zinc-800/50 border border-zinc-800 p-2.5 rounded-lg transition-all',
+                      interactive && 'w-full text-left cursor-pointer hover:border-zinc-700 hover:bg-zinc-800/80 active:scale-[0.99]'
+                    );
+                    return interactive ? (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => toggleDayDetailsFailedItem(dateKey, gI, iI)}
+                        className={containerClass}
+                      >
+                        {itemContent}
+                      </button>
+                    ) : (
+                      <div key={item.id} className={containerClass}>
+                        {itemContent}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Reason / Journal Note — Failed or Re-checked days only */}
             {showReasonSection && (
