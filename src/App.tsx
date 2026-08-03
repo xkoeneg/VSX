@@ -4019,13 +4019,13 @@ function App() {
     showLifeDisciplineToast('↩️ Re-Check undone — token refunded');
   };
 
-  // Clicking a grid tile opens the Day Details Modal for any day that has
-  // passed or is the active day (today) — every status except 'upcoming'.
-  // All the status-specific actions (spend a token, edit a reason, undo a
-  // re-check) now live inside that modal instead of being routed to a
-  // different popup per status.
+  // Clicking a grid tile opens the Day Details Modal only for days that
+  // have already passed (Complete, Failed, Re-checked). Today's tile
+  // ('pending') isn't clickable — it's still in progress and is edited
+  // live via the Daily Checklist section above, not through this modal —
+  // and future ('upcoming') days aren't clickable either.
   const handleLifeDisciplineTileClick = (dateKey: string, day: number, status: string) => {
-    if (status === 'upcoming') return;
+    if (status !== 'complete' && status !== 'failed' && status !== 'grace') return;
     openDayDetailsModal(dateKey, day);
   };
 
@@ -7593,18 +7593,18 @@ function App() {
 
           {challengeConfig.recheckTokens > 0 ? (
             <p className="text-xs text-zinc-500 mb-3 select-none">
-              Click any past or active day to view its details, spend a re-check token, or edit a logged reason. {lifeDisciplineTokensRemaining} of {challengeConfig.recheckTokens} tokens remaining.
+              Click any past day to view its details, spend a re-check token, or edit a logged reason. {lifeDisciplineTokensRemaining} of {challengeConfig.recheckTokens} tokens remaining.
             </p>
           ) : (
             <p className="text-xs text-zinc-500 mb-3 select-none">
-              Zero-cheating mode: no re-check tokens remaining. Click any past or active day to view its details or log why it was missed.
+              Zero-cheating mode: no re-check tokens remaining. Click any past day to view its details or log why it was missed.
             </p>
           )}
 
           <div className="grid grid-cols-10 sm:grid-cols-10 md:grid-cols-[repeat(20,minmax(0,1fr))] gap-1.5">
             {gridDays.map(({ day, dateKey, status }) => {
               const loggedReason = lifeDisciplineMissedReasons[dateKey];
-              const isClickable = status !== 'upcoming';
+              const isClickable = status === 'complete' || status === 'failed' || status === 'grace';
               const tooltip =
                 status === 'failed'
                   ? loggedReason
@@ -7617,7 +7617,7 @@ function App() {
                   : status === 'complete'
                   ? `Day ${day} — complete, click for details`
                   : status === 'pending'
-                  ? `Day ${day} — today, click for details`
+                  ? `Day ${day} — today, in progress`
                   : `Day ${day}`;
               return (
                 <div
@@ -7646,8 +7646,9 @@ function App() {
   };
 
   // ---- Day Details Modal ----
-  // The single modal opened by clicking any non-upcoming tile in the
-  // 100-Day Challenge grid. Recomputes that day's status the same way the
+  // The single modal opened by clicking any past (Complete, Failed, or
+  // Re-checked) tile in the 100-Day Challenge grid — today and future
+  // days aren't clickable. Recomputes that day's status the same way the
   // grid itself does, then shows a read-only checklist preview plus
   // whichever status-specific actions apply (spend a token, edit a
   // reason, undo a re-check).
