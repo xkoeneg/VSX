@@ -8835,7 +8835,7 @@ function App() {
             "lg:col-span-4 rounded-xl p-5 min-w-0 h-full flex flex-col justify-between select-none border",
             theme !== 'light' ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-white border-zinc-200'
           )}>
-            <div>
+            <div className="mb-4">
               <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
                 <h3 className={cn("text-sm font-semibold flex items-center gap-2 truncate", tc.text)}>
                   <Shield className={cn("w-4 h-4 flex-shrink-0", tc.textMuted)} />
