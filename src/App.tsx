@@ -7561,6 +7561,16 @@ function App() {
     const completedCount = gridDays.filter(d => d.status === 'complete' || d.status === 'grace').length;
     const failedCount = gridDays.filter(d => d.status === 'failed').length;
 
+    // Combined Challenge Timeline card — Target End Date is Start Date +
+    // durationDays (Day 1 is the start date itself, so the last day is
+    // durationDays - 1 days after it). Days Remaining counts from today
+    // through the end date inclusive, floored at 0 once the challenge is over.
+    const endDate = new Date(start);
+    endDate.setDate(endDate.getDate() + challengeConfig.durationDays - 1);
+    const endDateKey = endDate.toISOString().slice(0, 10);
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const daysRemaining = Math.max(0, Math.round((endDate.getTime() - today.getTime()) / msPerDay));
+
     // Active streak: consecutive successful days counting back from today
     // (today's still-pending status doesn't break it; the first failed day
     // encountered does).
@@ -7860,8 +7870,30 @@ function App() {
             </div>
           </div>
 
-          {/* TOP STATUS BAR: streak + discipline score (re-check tokens already shown in the stat card above) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-4 select-none">
+          {/* TOP STATUS BAR: Challenge Timeline + Days Remaining + streak +
+              discipline score (re-check tokens already shown in the stat
+              card above) */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 select-none">
+            <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-zinc-800/50 border border-zinc-800">
+              <div className="p-2 rounded-lg bg-violet-500/10 text-violet-400 flex-shrink-0">
+                <CalendarDays className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Challenge Timeline</p>
+                <p className="text-sm font-bold text-white truncate">
+                  {formatDate(lifeDisciplineStartDate)} <span className="text-zinc-500 font-normal">→</span> {formatDate(endDateKey)}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-zinc-800/50 border border-zinc-800">
+              <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 flex-shrink-0">
+                <Clock className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-white truncate">{daysRemaining} Days Remaining</p>
+                <p className="text-[11px] text-zinc-500">Until target end date</p>
+              </div>
+            </div>
             <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-zinc-800/50 border border-zinc-800">
               <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 flex-shrink-0">
                 <Flame className="w-4 h-4" />
@@ -7872,7 +7904,7 @@ function App() {
               </div>
             </div>
             <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-zinc-800/50 border border-zinc-800">
-              <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 flex-shrink-0">
+              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 flex-shrink-0">
                 <Target className="w-4 h-4" />
               </div>
               <div className="min-w-0">
