@@ -10654,8 +10654,13 @@ function App() {
           }
         />
 
-        {/* Category tabs — fill the full width, one on the left, one on the right */}
-        <div className="grid grid-cols-2 gap-2">
+        {/* Category tabs — fill the full width, one on the left, one on the right.
+            Uses flex + flex-1 (with an inline flexBasis backup) instead of
+            CSS grid so each button is forced to exactly 50% width no matter
+            what — flex-1 is already used dozens of times elsewhere in this
+            file, so there's no risk of it being purged/missing from the
+            compiled CSS the way a less-common utility class could be. */}
+        <div className="flex gap-2 w-full">
           {(Object.keys(NOTICE_TYPE_META) as NoticeType[]).map(t => {
             const meta = NOTICE_TYPE_META[t];
             const count = t === 'mistake' ? mistakeCount : insightCount;
@@ -10664,8 +10669,9 @@ function App() {
               <button
                 key={t}
                 onClick={() => { setNoticeTypeFilter(t); setNoticeSessionFilter('all'); setNoticeTagFilter('all'); }}
+                style={{ flex: '1 1 0%' }}
                 className={cn(
-                  'flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all w-full',
+                  'flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all min-w-0',
                   active
                     ? t === 'mistake'
                       ? 'bg-rose-500/10 border-rose-500/40 text-rose-300'
