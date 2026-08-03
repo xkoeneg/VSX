@@ -10740,10 +10740,19 @@ function App() {
             </button>
           </div>
 
-          <div className={cn(
-            'flex-1 overflow-y-auto pr-1 overscroll-contain mt-3',
-            type === 'mistake' ? 'notice-column-scroll-mistake' : 'notice-column-scroll-insight'
-          )}>
+          <div
+            className={cn(
+              'flex-1 overflow-y-auto overscroll-contain mt-3',
+              type === 'mistake'
+                ? 'notice-column-scroll-mistake [direction:rtl] pl-1'
+                : 'notice-column-scroll-insight pr-1'
+            )}
+          >
+            {/* Mirrored (mistake) column has its scroll container flipped
+                to RTL so the scrollbar renders on the LEFT edge — this
+                inner wrapper flips direction back to LTR so text, icons,
+                and layout inside still read normally left-to-right. */}
+            <div className={type === 'mistake' ? '[direction:ltr]' : undefined}>
             {list.length > 0 ? (
               <div className="space-y-2">
                 {list.map(renderCompactCard)}
@@ -10762,6 +10771,7 @@ function App() {
                 </button>
               </div>
             )}
+            </div>
           </div>
         </div>
       );
