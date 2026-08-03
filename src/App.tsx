@@ -2892,23 +2892,38 @@ const FunkyBear = memo(function FunkyBear() {
 
 // ---- Reusable PageHeader — used at the top of every main view (Dashboard,
 // Trade History, Performance Calendar, Discipline Tracker, Rules Playbook,
-// Life Discipline Hub) so title/subtitle sizing, typography, and spacing
-// are 100% consistent across tabs. `actions` renders any right-side
-// controls (buttons, dropdowns) on the same row, right-aligned.
-// NOTE ON PADDING: the app's single shared content wrapper (in the main
-// App render, just above the `{view === '...' && renderX()}` switch)
-// already applies identical left/right/top padding to every view, which is
-// what keeps every tab's top-left corner pixel-aligned. PageHeader
-// deliberately does NOT repeat that horizontal/top padding — doing so
-// would double it and shift these 6 headers out of alignment with the
-// other views that share the same wrapper. It only owns `pb-3`, the one
-// piece of spacing (header-to-body gap) that previously varied per view.
+// Life Discipline Hub, Market Notices, Knowledge Wiki) so title/subtitle
+// sizing, typography, and spacing are 100% consistent across tabs.
+// `actions` renders any right-side controls (buttons, dropdowns) on the
+// same row, right-aligned.
+//
+// LAYOUT LOCK: this row is a hard `h-14` — a fixed height, not a min-height.
+// Some tabs pass `actions` (buttons) and/or a `description`, others pass
+// neither; without a fixed height those differences used to change the
+// header's rendered height per tab, which pushed the first card below it
+// up or down and made its top border "jump" when switching tabs. Locking
+// the row to h-14 with `items-center` means every tab's header occupies
+// identical space regardless of its content, so the first card's top
+// border lands in the exact same pixel position on every view.
+//
+// NOTE ON PADDING/MARGIN: PageHeader intentionally owns NO margin or
+// padding of its own (no `pb-*`/`mb-*`). The single shared content wrapper
+// (in the main App render, just above the `{view === '...' && renderX()}`
+// switch) already applies identical left/right/top padding to every view,
+// and every tab's root container now uses the same `space-y-6` spacing
+// scale. That single, shared `space-y-6` is the ONLY thing controlling the
+// gap between this header and the first content card — if PageHeader also
+// added its own margin, the two would combine inconsistently (margin
+// collapsing behaves differently depending on the surrounding space-y
+// value) and reintroduce the same drift this fix removes. Do not add
+// pb-*/mb-* here; change the tab's root `space-y-*` instead, and keep it
+// at 6 to match every other tab.
 const PageHeader: React.FC<{
   title: string;
   description?: string;
   actions?: React.ReactNode;
 }> = ({ title, description, actions }) => (
-  <div className="pb-3 flex items-start justify-between gap-4 flex-wrap">
+  <div className="h-14 flex items-center justify-between gap-4">
     <div className="min-w-0">
       <h1 className="text-2xl font-bold text-white tracking-tight leading-none truncate">
         {title}
@@ -6571,7 +6586,7 @@ function App() {
   };
 
   const renderOverviewView = () => (
-    <div className="space-y-8 min-w-0">
+    <div className="space-y-6 min-w-0">
       {/* Page header */}
       <PageHeader
         title="Trade History"
@@ -7289,7 +7304,7 @@ function App() {
     };
 
     return (
-      <div className="space-y-4 min-w-0">
+      <div className="space-y-6 min-w-0">
         {/* PAGE HEADER — static route title, never overwritten by the
             Configure Challenge modal's Challenge Title/Motto fields. Those
             live in the dedicated Active Challenge banner below instead.
@@ -8597,7 +8612,7 @@ function App() {
     };
 
     return (
-      <div className="space-y-4 min-w-0">
+      <div className="space-y-6 min-w-0">
         <PageHeader
           title="Discipline Tracker"
           description="Monitor execution rules, emotions, and habit adherence"
@@ -9222,7 +9237,7 @@ function App() {
 
   const renderPlaybook = () => {
     return (
-      <div className="space-y-4 min-w-0">
+      <div className="space-y-6 min-w-0">
         {/* HEADER */}
         <PageHeader
           title="Rules & Strategy Playbook"
@@ -9653,7 +9668,7 @@ function App() {
     const activeNotice = notices.find(n => n.id === activeNoticeId) || null;
 
     return (
-      <div className="space-y-10 min-w-0">
+      <div className="space-y-6 min-w-0">
         <PageHeader
           title="Market Notices"
           description="Document market observations and scenarios"
@@ -13620,7 +13635,7 @@ function App() {
           </span>
         </div>
 
-        <div className="pt-4 pr-4 pb-4 pl-3 sm:pt-6 sm:pr-6 sm:pb-6 sm:pl-4">
+        <div className="flex-1 flex flex-col px-4 pt-4 pb-4 sm:px-6 sm:pt-6 sm:pb-6">
           {view === 'dashboard' && renderDashboard()}
           {view === 'trades' && renderTradeHistory()}
           {view === 'discipline' && renderDisciplineTracker()}
