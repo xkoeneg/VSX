@@ -10718,7 +10718,7 @@ function App() {
       const meta = NOTICE_TYPE_META[type];
       const list = notices.filter(n => n.type === type);
       return (
-        <div className="min-w-0 h-[600px] bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 flex flex-col">
+        <div className="min-w-0 h-[450px] bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 flex flex-col">
           <div className={cn(
             'flex items-center justify-between gap-2 px-3 py-2 rounded-lg border flex-shrink-0',
             type === 'mistake' ? 'bg-rose-500/10 border-rose-500/30' : 'bg-cyan-500/10 border-cyan-500/30'
