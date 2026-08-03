@@ -10740,7 +10740,10 @@ function App() {
             </button>
           </div>
 
-          <div className="notice-column-scroll flex-1 overflow-y-auto pr-1 overscroll-contain mt-3">
+          <div className={cn(
+            'flex-1 overflow-y-auto pr-1 overscroll-contain mt-3',
+            type === 'mistake' ? 'notice-column-scroll-mistake' : 'notice-column-scroll-insight'
+          )}>
             {list.length > 0 ? (
               <div className="space-y-2">
                 {list.map(renderCompactCard)}
@@ -14304,26 +14307,47 @@ function App() {
           background-color: rgba(161,161,170,0.7);
         }
 
-        /* Market Notices columns — thin dark scrollbar so exactly ~5 cards
-           show before the list scrolls, matching the app's slate/zinc theme. */
-        .notice-column-scroll {
+        /* Market Notices columns — thin scrollbar, color-matched to each
+           column's accent (cyan for Price Action Insights, rose for
+           Anti-Mistakes & Traps) so the scroll affordance reads as part of
+           that column's theme rather than a generic gray bar. Track stays
+           dark/transparent to match the card background either way. */
+        .notice-column-scroll-insight,
+        .notice-column-scroll-mistake {
           scrollbar-width: thin;
-          scrollbar-color: rgba(51,65,85,0.5) transparent;
         }
-        .notice-column-scroll::-webkit-scrollbar {
+        .notice-column-scroll-insight {
+          scrollbar-color: rgba(6,182,212,0.4) rgba(15,23,42,0.2);
+        }
+        .notice-column-scroll-mistake {
+          scrollbar-color: rgba(244,63,94,0.4) rgba(15,23,42,0.2);
+        }
+        .notice-column-scroll-insight::-webkit-scrollbar,
+        .notice-column-scroll-mistake::-webkit-scrollbar {
           width: 6px;
         }
-        .notice-column-scroll::-webkit-scrollbar-track {
-          background: transparent;
+        .notice-column-scroll-insight::-webkit-scrollbar-track,
+        .notice-column-scroll-mistake::-webkit-scrollbar-track {
+          background: rgba(15,23,42,0.2);
+          border-radius: 9999px;
         }
-        .notice-column-scroll::-webkit-scrollbar-thumb {
-          background-color: rgba(51,65,85,0.5);
+        .notice-column-scroll-insight::-webkit-scrollbar-thumb {
+          background-color: rgba(6,182,212,0.4);
           border-radius: 9999px;
           border: 1px solid transparent;
           background-clip: padding-box;
         }
-        .notice-column-scroll::-webkit-scrollbar-thumb:hover {
-          background-color: rgb(71,85,105);
+        .notice-column-scroll-insight::-webkit-scrollbar-thumb:hover {
+          background-color: rgba(6,182,212,0.7);
+        }
+        .notice-column-scroll-mistake::-webkit-scrollbar-thumb {
+          background-color: rgba(244,63,94,0.4);
+          border-radius: 9999px;
+          border: 1px solid transparent;
+          background-clip: padding-box;
+        }
+        .notice-column-scroll-mistake::-webkit-scrollbar-thumb:hover {
+          background-color: rgba(244,63,94,0.7);
         }
 
         /* Active Strategy Models carousel — scrollbar fully hidden so it reads
