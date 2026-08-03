@@ -7802,8 +7802,8 @@ function App() {
                               </>
                             );
                             const containerClass = cn(
-                              'flex items-center gap-2.5 bg-slate-900/60 border border-slate-800 p-2.5 rounded-lg transition-all',
-                              interactive && 'w-full text-left cursor-pointer hover:border-slate-700 hover:bg-slate-900/80 active:scale-[0.99]'
+                              'flex items-center gap-2.5 bg-zinc-800/50 border border-zinc-800 p-2.5 rounded-lg transition-all',
+                              interactive && 'w-full text-left cursor-pointer hover:border-zinc-700 hover:bg-zinc-800/80 active:scale-[0.99]'
                             );
                             return interactive ? (
                               <button
