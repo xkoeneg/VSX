@@ -7709,6 +7709,10 @@ function App() {
                 Add Category
               </button>
             </div>
+          ) : routineGroups.every(group => group.items.length > 0 && group.items.filter(item => !isWeeklyTargetItem(item)).length === 0) ? (
+            <p className="text-sm text-zinc-500 italic py-2 select-none">
+              All routines are scheduled on specific days — see Weekly Targets below.
+            </p>
           ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {routineGroups.map((group, gI) => {
@@ -7719,6 +7723,13 @@ function App() {
               const dailyItemsWithIndex = group.items
                 .map((item, iI) => ({ item, iI }))
                 .filter(({ item }) => !isWeeklyTargetItem(item));
+              // A category that's 100% weekly items has nothing left to
+              // show here — its items already live in Weekly Targets below,
+              // so the card itself is skipped entirely rather than showing
+              // an empty placeholder under whatever name it happens to have.
+              // A genuinely empty category (no items at all yet) still
+              // renders, so there's somewhere to see it needs items added.
+              if (group.items.length > 0 && dailyItemsWithIndex.length === 0) return null;
               const groupChecks = todayChecks[gI] || group.items.map(() => false);
               const groupCheckedCount = dailyItemsWithIndex.filter(({ iI }) => !!groupChecks[iI]).length;
               const groupComplete = dailyItemsWithIndex.length > 0 && groupCheckedCount === dailyItemsWithIndex.length;
@@ -7747,9 +7758,7 @@ function App() {
                   <div className="space-y-2">
                     {dailyItemsWithIndex.length === 0 && (
                       <p className="text-xs text-zinc-500 italic select-none">
-                        {group.items.length === 0
-                          ? 'No routine items — add some in Configure Challenge.'
-                          : 'All items here are scheduled on specific days — see Weekly Targets below.'}
+                        No routine items — add some in Configure Challenge.
                       </p>
                     )}
                     {dailyItemsWithIndex.map(({ item, iI }) => {
@@ -8082,9 +8091,20 @@ function App() {
               </div>
               {challengeConfig.categories.length === 0 ? (
                 <p className="text-sm text-zinc-500 italic">No routine categories configured.</p>
+              ) : challengeConfig.categories.every(cat => cat.items.length > 0 && cat.items.filter(item => !isWeeklySpecificItem(item)).length === 0) ? (
+                <p className="text-sm text-zinc-500 italic">All routines are scheduled on specific days — see Weekly Specifics below.</p>
               ) : (
                 <div className="space-y-3">
-                  {challengeConfig.categories.map((cat, gI) => (
+                  {challengeConfig.categories.map((cat, gI) => {
+                    // Weekly Specifics items live in their own section
+                    // below — a category that's 100% weekly items has
+                    // nothing left to show here, so skip the whole block
+                    // rather than rendering an empty placeholder under
+                    // whatever name it happens to have. A genuinely empty
+                    // category (no items at all yet) still renders below.
+                    const dailyItemCount = cat.items.filter(item => !isWeeklySpecificItem(item)).length;
+                    if (cat.items.length > 0 && dailyItemCount === 0) return null;
+                    return (
                     <div key={cat.id}>
                       <div className="flex items-center gap-2 mb-1.5">
                         {renderCategoryIcon(cat, 'w-3.5 h-3.5', 'text-zinc-400')}
@@ -8094,15 +8114,9 @@ function App() {
                         {cat.items.length === 0 ? (
                           <p className="text-xs text-zinc-600 italic pl-5">No items in this category.</p>
                         ) : (() => {
-                          // Weekly Specifics items live in their own section
-                          // below — this only ever lists the category's
-                          // plain, everyday items.
                           const itemsForDate = cat.items
                             .map((item, iI) => ({ item, iI }))
                             .filter(({ item }) => !isWeeklySpecificItem(item));
-                          if (itemsForDate.length === 0) {
-                            return <p className="text-xs text-zinc-600 italic pl-5">All items here are scheduled on specific days — see Weekly Specifics below.</p>;
-                          }
                           return itemsForDate.map(({ item, iI }) => {
                             // RE-CHECKED days render every item as completed —
                             // the token was spent to redeem the whole day, so
@@ -8148,7 +8162,8 @@ function App() {
                         })()}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
               {/* Honesty guardrail nudge — shown when the user tries to
