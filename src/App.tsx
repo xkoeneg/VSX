@@ -3610,6 +3610,13 @@ function App() {
   // Dates that missed full completion but were "saved" using a re-check
   // (grace) token, up to the challenge's configured token allowance.
   const [lifeDisciplineGraceDays, setLifeDisciplineGraceDays] = useState<Record<string, boolean>>({});
+  // Optional journal note attached to a Re-Checked (grace) day — captured
+  // when the user spends a token from the Day Details Modal, and editable
+  // afterward from that same modal. Deliberately kept separate from
+  // lifeDisciplineMissedReasons below: that map's presence permanently
+  // locks a tile as Failed elsewhere in the app, which must never happen
+  // just because a re-check day picked up a note.
+  const [lifeDisciplineRecheckNotes, setLifeDisciplineRecheckNotes] = useState<Record<string, string>>({});
   // Zero-cheating mode: once re-check tokens run out, a missed day can no
   // longer be flipped to complete. Instead the user logs a reason, which
   // permanently locks that tile as Failed (red) with an attached note.
@@ -3638,13 +3645,22 @@ function App() {
     Object.keys(lifeDisciplineGraceDays).length > 0 ||
     Object.keys(lifeDisciplineMissedReasons).length > 0;
 
-  // Re-Check Token confirmation modal ("Use 1 Re-Check Token to mark Day X
-  // as Complete?") — holds the dateKey of the failed day being redeemed.
-  const [reCheckConfirmDate, setReCheckConfirmDate] = useState<string | null>(null);
-  // Missed Day Reason Log modal — 'edit' when logging/updating a reason
-  // (tokens exhausted), 'view' when just reviewing an already-logged one.
-  const [missedReasonModal, setMissedReasonModal] = useState<{ dateKey: string; day: number; mode: 'edit' | 'view' } | null>(null);
-  const [missedReasonDraftText, setMissedReasonDraftText] = useState('');
+  // Day Details Modal — the single click target for every non-upcoming
+  // tile in the 100-Day Challenge grid (Completed, Failed, Re-checked, or
+  // today/"active"). Replaces the old separate Re-Check-confirm and
+  // Missed-Day-Reason modals: both of those flows, plus read-only checklist
+  // preview and inline reason editing, now live inside this one modal.
+  const [dayDetailsModal, setDayDetailsModal] = useState<{ dateKey: string; day: number } | null>(null);
+  // Inline "Edit Reason" state for the Reason / Journal Note section —
+  // works for both a Failed day's missed-reason and a Re-checked day's
+  // optional note, backed by whichever of the two maps matches the tile's
+  // current status (see saveDayDetailsReason below).
+  const [isEditingDayReason, setIsEditingDayReason] = useState(false);
+  const [dayReasonDraftText, setDayReasonDraftText] = useState('');
+  // Inline "optional reason" prompt shown after clicking "Use 1 Re-Check
+  // Token" and before the spend is confirmed.
+  const [isRecheckTokenPromptOpen, setIsRecheckTokenPromptOpen] = useState(false);
+  const [recheckTokenReasonDraft, setRecheckTokenReasonDraft] = useState('');
 
   // Configure Challenge modal state — edits happen on a draft copy so
   // Cancel discards changes without touching the live config.
@@ -3763,6 +3779,7 @@ function App() {
         if (parsed?.checks) setLifeDisciplineChecks(parsed.checks);
         if (parsed?.graceDays) setLifeDisciplineGraceDays(parsed.graceDays);
         if (parsed?.missedReasons) setLifeDisciplineMissedReasons(parsed.missedReasons);
+        if (parsed?.recheckNotes) setLifeDisciplineRecheckNotes(parsed.recheckNotes);
         if (parsed?.config?.categories) setChallengeConfig(parsed.config);
         if (typeof parsed?.hasStarted === 'boolean') setHasStartedChallenge(parsed.hasStarted);
       } catch (e) {
@@ -3778,13 +3795,14 @@ function App() {
         checks: lifeDisciplineChecks,
         graceDays: lifeDisciplineGraceDays,
         missedReasons: lifeDisciplineMissedReasons,
+        recheckNotes: lifeDisciplineRecheckNotes,
         config: challengeConfig,
         hasStarted: hasStartedChallenge,
       }));
     } catch (e) {
       console.error('Failed to save Life Discipline Hub data:', e);
     }
-  }, [lifeDisciplineStartDate, lifeDisciplineChecks, lifeDisciplineGraceDays, lifeDisciplineMissedReasons, challengeConfig, hasStartedChallenge]);
+  }, [lifeDisciplineStartDate, lifeDisciplineChecks, lifeDisciplineGraceDays, lifeDisciplineMissedReasons, lifeDisciplineRecheckNotes, challengeConfig, hasStartedChallenge]);
 
   useEffect(() => {
     const stored = localStorage.getItem('lifeDisciplineUserPresets');
@@ -3917,49 +3935,98 @@ function App() {
     });
   };
 
-  // ---- Missed Day Reason Log (zero-cheating mode) ----
-  const openMissedReasonModal = (dateKey: string, day: number, mode: 'edit' | 'view') => {
-    setMissedReasonDraftText(lifeDisciplineMissedReasons[dateKey] || '');
-    setMissedReasonModal({ dateKey, day, mode });
+  // ---- Day Details Modal ----
+  const openDayDetailsModal = (dateKey: string, day: number) => {
+    setIsEditingDayReason(false);
+    setDayReasonDraftText('');
+    setIsRecheckTokenPromptOpen(false);
+    setRecheckTokenReasonDraft('');
+    setDayDetailsModal({ dateKey, day });
   };
 
-  const saveMissedReasonLog = () => {
-    if (!missedReasonModal) return;
-    const text = missedReasonDraftText.trim();
-    if (!text) return;
-    setLifeDisciplineMissedReasons(prev => ({ ...prev, [missedReasonModal.dateKey]: text }));
-    // Logging a reason permanently locks the tile as Failed — clear any
-    // grace token that may have been spent on it (shouldn't normally
-    // co-exist, but this keeps the two mechanics mutually exclusive).
-    setLifeDisciplineGraceDays(prev => {
-      if (!prev[missedReasonModal.dateKey]) return prev;
+  // Starts inline editing of the Reason / Journal Note section. Seeds the
+  // draft from whichever map currently backs this tile's status — a
+  // Failed day's permanent missed-reason, or a Re-checked day's optional
+  // note — so "Edit Reason" always opens with the existing text pre-filled.
+  const startEditDayReason = (dateKey: string, status: string) => {
+    const existing = status === 'grace' ? lifeDisciplineRecheckNotes[dateKey] : lifeDisciplineMissedReasons[dateKey];
+    setDayReasonDraftText(existing || '');
+    setIsEditingDayReason(true);
+  };
+
+  // Saves the Reason / Journal Note edit into the map matching the tile's
+  // current status. For a Failed day this is the same permanent
+  // missed-reason lock used elsewhere in the app (an empty reason can't be
+  // saved — mirrors the old Missed Day Reason Log requirement); for a
+  // Re-checked day it's just an optional note with no side effects and can
+  // be cleared back to empty.
+  const saveDayDetailsReason = (dateKey: string, status: string) => {
+    const text = dayReasonDraftText.trim();
+    if (status === 'grace') {
+      setLifeDisciplineRecheckNotes(prev => {
+        const next = { ...prev };
+        if (text) next[dateKey] = text; else delete next[dateKey];
+        return next;
+      });
+      showLifeDisciplineToast('📝 Note saved');
+    } else if (status === 'failed') {
+      if (!text) return;
+      setLifeDisciplineMissedReasons(prev => ({ ...prev, [dateKey]: text }));
+      // Logging/updating a reason keeps the tile permanently locked as
+      // Failed — clear any grace token that may have somehow been spent
+      // on it, keeping the two mechanics mutually exclusive.
+      setLifeDisciplineGraceDays(prev => {
+        if (!prev[dateKey]) return prev;
+        const next = { ...prev };
+        delete next[dateKey];
+        return next;
+      });
+      showLifeDisciplineToast('📝 Reason logged — day locked as Failed');
+    }
+    setIsEditingDayReason(false);
+  };
+
+  // "Use 1 Re-Check Token" button inside the modal — reveals the optional
+  // reason prompt rather than spending immediately.
+  const openRecheckTokenPrompt = () => {
+    setRecheckTokenReasonDraft('');
+    setIsRecheckTokenPromptOpen(true);
+  };
+
+  // Deducts a token, converts the day to Re-checked, and (if provided)
+  // saves the optional reason as that day's journal note.
+  const confirmUseRecheckToken = (dateKey: string) => {
+    if (lifeDisciplineTokensRemaining <= 0) return;
+    toggleLifeDisciplineGraceDay(dateKey);
+    const text = recheckTokenReasonDraft.trim();
+    if (text) setLifeDisciplineRecheckNotes(prev => ({ ...prev, [dateKey]: text }));
+    setIsRecheckTokenPromptOpen(false);
+    setRecheckTokenReasonDraft('');
+    showLifeDisciplineToast('🔁 Re-Check Token used — day marked saved');
+  };
+
+  // Refunds the token on an already re-checked day, reverting it to
+  // Failed, and clears any note attached via the modal so a future
+  // re-check on this day starts clean.
+  const undoRecheckDay = (dateKey: string) => {
+    toggleLifeDisciplineGraceDay(dateKey);
+    setLifeDisciplineRecheckNotes(prev => {
+      if (!prev[dateKey]) return prev;
       const next = { ...prev };
-      delete next[missedReasonModal.dateKey];
+      delete next[dateKey];
       return next;
     });
-    setMissedReasonModal(null);
-    showLifeDisciplineToast('📝 Reason logged — day locked as Failed');
+    showLifeDisciplineToast('↩️ Re-Check undone — token refunded');
   };
 
-  // Clicking a grid tile routes to the right flow based on its status and
-  // the current token allowance:
-  //  - failed + reason already logged  -> read-only reason popup
-  //  - failed + tokens remaining       -> re-check confirmation modal
-  //  - failed + no tokens remaining    -> Missed Day Reason Log modal
-  //  - grace (already re-checked)      -> click to undo, refunding the token
+  // Clicking a grid tile opens the Day Details Modal for any day that has
+  // passed or is the active day (today) — every status except 'upcoming'.
+  // All the status-specific actions (spend a token, edit a reason, undo a
+  // re-check) now live inside that modal instead of being routed to a
+  // different popup per status.
   const handleLifeDisciplineTileClick = (dateKey: string, day: number, status: string) => {
-    if (status === 'grace') {
-      toggleLifeDisciplineGraceDay(dateKey);
-      return;
-    }
-    if (status !== 'failed') return;
-    if (lifeDisciplineMissedReasons[dateKey]) {
-      openMissedReasonModal(dateKey, day, 'view');
-    } else if (lifeDisciplineTokensRemaining > 0) {
-      setReCheckConfirmDate(dateKey);
-    } else {
-      openMissedReasonModal(dateKey, day, 'edit');
-    }
+    if (status === 'upcoming') return;
+    openDayDetailsModal(dateKey, day);
   };
 
   // ---- Smart Preset Overwrite helpers ----
@@ -7526,26 +7593,31 @@ function App() {
 
           {challengeConfig.recheckTokens > 0 ? (
             <p className="text-xs text-zinc-500 mb-3 select-none">
-              Click a failed day to spend a re-check token and mark it saved, or review a logged reason. {lifeDisciplineTokensRemaining} of {challengeConfig.recheckTokens} tokens remaining.
+              Click any past or active day to view its details, spend a re-check token, or edit a logged reason. {lifeDisciplineTokensRemaining} of {challengeConfig.recheckTokens} tokens remaining.
             </p>
           ) : (
             <p className="text-xs text-zinc-500 mb-3 select-none">
-              Zero-cheating mode: no re-check tokens remaining. Click a failed day to log why it was missed.
+              Zero-cheating mode: no re-check tokens remaining. Click any past or active day to view its details or log why it was missed.
             </p>
           )}
 
           <div className="grid grid-cols-10 sm:grid-cols-10 md:grid-cols-[repeat(20,minmax(0,1fr))] gap-1.5">
             {gridDays.map(({ day, dateKey, status }) => {
               const loggedReason = lifeDisciplineMissedReasons[dateKey];
+              const isClickable = status !== 'upcoming';
               const tooltip =
                 status === 'failed'
                   ? loggedReason
                     ? `Day ${day} — missed: ${loggedReason}`
                     : lifeDisciplineTokensRemaining > 0
-                    ? `Day ${day} — click to spend a re-check token`
+                    ? `Day ${day} — click to view details or spend a re-check token`
                     : `Day ${day} — missed, no tokens left. Click to log a reason.`
                   : status === 'grace'
-                  ? `Day ${day} — re-checked, click to undo`
+                  ? `Day ${day} — re-checked, click for details`
+                  : status === 'complete'
+                  ? `Day ${day} — complete, click for details`
+                  : status === 'pending'
+                  ? `Day ${day} — today, click for details`
                   : `Day ${day}`;
               return (
                 <div
@@ -7555,7 +7627,7 @@ function App() {
                   className={cn(
                     'relative aspect-square rounded-md border flex items-center justify-center text-[10px] font-mono font-medium transition-colors select-none',
                     statusStyles[status],
-                    status === 'grace' && 'cursor-pointer hover:brightness-110'
+                    isClickable && 'cursor-pointer hover:brightness-110'
                   )}
                 >
                   {day}
@@ -7573,120 +7645,236 @@ function App() {
     );
   };
 
-  // ---- Re-Check Token confirmation + Missed Day Reason Log modals ----
-  const renderReCheckConfirmModal = () => {
-    if (!reCheckConfirmDate) return null;
-    const dayNum = Math.round((new Date(reCheckConfirmDate + 'T00:00:00').getTime() - new Date(lifeDisciplineStartDate + 'T00:00:00').getTime()) / 86400000) + 1;
-    return (
-      <ModalBackdrop
-        onClose={() => setReCheckConfirmDate(null)}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-      >
-        <div
-          className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="p-5">
-            <div className="flex items-center gap-2.5 mb-2">
-              <span className="text-lg leading-none">🛡️</span>
-              <h2 className="text-base font-semibold text-white">Use a Re-Check Token?</h2>
-            </div>
-            <p className="text-sm text-zinc-400">
-              Use 1 Re-Check Token to mark <span className="text-white font-medium">Day {dayNum}</span> as Complete?
-              <br />
-              <span className="text-xs text-zinc-500">Remaining: {lifeDisciplineTokensRemaining}/{challengeConfig.recheckTokens}</span>
-            </p>
-          </div>
-          <div className="flex items-center justify-end gap-2 border-t border-zinc-800 px-5 py-3">
-            <button
-              onClick={() => setReCheckConfirmDate(null)}
-              className="px-3 py-1.5 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => {
-                toggleLifeDisciplineGraceDay(reCheckConfirmDate);
-                setReCheckConfirmDate(null);
-              }}
-              className="px-3.5 py-1.5 rounded-lg text-sm font-medium bg-cyan-500 text-black hover:bg-cyan-400 transition-all"
-            >
-              Use Token
-            </button>
-          </div>
-        </div>
-      </ModalBackdrop>
-    );
-  };
+  // ---- Day Details Modal ----
+  // The single modal opened by clicking any non-upcoming tile in the
+  // 100-Day Challenge grid. Recomputes that day's status the same way the
+  // grid itself does, then shows a read-only checklist preview plus
+  // whichever status-specific actions apply (spend a token, edit a
+  // reason, undo a re-check).
+  const renderDayDetailsModal = () => {
+    if (!dayDetailsModal) return null;
+    const { dateKey, day } = dayDetailsModal;
+    const todayKeyForModal = new Date().toISOString().slice(0, 10);
+    const isFuture = dateKey > todayKeyForModal;
+    const isToday = dateKey === todayKeyForModal;
+    const complete = isLifeDisciplineDayComplete(dateKey);
+    const graced = !!lifeDisciplineGraceDays[dateKey];
+    let status: 'upcoming' | 'complete' | 'failed' | 'pending' | 'grace';
+    if (isFuture) status = 'upcoming';
+    else if (complete) status = 'complete';
+    else if (isToday) status = 'pending';
+    else if (graced) status = 'grace';
+    else status = 'failed';
 
-  const renderMissedReasonModal = () => {
-    if (!missedReasonModal) return null;
-    const isView = missedReasonModal.mode === 'view';
+    const dayChecks = lifeDisciplineChecks[dateKey] || emptyLifeDisciplineChecks(challengeConfig);
+    const currentReason = status === 'grace' ? lifeDisciplineRecheckNotes[dateKey] : lifeDisciplineMissedReasons[dateKey];
+    const showReasonSection = status === 'failed' || status === 'grace';
+    const showRecheckAction = status === 'failed' && lifeDisciplineTokensRemaining > 0 && !isEditingDayReason;
+    const showUndoAction = status === 'grace' && !isEditingDayReason;
+
+    const badge: Record<typeof status, { label: string; className: string }> = {
+      complete: { label: 'Complete', className: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' },
+      failed: { label: 'Failed', className: 'bg-rose-500/15 text-rose-300 border-rose-500/30' },
+      grace: { label: 'Re-checked', className: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30' },
+      pending: { label: 'In Progress — Today', className: 'bg-amber-500/15 text-amber-300 border-amber-500/30' },
+      upcoming: { label: 'Upcoming', className: 'bg-zinc-800 text-zinc-400 border-zinc-700' },
+    };
+    const statusBadge = badge[status];
+
     return (
       <ModalBackdrop
-        onClose={() => setMissedReasonModal(null)}
+        onClose={() => setDayDetailsModal(null)}
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       >
         <div
-          className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl"
+          className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl max-h-[85vh] flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between px-5 pt-5 pb-3">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <span className="text-lg leading-none flex-shrink-0">📝</span>
-              <h2 className="text-base font-semibold text-white truncate">
-                {isView ? `Missed Day Reason — Day ${missedReasonModal.day}` : `Log Reason for Missed Day ${missedReasonModal.day}`}
-              </h2>
+          {/* Header */}
+          <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-4 border-b border-zinc-800 flex-shrink-0">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-white truncate">Day {day} Overview</h2>
+              <p className="text-xs text-zinc-500 mt-0.5">{formatDate(dateKey)}</p>
             </div>
-            <button
-              onClick={() => setMissedReasonModal(null)}
-              className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all flex-shrink-0"
-              aria-label="Close"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="px-5 pb-5">
-            {!isView && (
-              <p className="text-xs text-zinc-500 mb-3">
-                No re-check tokens remaining. Tell us why you were unable to complete your routine (e.g. fatigue, emergency, lack of discipline) — this will lock the day as Failed.
-              </p>
-            )}
-            {isView ? (
-              <p className="text-sm text-zinc-300 bg-zinc-800/50 border border-zinc-800 rounded-xl p-3.5 whitespace-pre-wrap">
-                {lifeDisciplineMissedReasons[missedReasonModal.dateKey]}
-              </p>
-            ) : (
-              <textarea
-                autoFocus
-                value={missedReasonDraftText}
-                onChange={(e) => setMissedReasonDraftText(e.target.value)}
-                placeholder="What got in the way today?"
-                rows={4}
-                className="w-full px-3.5 py-2.5 rounded-lg bg-zinc-800/60 border border-zinc-700 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-rose-500/40 resize-none"
-              />
-            )}
-          </div>
-          <div className="flex items-center justify-end gap-2 border-t border-zinc-800 px-5 py-3">
-            <button
-              onClick={() => setMissedReasonModal(null)}
-              className="px-3 py-1.5 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all"
-            >
-              {isView ? 'Close' : 'Cancel'}
-            </button>
-            {!isView && (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-semibold border whitespace-nowrap', statusBadge.className)}>
+                {statusBadge.label}
+              </span>
               <button
-                onClick={saveMissedReasonLog}
-                disabled={!missedReasonDraftText.trim()}
-                className={cn(
-                  'px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all',
-                  missedReasonDraftText.trim() ? 'bg-rose-500 text-white hover:bg-rose-400' : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
-                )}
+                onClick={() => setDayDetailsModal(null)}
+                className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all"
+                aria-label="Close"
               >
-                Save
+                <X className="w-4 h-4" />
               </button>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="px-5 py-4 overflow-y-auto space-y-5">
+            {/* Checklist Summary — read-only */}
+            <div>
+              <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wide mb-2.5">Checklist Summary</h3>
+              {challengeConfig.categories.length === 0 ? (
+                <p className="text-sm text-zinc-500 italic">No routine categories configured.</p>
+              ) : (
+                <div className="space-y-3">
+                  {challengeConfig.categories.map((cat, gI) => (
+                    <div key={cat.id}>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        {renderCategoryIcon(cat, 'w-3.5 h-3.5', 'text-zinc-400')}
+                        <span className="text-xs font-medium text-zinc-300 truncate">{cat.label}</span>
+                      </div>
+                      <div className="space-y-1">
+                        {cat.items.length === 0 ? (
+                          <p className="text-xs text-zinc-600 italic pl-5">No items in this category.</p>
+                        ) : (
+                          cat.items.map((item, iI) => {
+                            const checked = !!dayChecks[gI]?.[iI];
+                            return (
+                              <div key={item.id} className="flex items-center gap-2 pl-5">
+                                {checked ? (
+                                  <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                                ) : (
+                                  <X className="w-3.5 h-3.5 text-zinc-600 flex-shrink-0" />
+                                )}
+                                <span className={cn('text-xs', checked ? 'text-zinc-300' : 'text-zinc-500')}>
+                                  {item.text}
+                                </span>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Reason / Journal Note — Failed or Re-checked days only */}
+            {showReasonSection && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">Reason / Journal Note</h3>
+                  {!isEditingDayReason && (
+                    <button
+                      onClick={() => startEditDayReason(dateKey, status)}
+                      className="flex items-center gap-1 text-xs font-medium text-zinc-400 hover:text-white transition-colors"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                      Edit Reason
+                    </button>
+                  )}
+                </div>
+                {isEditingDayReason ? (
+                  <div className="space-y-2">
+                    <textarea
+                      autoFocus
+                      value={dayReasonDraftText}
+                      onChange={(e) => setDayReasonDraftText(e.target.value)}
+                      placeholder={status === 'failed' ? 'What got in the way today?' : 'Optional note about this re-check...'}
+                      rows={3}
+                      className="w-full px-3.5 py-2.5 rounded-lg bg-zinc-800/60 border border-zinc-700 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 resize-none"
+                    />
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => setIsEditingDayReason(false)}
+                        className="px-3 py-1.5 rounded-lg text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => saveDayDetailsReason(dateKey, status)}
+                        disabled={status === 'failed' && !dayReasonDraftText.trim()}
+                        className={cn(
+                          'px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all',
+                          (status === 'failed' && !dayReasonDraftText.trim())
+                            ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
+                            : 'bg-cyan-500 text-black hover:bg-cyan-400'
+                        )}
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                ) : currentReason ? (
+                  <p className="text-sm text-zinc-300 bg-zinc-800/50 border border-zinc-800 rounded-xl p-3.5 whitespace-pre-wrap">
+                    {currentReason}
+                  </p>
+                ) : (
+                  <p className="text-xs text-zinc-500 italic">
+                    {status === 'failed' ? 'No reason logged yet.' : 'No note added yet.'}
+                  </p>
+                )}
+              </div>
             )}
           </div>
+
+          {/* Footer — Re-Check Token action (Failed days with tokens remaining) */}
+          {showRecheckAction && (
+            <div className="px-5 py-4 border-t border-zinc-800 flex-shrink-0">
+              {isRecheckTokenPromptOpen ? (
+                <div className="space-y-2.5">
+                  <p className="text-xs text-zinc-500">Optional reason for this re-check:</p>
+                  <textarea
+                    autoFocus
+                    value={recheckTokenReasonDraft}
+                    onChange={(e) => setRecheckTokenReasonDraft(e.target.value)}
+                    placeholder="e.g. caught up later that day, one-off exception..."
+                    rows={2}
+                    className="w-full px-3.5 py-2.5 rounded-lg bg-zinc-800/60 border border-zinc-700 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 resize-none"
+                  />
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => setIsRecheckTokenPromptOpen(false)}
+                      className="px-3 py-1.5 rounded-lg text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => confirmUseRecheckToken(dateKey)}
+                      className="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-cyan-500 text-black hover:bg-cyan-400 transition-all"
+                    >
+                      Confirm
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={openRecheckTokenPrompt}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium bg-cyan-500 text-black hover:bg-cyan-400 transition-all"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Use 1 Re-Check Token (Remaining: {lifeDisciplineTokensRemaining})
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Footer — Undo Re-Check (Re-checked days) */}
+          {showUndoAction && (
+            <div className="px-5 py-4 border-t border-zinc-800 flex-shrink-0">
+              <button
+                onClick={() => undoRecheckDay(dateKey)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium bg-zinc-800 text-white border border-zinc-700 hover:bg-zinc-700 transition-all"
+              >
+                Undo Re-Check (Refund Token)
+              </button>
+            </div>
+          )}
+
+          {/* Plain Close footer — shown whenever neither status-specific action above is present */}
+          {!showRecheckAction && !showUndoAction && (
+            <div className="flex items-center justify-end gap-2 border-t border-zinc-800 px-5 py-3 flex-shrink-0">
+              <button
+                onClick={() => setDayDetailsModal(null)}
+                className="px-3 py-1.5 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all"
+              >
+                Close
+              </button>
+            </div>
+          )}
         </div>
       </ModalBackdrop>
     );
@@ -13670,8 +13858,7 @@ function App() {
       {renderLightbox()}
       {renderSettingsModal()}
       {renderChallengeConfigModal()}
-      {renderReCheckConfirmModal()}
-      {renderMissedReasonModal()}
+      {renderDayDetailsModal()}
 
       {isExportConfirmOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
