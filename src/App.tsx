@@ -3944,8 +3944,16 @@ function App() {
   const toggleLifeDisciplineItem = (dateKey: string, groupIdx: number, itemIdx: number) => {
     setLifeDisciplineChecks(prev => {
       const existing = prev[dateKey] || emptyLifeDisciplineChecks(challengeConfig);
-      const nextForDate = existing.map((group, gI) =>
-        gI === groupIdx ? group.map((val, iI) => (iI === itemIdx ? !val : val)) : group
+      // Rebuild against the CURRENT challengeConfig shape (not just the
+      // previously-saved `existing` array) — if a category or item was
+      // added after today's checks were first saved, `existing` is shorter
+      // than the live config and mapping over it would silently drop the
+      // new category/item, making it un-toggleable.
+      const nextForDate = challengeConfig.categories.map((cat, gI) =>
+        cat.items.map((item, iI) => {
+          const current = !!existing[gI]?.[iI];
+          return gI === groupIdx && iI === itemIdx ? !current : current;
+        })
       );
       return { ...prev, [dateKey]: nextForDate };
     });
@@ -9900,7 +9908,7 @@ function App() {
           {/* SECTION 1: ACTIVE STRATEGY MODELS — wrapped in a system card container to match other dashboard widgets */}
           <div className="min-w-0 lg:col-span-2 h-full">
             <div className={cn(
-              "h-full flex flex-col rounded-2xl p-6 shadow-xl border",
+              "h-full flex flex-col rounded-2xl p-6 border",
               theme !== 'light' ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-white border-zinc-200'
             )}>
               <div className="flex items-center justify-between flex-wrap gap-3">
@@ -10028,7 +10036,7 @@ function App() {
           {/* SECTION 1b: DAILY TRADING CREED / OPERATING MANIFESTO — quote card, matches Strategy Models column height */}
           <div className="min-w-0 lg:col-span-1 h-full">
             <div
-              className="h-full flex flex-col rounded-2xl p-6 relative overflow-hidden border border-emerald-500/20 shadow-xl backdrop-blur-sm"
+              className="h-full flex flex-col rounded-2xl p-6 relative overflow-hidden border border-emerald-500/20 backdrop-blur-sm"
               style={{
                 background: 'radial-gradient(120% 100% at 100% 0%, rgba(16,185,129,0.16) 0%, rgba(8,145,178,0.08) 35%, rgba(15,15,20,0.92) 65%), linear-gradient(160deg, rgba(24,25,32,0.95), rgba(9,10,14,0.98))',
               }}
@@ -10127,7 +10135,7 @@ function App() {
 
         {/* HORIZONTAL PRE-SESSION PROTOCOL STRIP — full width, sits above Trading Rules */}
         <div className={cn(
-          "relative overflow-hidden min-w-0 border rounded-2xl px-5 py-4 shadow-md space-y-3 transition-colors duration-300 select-none",
+          "relative overflow-hidden min-w-0 border rounded-2xl px-5 py-4 space-y-3 transition-colors duration-300 select-none",
           theme !== 'light'
             ? 'bg-gradient-to-br from-zinc-900 via-zinc-900/90 to-zinc-900/60 border-zinc-800'
             : 'bg-gradient-to-br from-white via-zinc-50 to-zinc-100 border-zinc-200'
@@ -10197,7 +10205,7 @@ function App() {
 
         {/* SECTION 2: TRADING CHARTER & MANDATES — single unified, read-only card */}
         <div className={cn(
-          "min-w-0 rounded-2xl p-6 shadow-xl border",
+          "min-w-0 rounded-2xl p-6 border",
           theme !== 'light' ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-white border-zinc-200'
         )}>
           <div className="flex items-center justify-between flex-wrap gap-4 mb-6">
