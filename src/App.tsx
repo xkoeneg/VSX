@@ -3669,6 +3669,11 @@ function App() {
   // saved) rather than silently letting the checklist edit itself out of
   // Failed status.
   const [dayDetailsHonestyGuardrail, setDayDetailsHonestyGuardrail] = useState(false);
+  // Failed-day checklist items are read-only by default — the user must
+  // explicitly tap "Edit" to enter correction mode before any item becomes
+  // tappable, so a stray tap on the modal never accidentally flips a
+  // checked/failed state.
+  const [isEditingDayChecklist, setIsEditingDayChecklist] = useState(false);
 
   // Configure Challenge modal state — edits happen on a draft copy so
   // Cancel discards changes without touching the live config.
@@ -3950,7 +3955,24 @@ function App() {
     setIsRecheckTokenPromptOpen(false);
     setRecheckTokenReasonDraft('');
     setDayDetailsHonestyGuardrail(false);
+    setIsEditingDayChecklist(false);
     setDayDetailsModal({ dateKey, day });
+  };
+
+  // Enters correction mode for the Failed-day checklist — items only
+  // become tappable after this is called.
+  const startEditDayChecklist = () => {
+    setDayDetailsHonestyGuardrail(false);
+    setIsEditingDayChecklist(true);
+  };
+
+  // Exits correction mode. Edits already apply live to lifeDisciplineChecks
+  // as each item is tapped, so this is just a "done editing" confirmation
+  // rather than a separate persistence step.
+  const saveDayChecklistEdits = () => {
+    setIsEditingDayChecklist(false);
+    setDayDetailsHonestyGuardrail(false);
+    showLifeDisciplineToast('✅ Checklist updated');
   };
 
   // Toggle a checklist item from inside the Day Details Modal on a FAILED
@@ -7712,6 +7734,7 @@ function App() {
     const showReasonSection = status === 'failed' || status === 'grace';
     const showRecheckAction = status === 'failed' && lifeDisciplineTokensRemaining > 0 && !isEditingDayReason;
     const showUndoAction = status === 'grace' && !isEditingDayReason;
+    const showChecklistSaveAction = status === 'failed' && isEditingDayChecklist && !isEditingDayReason;
 
     const badge: Record<typeof status, { label: string; className: string }> = {
       complete: { label: 'Complete', className: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' },
@@ -7761,7 +7784,17 @@ function App() {
               <div className="flex items-center justify-between mb-2.5">
                 <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">Checklist Summary</h3>
                 {status === 'failed' && (
-                  <span className="text-[10px] text-zinc-500 italic">Tap an item to correct it</span>
+                  isEditingDayChecklist ? (
+                    <span className="text-[10px] text-cyan-300 italic">Tap an item to correct it</span>
+                  ) : (
+                    <button
+                      onClick={startEditDayChecklist}
+                      className="flex items-center gap-1 text-xs font-medium text-zinc-400 hover:text-white transition-colors"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                      Edit
+                    </button>
+                  )
                 )}
               </div>
               {challengeConfig.categories.length === 0 ? (
@@ -7784,7 +7817,7 @@ function App() {
                             // the checklist reflects that regardless of the
                             // raw underlying values.
                             const checked = status === 'grace' ? true : !!dayChecks[gI]?.[iI];
-                            const interactive = status === 'failed';
+                            const interactive = status === 'failed' && isEditingDayChecklist;
                             const itemContent = (
                               <>
                                 {checked ? (
@@ -7899,8 +7932,8 @@ function App() {
             )}
           </div>
 
-          {/* Footer — Re-Check Token action (Failed days with tokens remaining) */}
-          {showRecheckAction && (
+          {/* Footer — Checklist Save (when editing) + Re-Check Token action (Failed days) */}
+          {(showRecheckAction || showChecklistSaveAction) && (
             <div className="px-5 py-4 border-t border-zinc-800 flex-shrink-0">
               {isRecheckTokenPromptOpen ? (
                 <div className="space-y-2.5">
@@ -7929,13 +7962,25 @@ function App() {
                   </div>
                 </div>
               ) : (
-                <button
-                  onClick={openRecheckTokenPrompt}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium bg-cyan-500 text-black hover:bg-cyan-400 transition-all"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  Use 1 Re-Check Token (Remaining: {lifeDisciplineTokensRemaining})
-                </button>
+                <div className="flex items-center gap-2">
+                  {showChecklistSaveAction && (
+                    <button
+                      onClick={saveDayChecklistEdits}
+                      className="flex-shrink-0 px-3 py-2 rounded-lg text-xs font-semibold bg-emerald-500 text-black hover:bg-emerald-400 transition-all whitespace-nowrap"
+                    >
+                      Save
+                    </button>
+                  )}
+                  {showRecheckAction && (
+                    <button
+                      onClick={openRecheckTokenPrompt}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium bg-cyan-500 text-black hover:bg-cyan-400 transition-all"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Use 1 Re-Check Token (Remaining: {lifeDisciplineTokensRemaining})
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -7952,8 +7997,8 @@ function App() {
             </div>
           )}
 
-          {/* Plain Close footer — shown whenever neither status-specific action above is present */}
-          {!showRecheckAction && !showUndoAction && (
+          {/* Plain Close footer — shown whenever no status-specific action above is present */}
+          {!showRecheckAction && !showUndoAction && !showChecklistSaveAction && (
             <div className="flex items-center justify-end gap-2 border-t border-zinc-800 px-5 py-3 flex-shrink-0">
               <button
                 onClick={() => setDayDetailsModal(null)}
