@@ -3527,7 +3527,6 @@ function App() {
   const strategyStepImageInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [showAddNotice, setShowAddNotice] = useState(false);
   const [editingNoticeId, setEditingNoticeId] = useState<string | null>(null);
-  const [noticeTypeFilter, setNoticeTypeFilter] = useState<NoticeType>('mistake');
   const [noticeSessionFilter, setNoticeSessionFilter] = useState<SessionOption | 'all'>('all');
   const [noticeTagFilter, setNoticeTagFilter] = useState<string>('all');
   const [showAddScenario, setShowAddScenario] = useState(false);
@@ -5539,14 +5538,14 @@ function App() {
         messages: [],
       }]);
     }
-    setNewNotice({ ...emptyNoticeDraft, type: noticeTypeFilter });
+    setNewNotice(emptyNoticeDraft);
     setEditingNoticeId(null);
     setShowAddNotice(false);
   };
 
-  const handleOpenAddNotice = () => {
+  const handleOpenAddNotice = (type: NoticeType = 'mistake') => {
     setEditingNoticeId(null);
-    setNewNotice({ ...emptyNoticeDraft, type: noticeTypeFilter });
+    setNewNotice({ ...emptyNoticeDraft, type });
     setShowAddNotice(true);
   };
 
@@ -10620,23 +10619,136 @@ function App() {
   };
 
   const renderNotices = () => {
-    const activeMeta = NOTICE_TYPE_META[noticeTypeFilter];
-
-    // Notices in the active category (Anti-Mistakes vs Price Action Insights)
-    const categoryNotices = notices.filter(n => n.type === noticeTypeFilter);
-
-    // Tag options are scoped to the active category so switching tabs never
-    // shows a stale/irrelevant tag list.
-    const tagOptions = Array.from(new Set(categoryNotices.map(n => n.tag).filter(Boolean))).sort();
-
-    const filteredNotices = categoryNotices.filter(n => {
+    const matchesFilters = (n: MarketNotice) => {
       if (noticeSessionFilter !== 'all' && n.session !== noticeSessionFilter) return false;
       if (noticeTagFilter !== 'all' && n.tag !== noticeTagFilter) return false;
       return true;
-    });
+    };
 
-    const mistakeCount = notices.filter(n => n.type === 'mistake').length;
-    const insightCount = notices.filter(n => n.type === 'insight').length;
+    // Tag options pulled across both categories so one filter row works for
+    // both columns at once.
+    const tagOptions = Array.from(new Set(notices.map(n => n.tag).filter(Boolean))).sort();
+
+    // Compact horizontal card — small thumbnail + condensed text — used by
+    // both columns so the whole gallery reads as a dense, scannable list
+    // instead of large tiles.
+    const renderCompactCard = (notice: MarketNotice) => {
+      const meta = NOTICE_TYPE_META[notice.type];
+      const CalloutIcon = meta.calloutIcon;
+      return (
+        <div
+          key={notice.id}
+          className={cn(
+            'group relative rounded-lg border bg-zinc-900/50 transition-all p-2.5 flex gap-3 min-w-0',
+            meta.cardRing
+          )}
+        >
+          {/* Thumbnail */}
+          <div
+            className="w-20 h-14 flex-shrink-0 rounded-md overflow-hidden bg-zinc-950 flex items-center justify-center cursor-pointer"
+            onClick={() => notice.imageUrl && setLightboxImage(notice.imageUrl)}
+          >
+            {notice.imageUrl ? (
+              <img src={notice.imageUrl} alt={notice.title} className="w-full h-full object-cover" />
+            ) : (
+              <ImageIcon className="w-4 h-4 text-zinc-700" />
+            )}
+          </div>
+
+          {/* Content */}
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex flex-wrap items-center gap-1">
+              {notice.session && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] border border-zinc-700 text-zinc-500 bg-zinc-800/60">
+                  {notice.session}
+                </span>
+              )}
+              {notice.tag && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] border border-zinc-700 text-zinc-500 bg-zinc-800/60">
+                  {notice.tag}
+                </span>
+              )}
+            </div>
+            <h3 className="text-xs font-semibold text-white leading-snug truncate">{notice.title}</h3>
+            {notice.description && (
+              <p className="text-[11px] text-zinc-500 leading-snug line-clamp-2">{notice.description}</p>
+            )}
+            {notice.prevention && (
+              <div className={cn('rounded-md border px-2 py-1 flex items-start gap-1.5', meta.callout)}>
+                <CalloutIcon className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                <p className="text-[11px] font-bold leading-snug line-clamp-2">{notice.prevention}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Edit / Delete */}
+          <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={(e) => { e.stopPropagation(); handleEditNotice(notice); }}
+              className="p-1 rounded-md bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-white transition-colors"
+            >
+              <Edit2 className="w-3 h-3" />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); handleDeleteNotice(notice.id); }}
+              className="p-1 rounded-md bg-black/60 backdrop-blur-sm text-zinc-400 hover:text-rose-400 transition-colors"
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    // One column (Price Action Insights or Anti-Mistakes & Traps) — always
+    // visible side by side, nothing to click through.
+    const renderColumn = (type: NoticeType) => {
+      const meta = NOTICE_TYPE_META[type];
+      const list = notices.filter(n => n.type === type && matchesFilters(n));
+      return (
+        <div className="min-w-0 space-y-3">
+          <div className={cn(
+            'flex items-center justify-between gap-2 px-3 py-2 rounded-lg border',
+            type === 'mistake' ? 'bg-rose-500/10 border-rose-500/30' : 'bg-cyan-500/10 border-cyan-500/30'
+          )}>
+            <div className="flex items-center gap-2 min-w-0">
+              <span>{meta.emoji}</span>
+              <h2 className={cn('text-sm font-semibold truncate', type === 'mistake' ? 'text-rose-300' : 'text-cyan-300')}>
+                {meta.tabLabel}
+              </h2>
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-black/30 text-zinc-300 flex-shrink-0">
+                {list.length}
+              </span>
+            </div>
+            <button
+              onClick={() => handleOpenAddNotice(type)}
+              className="p-1.5 rounded-lg bg-black/20 hover:bg-black/40 text-zinc-300 hover:text-white transition-colors flex-shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {list.length > 0 ? (
+            <div className="space-y-2">
+              {list.map(renderCompactCard)}
+            </div>
+          ) : (
+            <div className="text-center py-8 rounded-lg border border-dashed border-zinc-800 bg-zinc-900/30">
+              <p className="text-zinc-600 text-xs mb-2">
+                {notices.some(n => n.type === type) ? 'No matches for these filters' : `No ${meta.tabLabel.toLowerCase()} yet`}
+              </p>
+              <button
+                onClick={() => handleOpenAddNotice(type)}
+                className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+              >
+                <Plus className="w-3 h-3" />
+                Add {meta.shortLabel}
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    };
 
     return (
       <div className="space-y-6 min-w-0">
@@ -10645,7 +10757,7 @@ function App() {
           description="Anti-mistake database & price action playbook"
           actions={
             <button
-              onClick={handleOpenAddNotice}
+              onClick={() => handleOpenAddNotice('mistake')}
               className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors flex-shrink-0"
             >
               <Plus className="w-4 h-4" />
@@ -10654,46 +10766,7 @@ function App() {
           }
         />
 
-        {/* Category tabs — fill the full width, one on the left, one on the right.
-            Uses flex + flex-1 (with an inline flexBasis backup) instead of
-            CSS grid so each button is forced to exactly 50% width no matter
-            what — flex-1 is already used dozens of times elsewhere in this
-            file, so there's no risk of it being purged/missing from the
-            compiled CSS the way a less-common utility class could be. */}
-        <div className="flex gap-2 w-full">
-          {(Object.keys(NOTICE_TYPE_META) as NoticeType[]).map(t => {
-            const meta = NOTICE_TYPE_META[t];
-            const count = t === 'mistake' ? mistakeCount : insightCount;
-            const active = noticeTypeFilter === t;
-            return (
-              <button
-                key={t}
-                onClick={() => { setNoticeTypeFilter(t); setNoticeSessionFilter('all'); setNoticeTagFilter('all'); }}
-                style={{ flex: '1 1 0%' }}
-                className={cn(
-                  'flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all min-w-0',
-                  active
-                    ? t === 'mistake'
-                      ? 'bg-rose-500/10 border-rose-500/40 text-rose-300'
-                      : 'bg-cyan-500/10 border-cyan-500/40 text-cyan-300'
-                    : 'bg-zinc-900/50 border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700'
-                )}
-              >
-                <span>{meta.emoji}</span>
-                <span className="truncate">{meta.tabLabel}</span>
-                <span className={cn(
-                  'px-1.5 py-0.5 rounded-full text-[11px] flex-shrink-0',
-                  active ? 'bg-black/30' : 'bg-zinc-800 text-zinc-500'
-                )}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-
-        {/* Filters: Session / Tag */}
+        {/* Filters: Session / Tag — apply to both columns at once */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1.5 text-zinc-500">
             <Filter className="w-3.5 h-3.5" />
@@ -10727,125 +10800,14 @@ function App() {
               Clear filters
             </button>
           )}
-          <span className="text-xs text-zinc-600 ml-auto">
-            {filteredNotices.length} {filteredNotices.length === 1 ? 'notice' : 'notices'}
-          </span>
         </div>
 
-        {/* Card grid */}
-        {filteredNotices.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredNotices.map(notice => {
-              const meta = NOTICE_TYPE_META[notice.type];
-              const CalloutIcon = meta.calloutIcon;
-              return (
-                <div
-                  key={notice.id}
-                  className={cn(
-                    'group relative rounded-xl overflow-hidden border bg-zinc-900/50 transition-all flex flex-col min-w-0',
-                    meta.cardRing
-                  )}
-                >
-                  {/* Screenshot preview */}
-                  <div
-                    className="aspect-video w-full overflow-hidden bg-zinc-950 flex items-center justify-center cursor-pointer flex-shrink-0"
-                    onClick={() => notice.imageUrl && setLightboxImage(notice.imageUrl)}
-                  >
-                    {notice.imageUrl ? (
-                      <img
-                        src={notice.imageUrl}
-                        alt={notice.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <ImageIcon className="w-6 h-6 text-zinc-700" />
-                    )}
-                  </div>
-
-                  {/* Edit / Delete */}
-                  <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleEditNotice(notice); }}
-                      className="p-1.5 rounded-lg bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-white transition-colors"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDeleteNotice(notice.id); }}
-                      className="p-1.5 rounded-lg bg-black/60 backdrop-blur-sm text-zinc-400 hover:text-rose-400 transition-colors"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  <div className="p-4 space-y-3 flex-1 flex flex-col min-w-0">
-                    {/* Badges */}
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className={cn('px-2 py-0.5 rounded-full text-[11px] border font-medium', meta.badge)}>
-                        {meta.emoji} {meta.shortLabel}
-                      </span>
-                      {notice.session && (
-                        <span className="px-2 py-0.5 rounded-full text-[11px] border border-zinc-700 text-zinc-400 bg-zinc-800/60">
-                          {notice.session}
-                        </span>
-                      )}
-                      {notice.tag && (
-                        <span className="px-2 py-0.5 rounded-full text-[11px] border border-zinc-700 text-zinc-400 bg-zinc-800/60">
-                          {notice.tag}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Title */}
-                    <h3 className="text-sm font-semibold text-white leading-snug">{notice.title}</h3>
-
-                    {/* Description */}
-                    {notice.description && (
-                      <p className="text-xs text-zinc-400 leading-relaxed whitespace-pre-wrap break-words">
-                        {notice.description}
-                      </p>
-                    )}
-
-                    {/* Consequence / Risk */}
-                    {notice.consequence && (
-                      <div className="flex items-start gap-1.5 text-xs text-amber-300/90">
-                        <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                        <span className="leading-relaxed break-words"><span className="font-medium text-amber-300">Consequence:</span> {notice.consequence}</span>
-                      </div>
-                    )}
-
-                    {/* Prevention Rule / Solution callout */}
-                    {notice.prevention && (
-                      <div className={cn('mt-auto rounded-lg border px-3 py-2.5 flex items-start gap-2', meta.callout)}>
-                        <CalloutIcon className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                        <div className="min-w-0">
-                          <span className="block text-[10px] uppercase tracking-wider opacity-80 mb-0.5">{meta.calloutLabel}</span>
-                          <p className="text-xs font-bold leading-snug break-words">{notice.prevention}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="text-center py-14 rounded-xl border border-dashed border-zinc-800 bg-zinc-900/30">
-            <p className="text-2xl mb-2">{activeMeta.emoji}</p>
-            <p className="text-zinc-500 text-sm mb-3">
-              {notices.length === 0
-                ? 'No market notices logged yet'
-                : `No ${activeMeta.tabLabel.toLowerCase()} match these filters`}
-            </p>
-            <button
-              onClick={handleOpenAddNotice}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              Add Notice
-            </button>
-          </div>
-        )}
+        {/* Two always-visible columns: Price Action Insights on the left,
+            Anti-Mistakes & Traps on the right — nothing to click through. */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {renderColumn('insight')}
+          {renderColumn('mistake')}
+        </div>
 
         {/* Scenarios & Lessons table */}
         <div className="min-w-0">
