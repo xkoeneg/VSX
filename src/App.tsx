@@ -407,10 +407,44 @@ const renderCategoryIcon = (
   return <IconComp className={cn(className, 'flex-shrink-0', colorClass)} />;
 };
 
+// Sun-indexed to match JS Date#getDay() (0 = Sunday ... 6 = Saturday).
+type WeekDay = 'Sun' | 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat';
+const WEEKDAY_BY_JS_INDEX: WeekDay[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+// Mon-first order for the "Specific Days" checkbox row in the Configure
+// Challenge modal, matching the spec's listed order (Mon, Tue, ... Sun).
+const WEEKDAY_CHECKBOX_ORDER: WeekDay[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const WEEKDAY_FULL_NAME: Record<WeekDay, string> = {
+  Sun: 'Sunday', Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday', Sat: 'Saturday',
+};
+
 interface RoutineItem {
   id: string;
   text: string;
+  // Day-Specific (Weekly) Routines — optional; when absent/'daily' the item
+  // applies every day, exactly as before. Only meaningful when the parent
+  // challenge has weeklyRoutinesEnabled turned on (see ChallengeConfig);
+  // with that flag off, every item behaves as 'daily' regardless of these
+  // fields, so turning the feature off is always non-destructive.
+  frequency?: 'daily' | 'specific';
+  days?: WeekDay[]; // which day(s) this item applies to when frequency === 'specific'
 }
+
+// Parsed the same way formatDate() does (T00:00:00 local, not UTC) so the
+// weekday always matches what the user sees on their calendar/grid.
+const getWeekdayForDateKey = (dateKey: string): WeekDay =>
+  WEEKDAY_BY_JS_INDEX[new Date(`${dateKey}T00:00:00`).getDay()];
+
+// Whether a routine item is "in scope" for a given date. Daily items (the
+// default, and everything when the feature is off) always apply. A
+// Specific-Days item only applies on the weekday(s) it's scheduled for; if
+// it somehow has no days selected yet, it falls back to daily rather than
+// silently never appearing.
+const itemAppliesOnDate = (item: RoutineItem, dateKey: string, config: ChallengeConfig): boolean => {
+  if (!config.weeklyRoutinesEnabled) return true;
+  if (item.frequency !== 'specific') return true;
+  if (!item.days || item.days.length === 0) return true;
+  return item.days.includes(getWeekdayForDateKey(dateKey));
+};
 
 interface ChallengeConfig {
   title: string;
@@ -418,6 +452,11 @@ interface ChallengeConfig {
   recheckTokens: number; // max allowed grace re-checks for missed days
   motto: string; // optional identity / vision anchor
   categories: RoutineCategory[];
+  // Master switch for Day-Specific (Weekly) Routines. Off by default so
+  // existing challenges keep behaving exactly as before; turning it on
+  // unlocks the per-item Frequency/Schedule option and the "Today's Weekly
+  // Targets" section on the dashboard.
+  weeklyRoutinesEnabled?: boolean;
 }
 
 const DURATION_PRESET_OPTIONS = [21, 30, 75, 100];
@@ -433,6 +472,7 @@ const DEFAULT_CHALLENGE_CONFIG: ChallengeConfig = {
   durationDays: 100,
   recheckTokens: 3,
   motto: '',
+  weeklyRoutinesEnabled: false,
   categories: [
     { id: 'cat-morning-default', label: 'Morning Routine', iconKind: 'icon', iconValue: 'Sun', iconColor: 'amber', items: makeRoutineItems('cat-morning-default', ['Brush teeth twice a day', 'Face wash / Skincare', 'Hydrate']) },
     { id: 'cat-active-default', label: 'Active / Trading Focus', iconKind: 'icon', iconValue: 'Zap', iconColor: 'cyan', items: makeRoutineItems('cat-active-default', ['Gym / Workout', 'Clean eating', 'Sleep on time']) },
@@ -3692,6 +3732,10 @@ function App() {
   const [newRoutineItemText, setNewRoutineItemText] = useState<Record<string, string>>({});
   const [editingRoutineItem, setEditingRoutineItem] = useState<{ categoryId: string; id: string } | null>(null);
   const [editingRoutineItemText, setEditingRoutineItemText] = useState('');
+  // Which routine item's inline Frequency/Schedule editor (Daily vs
+  // Specific Days) is currently expanded — only one at a time, identified
+  // by category + item id, mirroring the icon picker's single-open pattern.
+  const [scheduleEditorOpenFor, setScheduleEditorOpenFor] = useState<{ categoryId: string; itemId: string } | null>(null);
   // Notion-style Category Icon/Emoji Picker — only one popover open at a
   // time, identified by the category id it belongs to.
   const [iconPickerOpenFor, setIconPickerOpenFor] = useState<string | null>(null);
@@ -3908,24 +3952,41 @@ function App() {
   };
 
   // Quick action: mark every habit across every routine group complete for
-  // the given date in a single click.
+  // the given date in a single click. Only touches items actually
+  // scheduled for that date — a Tuesday-only item stays whatever it was if
+  // this is clicked on a Monday, so it can't be silently pre-completed.
   const completeAllLifeDisciplineToday = (dateKey: string) => {
-    setLifeDisciplineChecks(prev => ({
-      ...prev,
-      [dateKey]: challengeConfig.categories.map(cat => cat.items.map(() => true)),
-    }));
+    setLifeDisciplineChecks(prev => {
+      const existing = prev[dateKey] || emptyLifeDisciplineChecks(challengeConfig);
+      return {
+        ...prev,
+        [dateKey]: challengeConfig.categories.map((cat, gI) =>
+          cat.items.map((item, iI) => (itemAppliesOnDate(item, dateKey, challengeConfig) ? true : !!existing[gI]?.[iI]))
+        ),
+      };
+    });
     showLifeDisciplineToast('✨ All habits marked complete for today');
   };
 
-  // A date "counts" as complete only once every checkbox across every
-  // category is checked (a challenge with zero categories is never "complete").
+  // A date "counts" as complete only once every checkbox for every item
+  // SCHEDULED ON THAT DATE is checked — items with a Specific-Days schedule
+  // that don't run on this weekday are skipped entirely rather than
+  // counted against (or for) the day. A day with zero applicable items
+  // (e.g. zero categories, or every item scheduled elsewhere this week) is
+  // never "complete".
   const isLifeDisciplineDayComplete = (dateKey: string) => {
     const dayChecks = lifeDisciplineChecks[dateKey];
     if (!dayChecks) return false;
     if (challengeConfig.categories.length === 0) return false;
-    return challengeConfig.categories.every((cat, gI) =>
-      cat.items.every((_, iI) => dayChecks[gI]?.[iI])
+    let hasApplicableItem = false;
+    const allApplicableChecked = challengeConfig.categories.every((cat, gI) =>
+      cat.items.every((item, iI) => {
+        if (!itemAppliesOnDate(item, dateKey, challengeConfig)) return true; // not scheduled today — skip
+        hasApplicableItem = true;
+        return !!dayChecks[gI]?.[iI];
+      })
     );
+    return hasApplicableItem && allApplicableChecked;
   };
 
   // Re-check (grace) tokens: how many of the configured allowance have
@@ -3989,9 +4050,11 @@ function App() {
 
     if (!isCurrentlyChecked) {
       // About to check an item — count how many X's remain across the
-      // whole day. If this is the last one, block it and nudge instead.
+      // items actually scheduled for this date. If this is the last one,
+      // block it and nudge instead.
       const uncheckedCount = challengeConfig.categories.reduce((total, cat, gI) => {
-        return total + cat.items.reduce((sub, _item, iI) => {
+        return total + cat.items.reduce((sub, item, iI) => {
+          if (!itemAppliesOnDate(item, dateKey, challengeConfig)) return sub; // not scheduled — doesn't count
           const checked = gI === groupIdx && iI === itemIdx ? true : !!dayChecks[gI]?.[iI];
           return sub + (checked ? 0 : 1);
         }, 0);
@@ -4157,6 +4220,7 @@ function App() {
     setIsCustomDuration(!DURATION_PRESET_OPTIONS.includes(challengeConfig.durationDays));
     setNewRoutineItemText(Object.fromEntries(challengeConfig.categories.map(cat => [cat.id, ''])));
     setEditingRoutineItem(null);
+    setScheduleEditorOpenFor(null);
     setIsLoadPresetMenuOpen(false);
     setIsSavingPresetDraft(false);
     setSavePresetNameDraft('');
@@ -4256,6 +4320,9 @@ function App() {
         cat.id === categoryId ? { ...cat, items: cat.items.filter(i => i.id !== id) } : cat
       ),
     }));
+    if (scheduleEditorOpenFor?.categoryId === categoryId && scheduleEditorOpenFor?.itemId === id) {
+      setScheduleEditorOpenFor(null);
+    }
     setItemPendingDelete(null);
   };
 
@@ -4279,6 +4346,56 @@ function App() {
     }
     setEditingRoutineItem(null);
     setEditingRoutineItemText('');
+  };
+
+  // Master toggle for Day-Specific (Weekly) Routines. Turning it off is
+  // intentionally non-destructive — any per-item frequency/days already set
+  // are left in the draft untouched, just ignored everywhere (itemAppliesOnDate
+  // treats every item as daily while the flag is off), so re-enabling it
+  // later brings back exactly what was configured before.
+  const toggleWeeklyRoutinesEnabled = () => {
+    setChallengeConfigDraft(prev => ({ ...prev, weeklyRoutinesEnabled: !prev.weeklyRoutinesEnabled }));
+    setScheduleEditorOpenFor(null);
+  };
+
+  const toggleItemScheduleEditor = (categoryId: string, itemId: string) => {
+    setScheduleEditorOpenFor(prev =>
+      prev && prev.categoryId === categoryId && prev.itemId === itemId ? null : { categoryId, itemId }
+    );
+  };
+
+  // Sets an item's Frequency to Daily or Specific Days. Switching to
+  // Specific Days starts with no days selected yet (itemAppliesOnDate
+  // treats that as "applies every day" until at least one is picked, so
+  // the item never silently disappears mid-edit).
+  const setDraftItemFrequency = (categoryId: string, itemId: string, frequency: 'daily' | 'specific') => {
+    setChallengeConfigDraft(prev => ({
+      ...prev,
+      categories: prev.categories.map(cat =>
+        cat.id === categoryId
+          ? { ...cat, items: cat.items.map(i => (i.id === itemId ? { ...i, frequency, days: frequency === 'daily' ? [] : (i.days || []) } : i)) }
+          : cat
+      ),
+    }));
+  };
+
+  const toggleDraftItemDay = (categoryId: string, itemId: string, day: WeekDay) => {
+    setChallengeConfigDraft(prev => ({
+      ...prev,
+      categories: prev.categories.map(cat =>
+        cat.id === categoryId
+          ? {
+              ...cat,
+              items: cat.items.map(i => {
+                if (i.id !== itemId) return i;
+                const days = i.days || [];
+                const nextDays = days.includes(day) ? days.filter(d => d !== day) : [...days, day];
+                return { ...i, days: nextDays };
+              }),
+            }
+          : cat
+      ),
+    }));
   };
 
   // ---- Dynamic Category Block helpers (add / rename / delete whole groups) ----
@@ -4340,6 +4457,7 @@ function App() {
       setEditingRoutineItemText('');
     }
     if (iconPickerOpenFor === categoryId) setIconPickerOpenFor(null);
+    if (scheduleEditorOpenFor?.categoryId === categoryId) setScheduleEditorOpenFor(null);
     setCategoryPendingDelete(null);
   };
 
@@ -7373,14 +7491,44 @@ function App() {
   const renderLifeDisciplineHub = () => {
     const todayKey = new Date().toISOString().slice(0, 10);
     const todayChecks = lifeDisciplineChecks[todayKey] || emptyLifeDisciplineChecks(challengeConfig);
+    const todayWeekday = getWeekdayForDateKey(todayKey);
+    const weeklyRoutinesEnabled = !!challengeConfig.weeklyRoutinesEnabled;
 
     // Live routine categories: fully user-configured — however many the
     // user has added (could be 0, 1, 4, or more), in whatever order they
     // were created, each with its own dynamic item list.
     const routineGroups = challengeConfig.categories;
 
-    const totalItems = routineGroups.reduce((sum, g) => sum + g.items.length, 0);
-    const checkedItems = todayChecks.reduce((sum, group) => sum + group.filter(Boolean).length, 0);
+    // Today's Weekly Targets: Specific-Days items across every category
+    // that happen to be scheduled for today's weekday. Kept out of the
+    // standard per-category cards below and surfaced in their own section
+    // instead, so the everyday Daily Checklist view stays uncluttered on
+    // days those items don't apply.
+    const weeklyTargetsToday: { group: RoutineCategory; gI: number; item: RoutineItem; iI: number }[] = [];
+    if (weeklyRoutinesEnabled) {
+      routineGroups.forEach((group, gI) => {
+        group.items.forEach((item, iI) => {
+          if (item.frequency === 'specific' && item.days && item.days.length > 0 && item.days.includes(todayWeekday)) {
+            weeklyTargetsToday.push({ group, gI, item, iI });
+          }
+        });
+      });
+    }
+    const isWeeklyTargetItem = (item: RoutineItem) =>
+      weeklyRoutinesEnabled && item.frequency === 'specific' && !!item.days && item.days.length > 0;
+
+    // Today's Progress / Complete All only consider items actually in
+    // scope for today — daily items, plus any Weekly Target scheduled for
+    // today's weekday. An item scheduled for a different day doesn't count
+    // toward either the numerator or denominator.
+    const totalItems = routineGroups.reduce(
+      (sum, g) => sum + g.items.filter(item => itemAppliesOnDate(item, todayKey, challengeConfig)).length, 0
+    );
+    const checkedItems = routineGroups.reduce(
+      (sum, g, gI) => sum + g.items.reduce(
+        (s, item, iI) => s + (itemAppliesOnDate(item, todayKey, challengeConfig) && todayChecks[gI]?.[iI] ? 1 : 0), 0
+      ), 0
+    );
     const todayComplete = totalItems > 0 && checkedItems === totalItems;
 
     // Build the Day 1..N grid against the stored challenge start date.
@@ -7547,9 +7695,16 @@ function App() {
           ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {routineGroups.map((group, gI) => {
+              // Weekly Target items (Specific-Days, scheduled or not for
+              // today) live in their own section below — this card only
+              // shows the category's Daily items, so the everyday view
+              // doesn't get cluttered with tasks that aren't relevant today.
+              const dailyItemsWithIndex = group.items
+                .map((item, iI) => ({ item, iI }))
+                .filter(({ item }) => !isWeeklyTargetItem(item));
               const groupChecks = todayChecks[gI] || group.items.map(() => false);
-              const groupCheckedCount = groupChecks.filter(Boolean).length;
-              const groupComplete = group.items.length > 0 && groupCheckedCount === group.items.length;
+              const groupCheckedCount = dailyItemsWithIndex.filter(({ iI }) => !!groupChecks[iI]).length;
+              const groupComplete = dailyItemsWithIndex.length > 0 && groupCheckedCount === dailyItemsWithIndex.length;
               return (
                 <div
                   key={group.id}
@@ -7569,14 +7724,18 @@ function App() {
                           : 'bg-zinc-800 text-zinc-400 border-zinc-700'
                       )}
                     >
-                      {groupCheckedCount}/{group.items.length}{groupComplete ? ' Ready' : ''}
+                      {groupCheckedCount}/{dailyItemsWithIndex.length}{groupComplete ? ' Ready' : ''}
                     </span>
                   </div>
                   <div className="space-y-2">
-                    {group.items.length === 0 && (
-                      <p className="text-xs text-zinc-500 italic select-none">No routine items — add some in Configure Challenge.</p>
+                    {dailyItemsWithIndex.length === 0 && (
+                      <p className="text-xs text-zinc-500 italic select-none">
+                        {group.items.length === 0
+                          ? 'No routine items — add some in Configure Challenge.'
+                          : 'All items here are scheduled on specific days — see Weekly Targets below.'}
+                      </p>
                     )}
-                    {group.items.map((item, iI) => {
+                    {dailyItemsWithIndex.map(({ item, iI }) => {
                       const checked = !!groupChecks[iI];
                       return (
                         <label
@@ -7610,6 +7769,56 @@ function App() {
               );
             })}
           </div>
+          )}
+
+          {/* TODAY'S WEEKLY TARGETS — Specific-Days items scheduled for
+              today's weekday only. Hidden entirely when the feature is off,
+              or when nothing happens to be scheduled today, so days with
+              no weekly targets stay just as clean as before. */}
+          {weeklyRoutinesEnabled && weeklyTargetsToday.length > 0 && (
+            <div className="mt-4 rounded-xl border border-cyan-500/25 bg-cyan-500/[0.06] p-4">
+              <div className="flex items-center gap-2 mb-3 pb-3 border-b border-cyan-500/20 select-none">
+                <span className="text-base leading-none">📅</span>
+                <span className="text-sm font-semibold text-cyan-200 truncate">
+                  {WEEKDAY_FULL_NAME[todayWeekday]} Specifics
+                </span>
+                <span className="ml-auto flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border border-cyan-500/30 bg-cyan-500/15 text-cyan-300 whitespace-nowrap">
+                  {weeklyTargetsToday.filter(({ gI, iI }) => !!todayChecks[gI]?.[iI]).length}/{weeklyTargetsToday.length} Today
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+                {weeklyTargetsToday.map(({ group, gI, item, iI }) => {
+                  const checked = !!todayChecks[gI]?.[iI];
+                  return (
+                    <label
+                      key={item.id}
+                      className="flex items-center gap-2.5 cursor-pointer group select-none"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleLifeDisciplineItem(todayKey, gI, iI)}
+                        className="sr-only peer cursor-pointer"
+                      />
+                      <span
+                        className={cn(
+                          'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 cursor-pointer transition-all duration-200 ease-out',
+                          checked
+                            ? 'bg-cyan-500 border-cyan-400 scale-100'
+                            : 'border-zinc-600 group-hover:border-zinc-400 group-active:scale-90'
+                        )}
+                      >
+                        {checked && <Check className="w-3.5 h-3.5 text-white" />}
+                      </span>
+                      <span className={cn('text-sm select-none transition-colors truncate', checked ? 'text-zinc-300 line-through decoration-zinc-600' : 'text-zinc-300')}>
+                        {item.text}
+                      </span>
+                      <span className="flex-shrink-0 text-[10px] text-zinc-500 truncate">{group.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
 
@@ -7810,8 +8019,17 @@ function App() {
                       <div className="space-y-1.5">
                         {cat.items.length === 0 ? (
                           <p className="text-xs text-zinc-600 italic pl-5">No items in this category.</p>
-                        ) : (
-                          cat.items.map((item, iI) => {
+                        ) : (() => {
+                          // Only show items actually scheduled for this
+                          // date — a Thursday-only item shouldn't appear
+                          // (let alone count as Failed) on a Monday.
+                          const itemsForDate = cat.items
+                            .map((item, iI) => ({ item, iI }))
+                            .filter(({ item }) => itemAppliesOnDate(item, dateKey, challengeConfig));
+                          if (itemsForDate.length === 0) {
+                            return <p className="text-xs text-zinc-600 italic pl-5">No items scheduled for this day.</p>;
+                          }
+                          return itemsForDate.map(({ item, iI }) => {
                             // RE-CHECKED days render every item as completed —
                             // the token was spent to redeem the whole day, so
                             // the checklist reflects that regardless of the
@@ -7832,6 +8050,11 @@ function App() {
                                 <span className={cn('text-xs', checked ? 'text-zinc-300' : 'text-zinc-500')}>
                                   {item.text}
                                 </span>
+                                {challengeConfig.weeklyRoutinesEnabled && item.frequency === 'specific' && item.days && item.days.length > 0 && (
+                                  <span className="ml-auto flex-shrink-0 text-[9px] font-semibold text-cyan-300/80 bg-cyan-500/10 border border-cyan-500/20 rounded px-1.5 py-0.5">
+                                    📅 {item.days.length === 7 ? 'Daily' : item.days.join('/')}
+                                  </span>
+                                )}
                               </>
                             );
                             const containerClass = cn(
@@ -7852,8 +8075,8 @@ function App() {
                                 {itemContent}
                               </div>
                             );
-                          })
-                        )}
+                          });
+                        })()}
                       </div>
                     </div>
                   ))}
@@ -8292,6 +8515,34 @@ function App() {
               </>
             )}
 
+            {/* WEEKLY / DAY-SPECIFIC ROUTINES TOGGLE */}
+            <div className="flex items-center justify-between gap-4 px-4 py-3.5 rounded-xl bg-zinc-800/50 border border-zinc-800">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                  <CalendarDays className="w-4 h-4 text-cyan-400" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-white truncate">Enable Weekly / Day-Specific Routines</p>
+                  <p className="text-xs text-zinc-500 truncate">Schedule items to specific days (e.g. Shampoo every Thursday)</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={!!challengeConfigDraft.weeklyRoutinesEnabled}
+                onClick={toggleWeeklyRoutinesEnabled}
+                className={cn(
+                  'relative flex-shrink-0 w-10 h-6 rounded-full transition-colors',
+                  challengeConfigDraft.weeklyRoutinesEnabled ? 'bg-cyan-500' : 'bg-zinc-700'
+                )}
+              >
+                <span className={cn(
+                  'absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform',
+                  challengeConfigDraft.weeklyRoutinesEnabled && 'translate-x-4'
+                )} />
+              </button>
+            </div>
+
             {/* ROUTINE MANAGER */}
             <div>
               <div className="flex items-center justify-between gap-2 mb-2.5">
@@ -8433,37 +8684,115 @@ function App() {
                         {group.items.length === 0 && (
                           <p className="text-xs text-zinc-600 italic">No items yet.</p>
                         )}
-                        {group.items.map(item => (
-                          <div key={item.id} className="flex items-center gap-1.5 group">
-                            {editingRoutineItem?.categoryId === group.id && editingRoutineItem?.id === item.id ? (
-                              <input
-                                autoFocus
-                                type="text"
-                                value={editingRoutineItemText}
-                                onChange={(e) => setEditingRoutineItemText(e.target.value)}
-                                onKeyDown={(e) => { if (e.key === 'Enter') commitEditDraftRoutineItem(); if (e.key === 'Escape') setEditingRoutineItem(null); }}
-                                onBlur={commitEditDraftRoutineItem}
-                                className="flex-1 min-w-0 px-2 py-1 rounded-md bg-zinc-900 border border-amber-500/50 text-xs text-white focus:outline-none"
-                              />
-                            ) : (
-                              <span className="flex-1 min-w-0 text-xs text-zinc-300 truncate">{item.text}</span>
-                            )}
-                            <button
-                              onClick={() => startEditDraftRoutineItem(group.id, item)}
-                              className="opacity-0 group-hover:opacity-100 p-1 rounded text-zinc-500 hover:text-white hover:bg-zinc-700 transition-all flex-shrink-0"
-                              aria-label="Edit item"
-                            >
-                              <Edit2 className="w-3 h-3" />
-                            </button>
-                            <button
-                              onClick={() => requestDeleteDraftRoutineItem(group.id, item.id, item.text)}
-                              className="opacity-0 group-hover:opacity-100 p-1 rounded text-zinc-500 hover:text-rose-400 hover:bg-zinc-700 transition-all flex-shrink-0"
-                              aria-label="Delete item"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          </div>
-                        ))}
+                        {group.items.map(item => {
+                          const isScheduleOpen = scheduleEditorOpenFor?.categoryId === group.id && scheduleEditorOpenFor?.itemId === item.id;
+                          const isSpecific = item.frequency === 'specific';
+                          const scheduleLabel = isSpecific
+                            ? (item.days && item.days.length > 0 ? item.days.join('/') : 'Pick days')
+                            : 'Daily';
+                          return (
+                            <div key={item.id} className="group">
+                              <div className="flex items-center gap-1.5">
+                                {editingRoutineItem?.categoryId === group.id && editingRoutineItem?.id === item.id ? (
+                                  <input
+                                    autoFocus
+                                    type="text"
+                                    value={editingRoutineItemText}
+                                    onChange={(e) => setEditingRoutineItemText(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') commitEditDraftRoutineItem(); if (e.key === 'Escape') setEditingRoutineItem(null); }}
+                                    onBlur={commitEditDraftRoutineItem}
+                                    className="flex-1 min-w-0 px-2 py-1 rounded-md bg-zinc-900 border border-amber-500/50 text-xs text-white focus:outline-none"
+                                  />
+                                ) : (
+                                  <span className="flex-1 min-w-0 text-xs text-zinc-300 truncate">{item.text}</span>
+                                )}
+                                {challengeConfigDraft.weeklyRoutinesEnabled && (
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleItemScheduleEditor(group.id, item.id)}
+                                    className={cn(
+                                      'flex-shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border transition-all whitespace-nowrap',
+                                      isSpecific
+                                        ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20'
+                                        : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600'
+                                    )}
+                                    title="Set Frequency / Schedule"
+                                  >
+                                    <CalendarDays className="w-3 h-3" />
+                                    {scheduleLabel}
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => startEditDraftRoutineItem(group.id, item)}
+                                  className="opacity-0 group-hover:opacity-100 p-1 rounded text-zinc-500 hover:text-white hover:bg-zinc-700 transition-all flex-shrink-0"
+                                  aria-label="Edit item"
+                                >
+                                  <Edit2 className="w-3 h-3" />
+                                </button>
+                                <button
+                                  onClick={() => requestDeleteDraftRoutineItem(group.id, item.id, item.text)}
+                                  className="opacity-0 group-hover:opacity-100 p-1 rounded text-zinc-500 hover:text-rose-400 hover:bg-zinc-700 transition-all flex-shrink-0"
+                                  aria-label="Delete item"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                              {isScheduleOpen && (
+                                <div className="mt-1.5 mb-0.5 p-2 rounded-md bg-zinc-900 border border-zinc-700 space-y-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => setDraftItemFrequency(group.id, item.id, 'daily')}
+                                      className={cn(
+                                        'px-2 py-1 rounded text-[10px] font-medium transition-all',
+                                        !isSpecific ? 'bg-amber-500 text-black' : 'bg-zinc-800 text-zinc-400 hover:text-white'
+                                      )}
+                                    >
+                                      Daily
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setDraftItemFrequency(group.id, item.id, 'specific')}
+                                      className={cn(
+                                        'px-2 py-1 rounded text-[10px] font-medium transition-all',
+                                        isSpecific ? 'bg-cyan-500 text-black' : 'bg-zinc-800 text-zinc-400 hover:text-white'
+                                      )}
+                                    >
+                                      Specific Days
+                                    </button>
+                                  </div>
+                                  {isSpecific && (
+                                    <div className="flex flex-wrap gap-1">
+                                      {WEEKDAY_CHECKBOX_ORDER.map(day => {
+                                        const active = !!item.days?.includes(day);
+                                        return (
+                                          <button
+                                            key={day}
+                                            type="button"
+                                            onClick={() => toggleDraftItemDay(group.id, item.id, day)}
+                                            className={cn(
+                                              'w-8 py-1 rounded text-[10px] font-semibold border transition-all',
+                                              active
+                                                ? 'bg-cyan-500 border-cyan-400 text-black'
+                                                : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-600'
+                                            )}
+                                          >
+                                            {day}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                  {isSpecific && (!item.days || item.days.length === 0) && (
+                                    <p className="text-[10px] text-amber-400/80 italic">
+                                      No days selected yet — applies daily until you pick at least one.
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                       <div className="flex items-center gap-1.5">
                         <input
