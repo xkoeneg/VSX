@@ -7781,52 +7781,68 @@ function App() {
           {/* TODAY'S WEEKLY TARGETS — Specific-Days items scheduled for
               today's weekday only. Hidden entirely when the feature is off,
               or when nothing happens to be scheduled today, so days with
-              no weekly targets stay just as clean as before. */}
-          {weeklyRoutinesEnabled && weeklyTargetsToday.length > 0 && (
-            <div className="mt-4 rounded-xl border border-zinc-800/70 bg-zinc-800/30 p-4">
-              <div className="flex items-center gap-2 mb-3 pb-3 border-b border-zinc-800/60 select-none">
-                <CalendarDays className="w-4 h-4 text-zinc-400 flex-shrink-0" strokeWidth={2} />
-                <span className="text-sm font-semibold text-white truncate">
-                  {WEEKDAY_FULL_NAME[todayWeekday]} Specifics
-                </span>
-                <span className="ml-auto flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border border-zinc-700 bg-zinc-800 text-zinc-400 whitespace-nowrap">
-                  {weeklyTargetsToday.filter(({ gI, iI }) => !!todayChecks[gI]?.[iI]).length}/{weeklyTargetsToday.length} Today
-                </span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
-                {weeklyTargetsToday.map(({ group, gI, item, iI }) => {
-                  const checked = !!todayChecks[gI]?.[iI];
-                  return (
-                    <label
-                      key={item.id}
-                      className="flex items-center gap-2.5 cursor-pointer group select-none"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleLifeDisciplineItem(todayKey, gI, iI)}
-                        className="sr-only peer cursor-pointer"
-                      />
-                      <span
-                        className={cn(
-                          'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 cursor-pointer transition-all duration-200 ease-out',
-                          checked
-                            ? 'bg-emerald-500 border-emerald-400 scale-100'
-                            : 'border-zinc-600 group-hover:border-zinc-400 group-active:scale-90'
-                        )}
+              no weekly targets stay just as clean as before. Mirrors the
+              daily cards' green "complete" styling once every item
+              scheduled for today is checked off. */}
+          {weeklyRoutinesEnabled && weeklyTargetsToday.length > 0 && (() => {
+            const weeklyTargetsComplete = weeklyTargetsToday.every(({ gI, iI }) => !!todayChecks[gI]?.[iI]);
+            const weeklyCheckedCount = weeklyTargetsToday.filter(({ gI, iI }) => !!todayChecks[gI]?.[iI]).length;
+            return (
+              <div className={cn(
+                'mt-4 rounded-xl border p-4 transition-colors',
+                weeklyTargetsComplete ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-zinc-800/30 border-zinc-800/70'
+              )}>
+                <div className="flex items-center gap-2 mb-3 pb-3 border-b border-zinc-800/60 select-none">
+                  <CalendarDays className={cn('w-4 h-4 flex-shrink-0', weeklyTargetsComplete ? 'text-emerald-400' : 'text-zinc-400')} strokeWidth={2} />
+                  <span className="text-sm font-semibold text-white truncate">
+                    {WEEKDAY_FULL_NAME[todayWeekday]} Specifics
+                  </span>
+                  <span
+                    className={cn(
+                      'ml-auto flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap',
+                      weeklyTargetsComplete
+                        ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                        : 'bg-zinc-800 text-zinc-400 border-zinc-700'
+                    )}
+                  >
+                    {weeklyCheckedCount}/{weeklyTargetsToday.length}{weeklyTargetsComplete ? ' Ready' : ' Today'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+                  {weeklyTargetsToday.map(({ group, gI, item, iI }) => {
+                    const checked = !!todayChecks[gI]?.[iI];
+                    return (
+                      <label
+                        key={item.id}
+                        className="flex items-center gap-2.5 cursor-pointer group select-none"
                       >
-                        {checked && <Check className="w-3.5 h-3.5 text-white" />}
-                      </span>
-                      <span className={cn('text-sm select-none transition-colors truncate', checked ? 'text-zinc-300 line-through decoration-zinc-600' : 'text-zinc-300')}>
-                        {item.text}
-                      </span>
-                      <span className="flex-shrink-0 text-[10px] text-zinc-500 truncate">{group.label}</span>
-                    </label>
-                  );
-                })}
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleLifeDisciplineItem(todayKey, gI, iI)}
+                          className="sr-only peer cursor-pointer"
+                        />
+                        <span
+                          className={cn(
+                            'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 cursor-pointer transition-all duration-200 ease-out',
+                            checked
+                              ? 'bg-emerald-500 border-emerald-400 scale-100'
+                              : 'border-zinc-600 group-hover:border-zinc-400 group-active:scale-90'
+                          )}
+                        >
+                          {checked && <Check className="w-3.5 h-3.5 text-white" />}
+                        </span>
+                        <span className={cn('text-sm select-none transition-colors truncate', checked ? 'text-zinc-300 line-through decoration-zinc-600' : 'text-zinc-300')}>
+                          {item.text}
+                        </span>
+                        <span className="flex-shrink-0 text-[10px] text-zinc-500 truncate">{group.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
 
         {/* DYNAMIC CHALLENGE PROGRESS GRID */}
