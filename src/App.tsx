@@ -445,6 +445,23 @@ interface RoutineItem {
 const getWeekdayForDateKey = (dateKey: string): WeekDay =>
   WEEKDAY_BY_JS_INDEX[new Date(`${dateKey}T00:00:00`).getDay()];
 
+// Formats a Date as a YYYY-MM-DD key using its LOCAL calendar date — NOT
+// date.toISOString().slice(0, 10), which reads the date back out in UTC.
+// For any positive UTC offset (e.g. UTC+8), a local midnight Date can still
+// be "yesterday" in UTC, so toISOString() silently returns the wrong day.
+// That wrong dateKey then flows into getWeekdayForDateKey() above and
+// resolves the wrong weekday — e.g. a grid day that's actually a Saturday
+// gets treated as a Friday, so 'Sat'-tagged Weekly Routine items never
+// match and the "[Weekday] Specifics" section quietly disappears. Every
+// dateKey derived from "today" or from stepping through the challenge grid
+// must go through this helper instead.
+const getLocalDateKey = (date: Date = new Date()): string => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 // Whether a routine item is "in scope" for a given date. Daily items (the
 // default, and everything when the feature is off) always apply. A
 // Specific-Days item only applies on the weekday(s) it's scheduled for; if
@@ -3656,7 +3673,7 @@ function App() {
   //          config: ChallengeConfig }
   // checks[date][categoryIndex][itemIndex] mirrors config.categories order,
   // with each category's items pulled from config.categories[i].items.
-  const [lifeDisciplineStartDate, setLifeDisciplineStartDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [lifeDisciplineStartDate, setLifeDisciplineStartDate] = useState<string>(() => getLocalDateKey());
   const [lifeDisciplineChecks, setLifeDisciplineChecks] = useState<Record<string, boolean[][]>>({});
   // Dates that missed full completion but were "saved" using a re-check
   // (grace) token, up to the challenge's configured token allowance.
@@ -4502,7 +4519,7 @@ function App() {
   const saveChallengeConfig = () => {
     const cleaned = cleanChallengeConfigDraft();
     setChallengeConfig(cleaned);
-    setLifeDisciplineStartDate(new Date().toISOString().slice(0, 10));
+    setLifeDisciplineStartDate(getLocalDateKey());
     setLifeDisciplineChecks({});
     setLifeDisciplineGraceDays({});
     setLifeDisciplineMissedReasons({});
@@ -7496,7 +7513,7 @@ function App() {
   // A separate, self-contained daily-habit checklist + N-day challenge grid.
   // Intentionally decoupled from the trading journal's trade/rule data.
   const renderLifeDisciplineHub = () => {
-    const todayKey = new Date().toISOString().slice(0, 10);
+    const todayKey = getLocalDateKey();
     const todayChecks = lifeDisciplineChecks[todayKey] || emptyLifeDisciplineChecks(challengeConfig);
     const todayWeekday = getWeekdayForDateKey(todayKey);
     const weeklyRoutinesEnabled = !!challengeConfig.weeklyRoutinesEnabled;
@@ -7565,7 +7582,7 @@ function App() {
     const gridDays = Array.from({ length: challengeConfig.durationDays }, (_, i) => {
       const d = new Date(start);
       d.setDate(d.getDate() + i);
-      const dateKey = d.toISOString().slice(0, 10);
+      const dateKey = getLocalDateKey(d);
       const isFuture = d.getTime() > today.getTime();
       const isToday = d.getTime() === today.getTime();
       const complete = isLifeDisciplineDayComplete(dateKey);
@@ -7588,7 +7605,7 @@ function App() {
     // through the end date inclusive, floored at 0 once the challenge is over.
     const endDate = new Date(start);
     endDate.setDate(endDate.getDate() + challengeConfig.durationDays - 1);
-    const endDateKey = endDate.toISOString().slice(0, 10);
+    const endDateKey = getLocalDateKey(endDate);
     const msPerDay = 1000 * 60 * 60 * 24;
     const daysRemaining = Math.max(0, Math.round((endDate.getTime() - today.getTime()) / msPerDay));
 
@@ -8013,7 +8030,7 @@ function App() {
   const renderDayDetailsModal = () => {
     if (!dayDetailsModal) return null;
     const { dateKey, day } = dayDetailsModal;
-    const todayKeyForModal = new Date().toISOString().slice(0, 10);
+    const todayKeyForModal = getLocalDateKey();
     const isFuture = dateKey > todayKeyForModal;
     const isToday = dateKey === todayKeyForModal;
     const complete = isLifeDisciplineDayComplete(dateKey);
