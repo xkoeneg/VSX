@@ -468,9 +468,9 @@ const getLocalDateKey = (date: Date = new Date()): string => {
 // it somehow has no days selected yet, it falls back to daily rather than
 // silently never appearing.
 const itemAppliesOnDate = (item: RoutineItem, dateKey: string, config: ChallengeConfig): boolean => {
-  if (!config.weeklyRoutinesEnabled) return true;
-  if (item.frequency !== 'specific') return true;
-  if (!item.days || item.days.length === 0) return true;
+  if (item.frequency !== 'specific') return true; // plain daily item — always in scope
+  if (!config.weeklyRoutinesEnabled) return false; // weekly feature off — Specific-Days items are out of scope entirely
+  if (!item.days || item.days.length === 0) return false; // no day assigned yet — doesn't apply to any date yet
   return item.days.includes(getWeekdayForDateKey(dateKey));
 };
 
@@ -7563,17 +7563,18 @@ function App() {
       weeklyRoutinesEnabled && item.frequency === 'specific' && !!item.days && item.days.length > 0;
 
     // Today's Progress / Complete All only consider items actually in
-    // scope for today — daily items, plus any Weekly Target scheduled for
-    // today's weekday. An item scheduled for a different day doesn't count
-    // toward either the numerator or denominator.
-    const totalItems = routineGroups.reduce(
-      (sum, g) => sum + g.items.filter(item => itemAppliesOnDate(item, todayKey, challengeConfig)).length, 0
-    );
-    const checkedItems = routineGroups.reduce(
-      (sum, g, gI) => sum + g.items.reduce(
-        (s, item, iI) => s + (itemAppliesOnDate(item, todayKey, challengeConfig) && todayChecks[gI]?.[iI] ? 1 : 0), 0
+    // scope for today — every item in a genuine daily category, plus any
+    // Weekly Target already resolved above for today's weekday. Sourced
+    // from dailyOnlyGroups + weeklyTargetsToday (both scoped strictly by
+    // category id) rather than re-scanning all categories, so an
+    // unconfigured or off-day item from the Weekly card can never inflate
+    // the count.
+    const totalItems = dailyOnlyGroups.reduce((sum, { group }) => sum + group.items.length, 0) + weeklyTargetsToday.length;
+    const checkedItems = dailyOnlyGroups.reduce(
+      (sum, { group, gI }) => sum + group.items.reduce(
+        (s, item, iI) => s + (todayChecks[gI]?.[iI] ? 1 : 0), 0
       ), 0
-    );
+    ) + weeklyTargetsToday.reduce((sum, { gI, iI }) => sum + (todayChecks[gI]?.[iI] ? 1 : 0), 0);
     const todayComplete = totalItems > 0 && checkedItems === totalItems;
 
     // Build the Day 1..N grid against the stored challenge start date.
