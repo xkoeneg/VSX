@@ -7809,7 +7809,7 @@ function App() {
                   </span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
-                  {weeklyTargetsToday.map(({ group, gI, item, iI }) => {
+                  {weeklyTargetsToday.map(({ gI, item, iI }) => {
                     const checked = !!todayChecks[gI]?.[iI];
                     return (
                       <label
@@ -7835,7 +7835,6 @@ function App() {
                         <span className={cn('text-sm select-none transition-colors truncate', checked ? 'text-zinc-300 line-through decoration-zinc-600' : 'text-zinc-300')}>
                           {item.text}
                         </span>
-                        <span className="flex-shrink-0 text-[10px] text-zinc-500 truncate">{group.label}</span>
                       </label>
                     );
                   })}
