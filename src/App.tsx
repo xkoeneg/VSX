@@ -7784,13 +7784,13 @@ function App() {
               or when nothing happens to be scheduled today, so days with
               no weekly targets stay just as clean as before. */}
           {weeklyRoutinesEnabled && weeklyTargetsToday.length > 0 && (
-            <div className="mt-4 rounded-xl border border-cyan-500/25 bg-cyan-500/[0.06] p-4">
-              <div className="flex items-center gap-2 mb-3 pb-3 border-b border-cyan-500/20 select-none">
-                <span className="text-base leading-none">📅</span>
-                <span className="text-sm font-semibold text-cyan-200 truncate">
+            <div className="mt-4 rounded-xl border border-zinc-800/70 bg-zinc-800/30 p-4">
+              <div className="flex items-center gap-2 mb-3 pb-3 border-b border-zinc-800/60 select-none">
+                <CalendarDays className="w-4 h-4 text-zinc-400 flex-shrink-0" strokeWidth={2} />
+                <span className="text-sm font-semibold text-white truncate">
                   {WEEKDAY_FULL_NAME[todayWeekday]} Specifics
                 </span>
-                <span className="ml-auto flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border border-cyan-500/30 bg-cyan-500/15 text-cyan-300 whitespace-nowrap">
+                <span className="ml-auto flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border border-zinc-700 bg-zinc-800 text-zinc-400 whitespace-nowrap">
                   {weeklyTargetsToday.filter(({ gI, iI }) => !!todayChecks[gI]?.[iI]).length}/{weeklyTargetsToday.length} Today
                 </span>
               </div>
@@ -7812,7 +7812,7 @@ function App() {
                         className={cn(
                           'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 cursor-pointer transition-all duration-200 ease-out',
                           checked
-                            ? 'bg-cyan-500 border-cyan-400 scale-100'
+                            ? 'bg-emerald-500 border-emerald-400 scale-100'
                             : 'border-zinc-600 group-hover:border-zinc-400 group-active:scale-90'
                         )}
                       >
