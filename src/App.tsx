@@ -891,34 +891,6 @@ const formatEventTimeLeft = (dateISO: string, nowMs: number): string => {
   return `${mins}min`;
 };
 
-// Fail-safe fallback: a realistic set of High-impact USD "red folder"
-// events spread across the current week (PH time), used only when every
-// live feed attempt (direct + proxied) fails. Guarantees the table always
-// has something to show instead of a hard error/empty state — dates are
-// generated relative to "now" each time this is called, so they always
-// land in the current week regardless of when the app is opened.
-const buildFallbackEconomicEvents = (): EconomicEvent[] => {
-  const now = new Date();
-  // Anchor to this week's Monday (PH time) so events land across Mon–Fri.
-  const phKey = getPHDateKey(now);
-  const mondayKey = addDaysToKey(phKey, -((new Date(`${phKey}T00:00:00Z`).getUTCDay() + 6) % 7));
-  const at = (dayOffset: number, hour: number, minute: number): string => {
-    const dayKey = addDaysToKey(mondayKey, dayOffset);
-    const [y, m, d] = dayKey.split('-').map(Number);
-    // PH is UTC+8 — build the UTC instant that corresponds to that PH wall-clock time.
-    return new Date(Date.UTC(y, m - 1, d, hour - 8, minute)).toISOString();
-  };
-  const items: Array<Omit<EconomicEvent, 'id'>> = [
-    { title: 'Fed Chair Speech', currency: 'USD', dateISO: at(0, 21, 30), impact: 'High', previous: '—', forecast: '—', actual: '—' },
-    { title: 'CPI m/m', currency: 'USD', dateISO: at(1, 20, 30), impact: 'High', previous: '0.3%', forecast: '0.3%', actual: '—' },
-    { title: 'Core Retail Sales m/m', currency: 'USD', dateISO: at(2, 20, 30), impact: 'High', previous: '0.2%', forecast: '0.3%', actual: '—' },
-    { title: 'Unemployment Claims', currency: 'USD', dateISO: at(3, 20, 30), impact: 'High', previous: '224K', forecast: '221K', actual: '—' },
-    { title: 'Non-Farm Employment Change', currency: 'USD', dateISO: at(4, 20, 30), impact: 'High', previous: '175K', forecast: '180K', actual: '—' },
-    { title: 'FOMC Statement', currency: 'USD', dateISO: at(4, 2, 0), impact: 'High', previous: '—', forecast: '—', actual: '—' },
-  ];
-  return items.map(e => ({ ...e, id: `fallback-${e.currency}-${e.title}-${e.dateISO}` }));
-};
-
 // ============================================================
 // DATA SCHEMA VERSIONING & MIGRATION
 //
@@ -3334,14 +3306,8 @@ function App() {
   const [economicEvents, setEconomicEvents] = useState<EconomicEvent[]>([]);
   const [economicEventsLoading, setEconomicEventsLoading] = useState(false);
   const [economicEventsError, setEconomicEventsError] = useState<string | null>(null);
-  // True when the live feed (direct + proxied) couldn't be reached and
-  // we're showing the built-in fallback sample events instead. This is
-  // never treated as a hard error — the table stays populated either way.
-  const [economicEventsIsFallback, setEconomicEventsIsFallback] = useState(false);
-  // Defaults to "This Week" so the table has visible rows the moment the
-  // page opens, rather than depending on today happening to have a
-  // High-impact release.
-  const [calendarRange, setCalendarRange] = useState<'yesterday' | 'today' | 'tomorrow' | 'thisWeek' | 'nextWeek'>('thisWeek');
+  // Defaults to "Today" so the table opens scoped to the current day.
+  const [calendarRange, setCalendarRange] = useState<'yesterday' | 'today' | 'tomorrow' | 'thisWeek' | 'nextWeek'>('today');
   const [calendarSearch, setCalendarSearch] = useState('');
   const [calendarAlertIds, setCalendarAlertIds] = useState<Record<string, boolean>>({});
   // Ticks once a minute purely to force the "Time Left" countdown column
@@ -3398,7 +3364,6 @@ function App() {
 
     setEconomicEventsLoading(true);
     setEconomicEventsError(null);
-    setEconomicEventsIsFallback(false);
 
     Promise.all(feedPaths.map(fetchFeed))
       .then(results => {
@@ -3417,21 +3382,15 @@ function App() {
             previous: e.previous || '—',
             actual: e.actual || '—',
           }));
-        if (highImpactOnly.length === 0) {
-          // Feed loaded but had no High-impact rows this stretch — still
-          // fall back so the calendar isn't blank.
-          setEconomicEvents(buildFallbackEconomicEvents());
-          setEconomicEventsIsFallback(true);
-        } else {
-          setEconomicEvents(highImpactOnly);
-        }
+        // No fallback/mock substitution — an empty result (e.g. a
+        // genuinely quiet stretch with no High-impact releases) is shown
+        // as-is via the table's own empty state.
+        setEconomicEvents(highImpactOnly);
       })
       .catch(() => {
         if (cancelled) return;
-        // Every direct + proxied attempt failed — use the fail-safe
-        // fallback instead of surfacing a hard error.
-        setEconomicEvents(buildFallbackEconomicEvents());
-        setEconomicEventsIsFallback(true);
+        setEconomicEvents([]);
+        setEconomicEventsError('Could not load the live economic calendar feed (direct and proxied attempts both failed). It may be temporarily unavailable — try again in a moment.');
       })
       .finally(() => {
         if (!cancelled) setEconomicEventsLoading(false);
@@ -11057,17 +11016,6 @@ function App() {
             <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-rose-500/10 text-rose-400 border border-rose-500/30 flex-shrink-0">
               Red Folder · High Impact Only
             </span>
-            {economicEventsIsFallback && !economicEventsLoading && (
-              <span className="flex items-center gap-1.5 px-1.5 py-0.5 rounded-full text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/30 flex-shrink-0">
-                Showing sample data — live feed unavailable
-                <button
-                  onClick={() => setEconomicEventsRetryToken(t => t + 1)}
-                  className="underline hover:text-amber-300 transition-colors"
-                >
-                  Retry live feed
-                </button>
-              </span>
-            )}
           </div>
 
           {/* Dark top toolbar: date-range buttons + search, Myfxbook-style */}
