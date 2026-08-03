@@ -772,7 +772,7 @@ const NOTICE_TYPE_META: Record<NoticeType, {
   label: string;
   shortLabel: string;
   tabLabel: string;
-  emoji: string;
+  headerIcon: LucideIcon;
   badge: string;
   cardRing: string;
   calloutLabel: string;
@@ -783,7 +783,7 @@ const NOTICE_TYPE_META: Record<NoticeType, {
     label: 'Anti-Mistake / Trap',
     shortLabel: 'Trap',
     tabLabel: 'Anti-Mistakes & Traps',
-    emoji: '🚨',
+    headerIcon: AlertTriangle,
     badge: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
     cardRing: 'border-rose-500/20 hover:border-rose-500/50',
     calloutLabel: 'Prevention Rule',
@@ -794,7 +794,7 @@ const NOTICE_TYPE_META: Record<NoticeType, {
     label: 'Price Action Insight',
     shortLabel: 'Insight',
     tabLabel: 'Price Action Insights',
-    emoji: '👁️',
+    headerIcon: Eye,
     badge: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30',
     cardRing: 'border-cyan-500/20 hover:border-cyan-500/50',
     calloutLabel: 'How To Use This',
@@ -10706,18 +10706,21 @@ function App() {
     };
 
     // One column (Price Action Insights or Anti-Mistakes & Traps) — always
-    // visible side by side, nothing to click through.
+    // visible side by side, nothing to click through. Each column is a
+    // fixed-height parent card so left/right stay identical in height no
+    // matter how many items either side has; the header stays pinned at
+    // the top of the card and only the items area scrolls internally.
     const renderColumn = (type: NoticeType) => {
       const meta = NOTICE_TYPE_META[type];
       const list = notices.filter(n => n.type === type);
       return (
-        <div className="min-w-0 space-y-3">
+        <div className="min-w-0 h-[600px] bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 flex flex-col">
           <div className={cn(
-            'flex items-center justify-between gap-2 px-3 py-2 rounded-lg border',
+            'flex items-center justify-between gap-2 px-3 py-2 rounded-lg border flex-shrink-0',
             type === 'mistake' ? 'bg-rose-500/10 border-rose-500/30' : 'bg-cyan-500/10 border-cyan-500/30'
           )}>
             <div className="flex items-center gap-2 min-w-0">
-              <span>{meta.emoji}</span>
+              <meta.headerIcon className={cn('w-4 h-4 flex-shrink-0', type === 'mistake' ? 'text-rose-400' : 'text-cyan-400')} />
               <h2 className={cn('text-sm font-semibold truncate', type === 'mistake' ? 'text-rose-300' : 'text-cyan-300')}>
                 {meta.tabLabel}
               </h2>
@@ -10733,7 +10736,7 @@ function App() {
             </button>
           </div>
 
-          <div className="notice-column-scroll h-[560px] overflow-y-auto pr-1 overscroll-contain">
+          <div className="notice-column-scroll flex-1 overflow-y-auto pr-1 overscroll-contain mt-3">
             {list.length > 0 ? (
               <div className="space-y-2">
                 {list.map(renderCompactCard)}
@@ -10773,9 +10776,11 @@ function App() {
           }
         />
 
-        {/* Two always-visible columns: Price Action Insights on the left,
-            Anti-Mistakes & Traps on the right — nothing to click through. */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Two equal-height parent cards: Price Action Insights on the
+            left, Anti-Mistakes & Traps on the right — nothing to click
+            through, both cards fixed to the same height regardless of
+            item count. */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {renderColumn('insight')}
           {renderColumn('mistake')}
         </div>
@@ -13836,7 +13841,7 @@ function App() {
                           : 'bg-zinc-800 border-zinc-700 text-zinc-500 hover:text-zinc-300'
                       )}
                     >
-                      <span>{meta.emoji}</span>
+                      <meta.headerIcon className={cn('w-3.5 h-3.5', active ? (t === 'mistake' ? 'text-rose-400' : 'text-cyan-400') : 'text-zinc-500')} />
                       <span>{meta.label}</span>
                     </button>
                   );
