@@ -891,6 +891,34 @@ const formatEventTimeLeft = (dateISO: string, nowMs: number): string => {
   return `${mins}min`;
 };
 
+// Fail-safe fallback: a realistic set of High-impact USD "red folder"
+// events spread across the current week (PH time), used only when every
+// live feed attempt (direct + proxied) fails. Guarantees the table always
+// has something to show instead of a hard error/empty state — dates are
+// generated relative to "now" each time this is called, so they always
+// land in the current week regardless of when the app is opened.
+const buildFallbackEconomicEvents = (): EconomicEvent[] => {
+  const now = new Date();
+  // Anchor to this week's Monday (PH time) so events land across Mon–Fri.
+  const phKey = getPHDateKey(now);
+  const mondayKey = addDaysToKey(phKey, -((new Date(`${phKey}T00:00:00Z`).getUTCDay() + 6) % 7));
+  const at = (dayOffset: number, hour: number, minute: number): string => {
+    const dayKey = addDaysToKey(mondayKey, dayOffset);
+    const [y, m, d] = dayKey.split('-').map(Number);
+    // PH is UTC+8 — build the UTC instant that corresponds to that PH wall-clock time.
+    return new Date(Date.UTC(y, m - 1, d, hour - 8, minute)).toISOString();
+  };
+  const items: Array<Omit<EconomicEvent, 'id'>> = [
+    { title: 'Fed Chair Speech', currency: 'USD', dateISO: at(0, 21, 30), impact: 'High', previous: '—', forecast: '—', actual: '—' },
+    { title: 'CPI m/m', currency: 'USD', dateISO: at(1, 20, 30), impact: 'High', previous: '0.3%', forecast: '0.3%', actual: '—' },
+    { title: 'Core Retail Sales m/m', currency: 'USD', dateISO: at(2, 20, 30), impact: 'High', previous: '0.2%', forecast: '0.3%', actual: '—' },
+    { title: 'Unemployment Claims', currency: 'USD', dateISO: at(3, 20, 30), impact: 'High', previous: '224K', forecast: '221K', actual: '—' },
+    { title: 'Non-Farm Employment Change', currency: 'USD', dateISO: at(4, 20, 30), impact: 'High', previous: '175K', forecast: '180K', actual: '—' },
+    { title: 'FOMC Statement', currency: 'USD', dateISO: at(4, 2, 0), impact: 'High', previous: '—', forecast: '—', actual: '—' },
+  ];
+  return items.map(e => ({ ...e, id: `fallback-${e.currency}-${e.title}-${e.dateISO}` }));
+};
+
 // ============================================================
 // DATA SCHEMA VERSIONING & MIGRATION
 //
@@ -3306,7 +3334,14 @@ function App() {
   const [economicEvents, setEconomicEvents] = useState<EconomicEvent[]>([]);
   const [economicEventsLoading, setEconomicEventsLoading] = useState(false);
   const [economicEventsError, setEconomicEventsError] = useState<string | null>(null);
-  const [calendarRange, setCalendarRange] = useState<'yesterday' | 'today' | 'tomorrow' | 'thisWeek' | 'nextWeek'>('today');
+  // True when the live feed (direct + proxied) couldn't be reached and
+  // we're showing the built-in fallback sample events instead. This is
+  // never treated as a hard error — the table stays populated either way.
+  const [economicEventsIsFallback, setEconomicEventsIsFallback] = useState(false);
+  // Defaults to "This Week" so the table has visible rows the moment the
+  // page opens, rather than depending on today happening to have a
+  // High-impact release.
+  const [calendarRange, setCalendarRange] = useState<'yesterday' | 'today' | 'tomorrow' | 'thisWeek' | 'nextWeek'>('thisWeek');
   const [calendarSearch, setCalendarSearch] = useState('');
   const [calendarAlertIds, setCalendarAlertIds] = useState<Record<string, boolean>>({});
   // Ticks once a minute purely to force the "Time Left" countdown column
@@ -3330,28 +3365,48 @@ function App() {
   // Pulls all three community-hosted Forex Factory JSON mirrors once
   // (last/this/next week) so every range filter (Yesterday..Next Week)
   // can be served instantly from one in-memory list without refetching.
-  // This is an unofficial public feed — if it's unreachable (network
-  // policy, CORS, or the mirror being down) the calendar shows a clear
-  // error/retry state instead of silently breaking the rest of the app.
+  // This is an unofficial public feed, so the fetch chain is defensive:
+  //   1) try each feed directly
+  //   2) on failure (CORS/network), retry the same feed through the
+  //      allorigins.win read-only proxy, which adds permissive CORS
+  //      headers on top of the raw JSON
+  //   3) if every feed still fails, fall back to a built-in sample set
+  //      of High-impact USD events for the current week — the table
+  //      never shows a hard error or goes empty.
   const [economicEventsRetryToken, setEconomicEventsRetryToken] = useState(0);
   useEffect(() => {
     let cancelled = false;
-    const feeds = [
-      'https://nfs.faireconomy.media/ff_calendar_lastweek.json',
-      'https://nfs.faireconomy.media/ff_calendar_thisweek.json',
-      'https://nfs.faireconomy.media/ff_calendar_nextweek.json',
-    ];
-    setEconomicEventsLoading(true);
-    setEconomicEventsError(null);
-    Promise.all(feeds.map(url => fetch(url).then(r => {
+    const feedPaths = ['ff_calendar_lastweek.json', 'ff_calendar_thisweek.json', 'ff_calendar_nextweek.json'];
+
+    const fetchJson = async (url: string): Promise<RawEconomicEvent[]> => {
+      const r = await fetch(url);
       if (!r.ok) throw new Error(`${r.status}`);
       return r.json();
-    })))
+    };
+
+    const fetchFeed = async (path: string): Promise<RawEconomicEvent[]> => {
+      const directUrl = `https://nfs.faireconomy.media/${path}`;
+      try {
+        return await fetchJson(directUrl);
+      } catch {
+        // Direct fetch failed (most commonly CORS from a browser context) —
+        // retry via a read-only CORS proxy that wraps the same raw feed.
+        const proxiedUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`;
+        return await fetchJson(proxiedUrl);
+      }
+    };
+
+    setEconomicEventsLoading(true);
+    setEconomicEventsError(null);
+    setEconomicEventsIsFallback(false);
+
+    Promise.all(feedPaths.map(fetchFeed))
       .then(results => {
         if (cancelled) return;
         const merged: RawEconomicEvent[] = ([] as RawEconomicEvent[]).concat(...results);
+        // Red Folder filter: strictly High-impact events only.
         const highImpactOnly: EconomicEvent[] = merged
-          .filter(e => e.impact === 'High')
+          .filter(e => (e.impact || '').toLowerCase() === 'high')
           .map(e => ({
             id: `${e.country}-${e.title}-${e.date}`,
             title: e.title,
@@ -3362,10 +3417,21 @@ function App() {
             previous: e.previous || '—',
             actual: e.actual || '—',
           }));
-        setEconomicEvents(highImpactOnly);
+        if (highImpactOnly.length === 0) {
+          // Feed loaded but had no High-impact rows this stretch — still
+          // fall back so the calendar isn't blank.
+          setEconomicEvents(buildFallbackEconomicEvents());
+          setEconomicEventsIsFallback(true);
+        } else {
+          setEconomicEvents(highImpactOnly);
+        }
       })
       .catch(() => {
-        if (!cancelled) setEconomicEventsError('Could not load the economic calendar feed. It may be temporarily unavailable.');
+        if (cancelled) return;
+        // Every direct + proxied attempt failed — use the fail-safe
+        // fallback instead of surfacing a hard error.
+        setEconomicEvents(buildFallbackEconomicEvents());
+        setEconomicEventsIsFallback(true);
       })
       .finally(() => {
         if (!cancelled) setEconomicEventsLoading(false);
@@ -10985,12 +11051,23 @@ function App() {
             filtered to High-impact events only and shown in Philippine
             local time throughout. */}
         <div className="min-w-0">
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
             <AlertTriangle className="w-4 h-4 text-rose-400" />
             <h2 className="text-sm font-semibold text-white">Economic Calendar</h2>
             <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-rose-500/10 text-rose-400 border border-rose-500/30 flex-shrink-0">
               Red Folder · High Impact Only
             </span>
+            {economicEventsIsFallback && !economicEventsLoading && (
+              <span className="flex items-center gap-1.5 px-1.5 py-0.5 rounded-full text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/30 flex-shrink-0">
+                Showing sample data — live feed unavailable
+                <button
+                  onClick={() => setEconomicEventsRetryToken(t => t + 1)}
+                  className="underline hover:text-amber-300 transition-colors"
+                >
+                  Retry live feed
+                </button>
+              </span>
+            )}
           </div>
 
           {/* Dark top toolbar: date-range buttons + search, Myfxbook-style */}
