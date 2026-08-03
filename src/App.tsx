@@ -779,17 +779,10 @@ const NOTICE_TYPE_META: Record<NoticeType, {
   callout: string;
   calloutIcon: LucideIcon;
 }> = {
-  mistake: {
-    label: 'Anti-Mistake / Trap',
-    shortLabel: 'Trap',
-    tabLabel: 'Anti-Mistakes & Traps',
-    headerIcon: AlertTriangle,
-    badge: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
-    cardRing: 'border-rose-500/20 hover:border-rose-500/50',
-    calloutLabel: 'Prevention Rule',
-    callout: 'bg-amber-500/10 border-amber-500/30 text-amber-300',
-    calloutIcon: ShieldCheck,
-  },
+  // Insight listed first so the "Add Market Notice" type toggle shows
+  // Price Action Insight on the left and Anti-Mistake / Trap on the
+  // right — matching the Market Notices page, where Price Action
+  // Insights is the left column and Anti-Mistakes & Traps is the right.
   insight: {
     label: 'Price Action Insight',
     shortLabel: 'Insight',
@@ -800,6 +793,17 @@ const NOTICE_TYPE_META: Record<NoticeType, {
     calloutLabel: 'How To Use This',
     callout: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
     calloutIcon: Lightbulb,
+  },
+  mistake: {
+    label: 'Anti-Mistake / Trap',
+    shortLabel: 'Trap',
+    tabLabel: 'Anti-Mistakes & Traps',
+    headerIcon: AlertTriangle,
+    badge: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
+    cardRing: 'border-rose-500/20 hover:border-rose-500/50',
+    calloutLabel: 'Prevention Rule',
+    callout: 'bg-amber-500/10 border-amber-500/30 text-amber-300',
+    calloutIcon: ShieldCheck,
   },
 };
 
