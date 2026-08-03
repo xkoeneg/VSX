@@ -807,8 +807,89 @@ const NOTICE_TYPE_META: Record<NoticeType, {
   },
 };
 
-// Utility functions
+// ============================================================
+// ECONOMIC CALENDAR (Myfxbook-style, Red Folder / High Impact only)
+// ============================================================
+// Raw shape returned by the community-maintained Forex Factory calendar
+// JSON mirror (nfs.faireconomy.media) — an unofficial, publicly-hosted
+// feed widely used by third-party trading tools since Forex Factory
+// itself has no official public API. `date` arrives as a full ISO 8601
+// datetime string with timezone offset.
+interface RawEconomicEvent {
+  title: string;
+  country: string; // 3-letter currency code, e.g. "USD"
+  date: string; // ISO 8601
+  impact: string; // "High" | "Medium" | "Low" | "Holiday"
+  forecast: string;
+  previous: string;
+  actual?: string;
+}
+
+interface EconomicEvent {
+  id: string;
+  title: string;
+  currency: string;
+  dateISO: string;
+  impact: string;
+  forecast: string;
+  previous: string;
+  actual: string;
+}
+
+// Flag emoji per 3-letter currency code — covers every currency that
+// shows up on the Forex Factory calendar feed.
+const CURRENCY_FLAGS: Record<string, string> = {
+  USD: '🇺🇸', EUR: '🇪🇺', GBP: '🇬🇧', JPY: '🇯🇵', AUD: '🇦🇺',
+  CAD: '🇨🇦', CHF: '🇨🇭', NZD: '🇳🇿', CNY: '🇨🇳', SEK: '🇸🇪',
+  NOK: '🇳🇴', TRY: '🇹🇷', ZAR: '🇿🇦', MXN: '🇲🇽', HKD: '🇭🇰',
+  SGD: '🇸🇬', INR: '🇮🇳', KRW: '🇰🇷', BRL: '🇧🇷', RUB: '🇷🇺',
+  PLN: '🇵🇱', DKK: '🇩🇰', ALL: '🌐',
+};
+
+
 const generateId = () => Math.random().toString(36).substr(2, 9);
+
+// ---- Economic Calendar helpers ----
+// All date-range logic is anchored to Philippine local time (Asia/Manila),
+// matching the "Local PH time" column requirement, regardless of the
+// device's own system timezone.
+const PH_TZ = 'Asia/Manila';
+
+const getPHDateKey = (d: Date): string =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: PH_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+
+const addDaysToKey = (key: string, days: number): string => {
+  const [y, m, d] = key.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().slice(0, 10);
+};
+
+const formatEventDateTimePH = (dateISO: string): string => {
+  const d = new Date(dateISO);
+  if (isNaN(d.getTime())) return '—';
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: PH_TZ, month: 'short', day: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
+  }).format(d);
+};
+
+// Mirrors Myfxbook's countdown style: "16h 1min" while under a day away,
+// "1 day" / "2 days" once it's further out, "Released" once it's passed.
+const formatEventTimeLeft = (dateISO: string, nowMs: number): string => {
+  const eventMs = new Date(dateISO).getTime();
+  if (isNaN(eventMs)) return '—';
+  const diffMs = eventMs - nowMs;
+  if (diffMs <= 0) {
+    return diffMs > -60 * 60000 ? 'Just released' : 'Released';
+  }
+  const totalMinutes = Math.floor(diffMs / 60000);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const mins = totalMinutes % 60;
+  if (days >= 1) return `${days} day${days > 1 ? 's' : ''}`;
+  if (hours >= 1) return `${hours}h ${mins}min`;
+  return `${mins}min`;
+};
 
 // ============================================================
 // DATA SCHEMA VERSIONING & MIGRATION
@@ -3221,6 +3302,16 @@ function App() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [notices, setNotices] = useState<MarketNotice[]>([]);
+  // ---- Economic Calendar (Myfxbook-style, Red Folder / High Impact only) ----
+  const [economicEvents, setEconomicEvents] = useState<EconomicEvent[]>([]);
+  const [economicEventsLoading, setEconomicEventsLoading] = useState(false);
+  const [economicEventsError, setEconomicEventsError] = useState<string | null>(null);
+  const [calendarRange, setCalendarRange] = useState<'yesterday' | 'today' | 'tomorrow' | 'thisWeek' | 'nextWeek'>('today');
+  const [calendarSearch, setCalendarSearch] = useState('');
+  const [calendarAlertIds, setCalendarAlertIds] = useState<Record<string, boolean>>({});
+  // Ticks once a minute purely to force the "Time Left" countdown column
+  // to re-render — no data refetch involved.
+  const [calendarNowTick, setCalendarNowTick] = useState(() => Date.now());
   const [wikiEntries, setWikiEntries] = useState<WikiEntry[]>([]);
   const [setupTypes, setSetupTypes] = useState<SetupType[]>([]);
   const [confluences, setConfluences] = useState<Confluence[]>([]);
@@ -3234,6 +3325,58 @@ function App() {
   // Purely a display preference — not persisted to the trading journal
   // schema, so it always starts at a sensible default per session.
   const [pillarsPerRow, setPillarsPerRow] = useState<PillarsPerRow>(3);
+
+  // ---- Economic Calendar: fetch + live countdown ticker ----
+  // Pulls all three community-hosted Forex Factory JSON mirrors once
+  // (last/this/next week) so every range filter (Yesterday..Next Week)
+  // can be served instantly from one in-memory list without refetching.
+  // This is an unofficial public feed — if it's unreachable (network
+  // policy, CORS, or the mirror being down) the calendar shows a clear
+  // error/retry state instead of silently breaking the rest of the app.
+  const [economicEventsRetryToken, setEconomicEventsRetryToken] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    const feeds = [
+      'https://nfs.faireconomy.media/ff_calendar_lastweek.json',
+      'https://nfs.faireconomy.media/ff_calendar_thisweek.json',
+      'https://nfs.faireconomy.media/ff_calendar_nextweek.json',
+    ];
+    setEconomicEventsLoading(true);
+    setEconomicEventsError(null);
+    Promise.all(feeds.map(url => fetch(url).then(r => {
+      if (!r.ok) throw new Error(`${r.status}`);
+      return r.json();
+    })))
+      .then(results => {
+        if (cancelled) return;
+        const merged: RawEconomicEvent[] = ([] as RawEconomicEvent[]).concat(...results);
+        const highImpactOnly: EconomicEvent[] = merged
+          .filter(e => e.impact === 'High')
+          .map(e => ({
+            id: `${e.country}-${e.title}-${e.date}`,
+            title: e.title,
+            currency: e.country,
+            dateISO: e.date,
+            impact: e.impact,
+            forecast: e.forecast || '—',
+            previous: e.previous || '—',
+            actual: e.actual || '—',
+          }));
+        setEconomicEvents(highImpactOnly);
+      })
+      .catch(() => {
+        if (!cancelled) setEconomicEventsError('Could not load the economic calendar feed. It may be temporarily unavailable.');
+      })
+      .finally(() => {
+        if (!cancelled) setEconomicEventsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [economicEventsRetryToken]);
+
+  useEffect(() => {
+    const id = setInterval(() => setCalendarNowTick(Date.now()), 60000);
+    return () => clearInterval(id);
+  }, []);
 
   // ---- Playbook: Daily Trading Creed quote card ----
   // Each quote carries its own short attribution/tag line (shown bottom-right
@@ -10777,6 +10920,39 @@ function App() {
       );
     };
 
+    // ---- Economic Calendar: range filter + search, PH-time anchored ----
+    const CALENDAR_RANGE_OPTIONS: { key: typeof calendarRange; label: string }[] = [
+      { key: 'yesterday', label: 'Yesterday' },
+      { key: 'today', label: 'Today' },
+      { key: 'tomorrow', label: 'Tomorrow' },
+      { key: 'thisWeek', label: 'This Week' },
+      { key: 'nextWeek', label: 'Next Week' },
+    ];
+    const phTodayKey = getPHDateKey(new Date(calendarNowTick));
+    const dowOfKey = (key: string) => new Date(`${key}T00:00:00Z`).getUTCDay();
+    const mondayOffset = (dowOfKey(phTodayKey) + 6) % 7;
+    const thisWeekStartKey = addDaysToKey(phTodayKey, -mondayOffset);
+    const thisWeekEndKey = addDaysToKey(thisWeekStartKey, 6);
+    const nextWeekStartKey = addDaysToKey(thisWeekStartKey, 7);
+    const nextWeekEndKey = addDaysToKey(thisWeekStartKey, 13);
+    const [rangeStartKey, rangeEndKey] = (() => {
+      switch (calendarRange) {
+        case 'yesterday': { const k = addDaysToKey(phTodayKey, -1); return [k, k]; }
+        case 'tomorrow': { const k = addDaysToKey(phTodayKey, 1); return [k, k]; }
+        case 'thisWeek': return [thisWeekStartKey, thisWeekEndKey];
+        case 'nextWeek': return [nextWeekStartKey, nextWeekEndKey];
+        default: return [phTodayKey, phTodayKey];
+      }
+    })();
+    const searchLower = calendarSearch.trim().toLowerCase();
+    const visibleEconomicEvents = economicEvents
+      .filter(e => {
+        const key = getPHDateKey(new Date(e.dateISO));
+        return key >= rangeStartKey && key <= rangeEndKey;
+      })
+      .filter(e => !searchLower || e.title.toLowerCase().includes(searchLower) || e.currency.toLowerCase().includes(searchLower))
+      .sort((a, b) => new Date(a.dateISO).getTime() - new Date(b.dateISO).getTime());
+
     return (
       <div className="space-y-6 min-w-0">
         <PageHeader
@@ -10800,6 +10976,136 @@ function App() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {renderColumn('insight')}
           {renderColumn('mistake')}
+        </div>
+
+        {/* ---- Economic Calendar (Myfxbook-style, Red Folder / High
+            Impact only) ---- Sits directly below the two Market Notice
+            cards. Data comes from the community-hosted Forex Factory
+            JSON mirror — an unofficial but widely-used public feed —
+            filtered to High-impact events only and shown in Philippine
+            local time throughout. */}
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle className="w-4 h-4 text-rose-400" />
+            <h2 className="text-sm font-semibold text-white">Economic Calendar</h2>
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-rose-500/10 text-rose-400 border border-rose-500/30 flex-shrink-0">
+              Red Folder · High Impact Only
+            </span>
+          </div>
+
+          {/* Dark top toolbar: date-range buttons + search, Myfxbook-style */}
+          <div className="flex flex-wrap items-center gap-2 bg-zinc-950 border border-zinc-800 rounded-t-xl px-3 py-2.5">
+            <div className="flex flex-wrap items-center gap-1">
+              {CALENDAR_RANGE_OPTIONS.map(opt => (
+                <button
+                  key={opt.key}
+                  onClick={() => setCalendarRange(opt.key)}
+                  className={cn(
+                    'px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors',
+                    calendarRange === opt.key
+                      ? 'bg-rose-500/15 text-rose-300 border border-rose-500/40'
+                      : 'text-zinc-400 hover:text-white hover:bg-zinc-800 border border-transparent'
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <div className="relative ml-auto w-full sm:w-56">
+              <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={calendarSearch}
+                onChange={(e) => setCalendarSearch(e.target.value)}
+                placeholder="Search event or currency..."
+                className="w-full pl-8 pr-2.5 py-1.5 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors"
+              />
+            </div>
+          </div>
+
+          {/* Table body — sticky header, scrollable list */}
+          <div className="bg-zinc-900/50 border border-t-0 border-zinc-800 rounded-b-xl overflow-hidden">
+            <div className="notice-column-scroll-mistake max-h-[400px] overflow-y-auto overscroll-contain">
+              <table className="w-full text-xs border-collapse">
+                <thead className="sticky top-0 z-10">
+                  <tr className="bg-zinc-950 border-b border-zinc-800 text-zinc-500">
+                    <th className="text-left font-medium px-3 py-2 whitespace-nowrap">Date &amp; Time (PH)</th>
+                    <th className="text-left font-medium px-3 py-2 whitespace-nowrap">Time Left</th>
+                    <th className="text-left font-medium px-3 py-2 whitespace-nowrap">Currency</th>
+                    <th className="text-left font-medium px-3 py-2 min-w-[220px]">Event</th>
+                    <th className="text-center font-medium px-3 py-2 whitespace-nowrap">Impact</th>
+                    <th className="text-right font-medium px-3 py-2 whitespace-nowrap">Previous</th>
+                    <th className="text-right font-medium px-3 py-2 whitespace-nowrap">Consensus</th>
+                    <th className="text-right font-medium px-3 py-2 whitespace-nowrap">Actual</th>
+                    <th className="text-center font-medium px-3 py-2 whitespace-nowrap">Alert</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {economicEventsLoading ? (
+                    <tr>
+                      <td colSpan={9} className="px-3 py-8 text-center text-zinc-500">
+                        Loading economic calendar…
+                      </td>
+                    </tr>
+                  ) : economicEventsError ? (
+                    <tr>
+                      <td colSpan={9} className="px-3 py-8 text-center">
+                        <p className="text-zinc-500 mb-2">{economicEventsError}</p>
+                        <button
+                          onClick={() => setEconomicEventsRetryToken(t => t + 1)}
+                          className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-white transition-colors"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                          Retry
+                        </button>
+                      </td>
+                    </tr>
+                  ) : visibleEconomicEvents.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="px-3 py-8 text-center text-zinc-600">
+                        No high-impact events in this range.
+                      </td>
+                    </tr>
+                  ) : (
+                    visibleEconomicEvents.map(ev => {
+                      const isAlertOn = !!calendarAlertIds[ev.id];
+                      return (
+                        <tr key={ev.id} className="border-b border-zinc-800/60 hover:bg-zinc-800/30 transition-colors">
+                          <td className="px-3 py-2 whitespace-nowrap text-zinc-300">{formatEventDateTimePH(ev.dateISO)}</td>
+                          <td className="px-3 py-2 whitespace-nowrap text-zinc-400">{formatEventTimeLeft(ev.dateISO, calendarNowTick)}</td>
+                          <td className="px-3 py-2 whitespace-nowrap text-zinc-200">
+                            <span className="mr-1">{CURRENCY_FLAGS[ev.currency] || '🌐'}</span>
+                            {ev.currency}
+                          </td>
+                          <td className="px-3 py-2 text-white">{ev.title}</td>
+                          <td className="px-3 py-2 text-center">
+                            <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-rose-600 text-white">
+                              High
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-right text-zinc-400 tabular-nums">{ev.previous}</td>
+                          <td className="px-3 py-2 text-right text-zinc-400 tabular-nums">{ev.forecast}</td>
+                          <td className="px-3 py-2 text-right text-white font-medium tabular-nums">{ev.actual}</td>
+                          <td className="px-3 py-2 text-center">
+                            <button
+                              onClick={() => setCalendarAlertIds(prev => ({ ...prev, [ev.id]: !prev[ev.id] }))}
+                              title={isAlertOn ? 'Alert on — click to turn off' : 'Get notified for this event'}
+                              className={cn(
+                                'p-1 rounded-md transition-colors',
+                                isAlertOn ? 'text-amber-400 hover:text-amber-300' : 'text-zinc-600 hover:text-zinc-300'
+                              )}
+                            >
+                              <Bell className="w-3.5 h-3.5" fill={isAlertOn ? 'currentColor' : 'none'} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
       </div>
