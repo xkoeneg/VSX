@@ -3661,6 +3661,14 @@ function App() {
   // Token" and before the spend is confirmed.
   const [isRecheckTokenPromptOpen, setIsRecheckTokenPromptOpen] = useState(false);
   const [recheckTokenReasonDraft, setRecheckTokenReasonDraft] = useState('');
+  // "Honesty guardrail" — on a Failed day, at least one checklist item must
+  // stay unchecked (X) or the day would no longer honestly qualify as
+  // Failed. Attempting to check the very last remaining X flips this on
+  // instead of applying the toggle, surfacing a gentle nudge toward
+  // spending a Re-Check Token (the legitimate way to mark a day fully
+  // saved) rather than silently letting the checklist edit itself out of
+  // Failed status.
+  const [dayDetailsHonestyGuardrail, setDayDetailsHonestyGuardrail] = useState(false);
 
   // Configure Challenge modal state — edits happen on a draft copy so
   // Cancel discards changes without touching the live config.
@@ -3941,7 +3949,39 @@ function App() {
     setDayReasonDraftText('');
     setIsRecheckTokenPromptOpen(false);
     setRecheckTokenReasonDraft('');
+    setDayDetailsHonestyGuardrail(false);
     setDayDetailsModal({ dateKey, day });
+  };
+
+  // Toggle a checklist item from inside the Day Details Modal on a FAILED
+  // day only — lets the user correct an accidental mis-check from the
+  // night before. Unlike the general toggleLifeDisciplineItem, this
+  // enforces the honesty guardrail: checking the last remaining X (the
+  // item that's keeping the day Failed) is blocked and instead surfaces a
+  // gentle nudge to spend a Re-Check Token, since that's the legitimate
+  // path to marking a fully-completed day as saved. Unchecking an item (or
+  // checking one while others remain unchecked) is always allowed.
+  const toggleDayDetailsFailedItem = (dateKey: string, groupIdx: number, itemIdx: number) => {
+    const dayChecks = lifeDisciplineChecks[dateKey] || emptyLifeDisciplineChecks(challengeConfig);
+    const isCurrentlyChecked = !!dayChecks[groupIdx]?.[itemIdx];
+
+    if (!isCurrentlyChecked) {
+      // About to check an item — count how many X's remain across the
+      // whole day. If this is the last one, block it and nudge instead.
+      const uncheckedCount = challengeConfig.categories.reduce((total, cat, gI) => {
+        return total + cat.items.reduce((sub, _item, iI) => {
+          const checked = gI === groupIdx && iI === itemIdx ? true : !!dayChecks[gI]?.[iI];
+          return sub + (checked ? 0 : 1);
+        }, 0);
+      }, 0);
+      if (uncheckedCount === 0) {
+        setDayDetailsHonestyGuardrail(true);
+        return;
+      }
+    }
+
+    setDayDetailsHonestyGuardrail(false);
+    toggleLifeDisciplineItem(dateKey, groupIdx, itemIdx);
   };
 
   // Starts inline editing of the Reason / Journal Note section. Seeds the
@@ -7713,9 +7753,17 @@ function App() {
 
           {/* Body */}
           <div className="px-5 py-4 overflow-y-auto space-y-5">
-            {/* Checklist Summary — read-only */}
+            {/* Checklist Summary — read-only for Complete/Re-checked days;
+                interactively editable (with the honesty guardrail) on
+                Failed days so a genuine mis-check from the night before
+                can be corrected. */}
             <div>
-              <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wide mb-2.5">Checklist Summary</h3>
+              <div className="flex items-center justify-between mb-2.5">
+                <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">Checklist Summary</h3>
+                {status === 'failed' && (
+                  <span className="text-[10px] text-zinc-500 italic">Tap an item to correct it</span>
+                )}
+              </div>
               {challengeConfig.categories.length === 0 ? (
                 <p className="text-sm text-zinc-500 italic">No routine categories configured.</p>
               ) : (
@@ -7726,22 +7774,49 @@ function App() {
                         {renderCategoryIcon(cat, 'w-3.5 h-3.5', 'text-zinc-400')}
                         <span className="text-xs font-medium text-zinc-300 truncate">{cat.label}</span>
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         {cat.items.length === 0 ? (
                           <p className="text-xs text-zinc-600 italic pl-5">No items in this category.</p>
                         ) : (
                           cat.items.map((item, iI) => {
-                            const checked = !!dayChecks[gI]?.[iI];
-                            return (
-                              <div key={item.id} className="flex items-center gap-2 pl-5">
+                            // RE-CHECKED days render every item as completed —
+                            // the token was spent to redeem the whole day, so
+                            // the checklist reflects that regardless of the
+                            // raw underlying values.
+                            const checked = status === 'grace' ? true : !!dayChecks[gI]?.[iI];
+                            const interactive = status === 'failed';
+                            const itemContent = (
+                              <>
                                 {checked ? (
-                                  <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                                  <span className="flex-shrink-0 text-emerald-400 bg-emerald-500/10 p-1 rounded-md border border-emerald-500/20">
+                                    <Check className="w-3.5 h-3.5" />
+                                  </span>
                                 ) : (
-                                  <X className="w-3.5 h-3.5 text-zinc-600 flex-shrink-0" />
+                                  <span className="flex-shrink-0 text-red-400 bg-red-500/10 p-1 rounded-md border border-red-500/20">
+                                    <X className="w-3.5 h-3.5" />
+                                  </span>
                                 )}
                                 <span className={cn('text-xs', checked ? 'text-zinc-300' : 'text-zinc-500')}>
                                   {item.text}
                                 </span>
+                              </>
+                            );
+                            const containerClass = cn(
+                              'flex items-center gap-2.5 bg-slate-900/60 border border-slate-800 p-2.5 rounded-lg transition-all',
+                              interactive && 'w-full text-left cursor-pointer hover:border-slate-700 hover:bg-slate-900/80 active:scale-[0.99]'
+                            );
+                            return interactive ? (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => toggleDayDetailsFailedItem(dateKey, gI, iI)}
+                                className={containerClass}
+                              >
+                                {itemContent}
+                              </button>
+                            ) : (
+                              <div key={item.id} className={containerClass}>
+                                {itemContent}
                               </div>
                             );
                           })
@@ -7749,6 +7824,18 @@ function App() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+              {/* Honesty guardrail nudge — shown when the user tries to
+                  check off the very last remaining X on a Failed day. */}
+              {status === 'failed' && dayDetailsHonestyGuardrail && (
+                <div className="mt-2.5 flex items-start gap-2 rounded-lg border border-cyan-500/20 bg-cyan-500/10 p-2.5">
+                  <RefreshCw className="w-3.5 h-3.5 text-cyan-300 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-cyan-200 leading-relaxed">
+                    {lifeDisciplineTokensRemaining > 0
+                      ? 'All items completed? Spend 1 Re-Check Token below to mark this day as saved.'
+                      : "All items completed? You're out of Re-Check Tokens, so this item has to stay unchecked to keep the day honestly Failed."}
+                  </p>
                 </div>
               )}
             </div>
