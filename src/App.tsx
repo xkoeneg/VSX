@@ -242,13 +242,6 @@ interface MarketNotice {
   messages: ChatMessage[];
 }
 
-interface ScenarioRow {
-  id: string;
-  scenario: string;
-  tags: string[];
-  lesson: string;
-}
-
 interface WikiEntry {
   id: string;
   title: string;
@@ -811,37 +804,6 @@ const NOTICE_TYPE_META: Record<NoticeType, {
 };
 
 // Utility functions
-// Fixed palette for known scenario tags so recurring labels (loss, FOMO,
-// overtrade, etc.) stay visually consistent across the table. Anything
-// outside this list still gets a color via a deterministic hash so new
-// tags never fall back to plain gray-on-gray.
-const SCENARIO_TAG_STYLES: Record<string, string> = {
-  overtrade: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
-  chase: 'bg-orange-500/10 text-orange-400 border-orange-500/30',
-  loss: 'bg-zinc-500/15 text-zinc-300 border-zinc-500/30',
-  fomo: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
-  discipline: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-  win: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-  patience: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
-  revenge: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
-};
-
-const SCENARIO_TAG_FALLBACK_PALETTE = [
-  'bg-cyan-500/10 text-cyan-400 border-cyan-500/30',
-  'bg-amber-500/10 text-amber-400 border-amber-500/30',
-  'bg-indigo-500/10 text-indigo-400 border-indigo-500/30',
-  'bg-pink-500/10 text-pink-400 border-pink-500/30',
-  'bg-lime-500/10 text-lime-400 border-lime-500/30',
-];
-
-const getScenarioTagStyle = (tag: string) => {
-  const key = tag.trim().toLowerCase();
-  if (SCENARIO_TAG_STYLES[key]) return SCENARIO_TAG_STYLES[key];
-  let hash = 0;
-  for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
-  return SCENARIO_TAG_FALLBACK_PALETTE[hash % SCENARIO_TAG_FALLBACK_PALETTE.length];
-};
-
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 // ============================================================
@@ -1070,16 +1032,6 @@ const normalizeNotice = (n: any): MarketNotice => {
   };
 };
 
-const normalizeScenarioTags = (tags: any): string[] =>
-  Array.isArray(tags) ? tags.filter((t: any) => typeof t === 'string' && t.trim()) : [];
-
-const normalizeScenario = (s: any): ScenarioRow => ({
-  id: typeof s?.id === 'string' ? s.id : generateId(),
-  scenario: normalizeStringField(s?.scenario),
-  tags: normalizeScenarioTags(s?.tags),
-  lesson: normalizeStringField(s?.lesson),
-});
-
 const normalizeWiki = (w: any): WikiEntry => ({
   id: typeof w?.id === 'string' ? w.id : generateId(),
   title: normalizeStringField(w?.title),
@@ -1100,7 +1052,6 @@ interface StoredData {
   rules: Rule[];
   strategies: Strategy[];
   notices: MarketNotice[];
-  noticeScenarios: ScenarioRow[];
   wikiEntries: WikiEntry[];
   setupTypes: SetupType[];
   confluences: Confluence[];
@@ -1123,7 +1074,6 @@ const migrateStoredData = (raw: any): StoredData => {
     rules: Array.isArray(data.rules) ? data.rules.map(normalizeRule) : [],
     strategies: Array.isArray(data.strategies) ? data.strategies.map(normalizeStrategy) : [],
     notices: Array.isArray(data.notices) ? data.notices.map(normalizeNotice) : [],
-    noticeScenarios: Array.isArray(data.noticeScenarios) ? data.noticeScenarios.map(normalizeScenario) : [],
     wikiEntries: Array.isArray(data.wikiEntries) ? data.wikiEntries.map(normalizeWiki) : [],
     setupTypes: Array.isArray(data.setupTypes) ? data.setupTypes.map((item: any) => normalizeNamedItem(item, 'gray')) : [],
     confluences: Array.isArray(data.confluences) ? data.confluences.map((item: any) => normalizeNamedItem(item, 'gray')) : [],
@@ -3267,7 +3217,6 @@ function App() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [notices, setNotices] = useState<MarketNotice[]>([]);
-  const [noticeScenarios, setNoticeScenarios] = useState<ScenarioRow[]>([]);
   const [wikiEntries, setWikiEntries] = useState<WikiEntry[]>([]);
   const [setupTypes, setSetupTypes] = useState<SetupType[]>([]);
   const [confluences, setConfluences] = useState<Confluence[]>([]);
@@ -3527,10 +3476,6 @@ function App() {
   const strategyStepImageInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [showAddNotice, setShowAddNotice] = useState(false);
   const [editingNoticeId, setEditingNoticeId] = useState<string | null>(null);
-  const [noticeSessionFilter, setNoticeSessionFilter] = useState<SessionOption | 'all'>('all');
-  const [noticeTagFilter, setNoticeTagFilter] = useState<string>('all');
-  const [showAddScenario, setShowAddScenario] = useState(false);
-  const [newScenario, setNewScenario] = useState<{ scenario: string; tags: string; lesson: string }>({ scenario: '', tags: '', lesson: '' });
   const [showAddWiki, setShowAddWiki] = useState(false);
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
@@ -3696,7 +3641,6 @@ function App() {
         setRules(migrated.rules);
         setStrategies(migrated.strategies);
         setNotices(migrated.notices);
-        setNoticeScenarios(migrated.noticeScenarios);
         setWikiEntries(migrated.wikiEntries);
         setSetupTypes(migrated.setupTypes);
         setConfluences(migrated.confluences);
@@ -3715,13 +3659,13 @@ function App() {
 
   // Save to localStorage
   useEffect(() => {
-    const data: StoredData = { version: DATA_SCHEMA_VERSION, accounts, trades, rules, strategies, notices, noticeScenarios, wikiEntries, setupTypes, confluences, mistakesList, emotionsList, customSymbols, customPillars };
+    const data: StoredData = { version: DATA_SCHEMA_VERSION, accounts, trades, rules, strategies, notices, wikiEntries, setupTypes, confluences, mistakesList, emotionsList, customSymbols, customPillars };
     try {
       localStorage.setItem('tradingJournal', JSON.stringify(data));
     } catch (e) {
       console.error('Failed to save data:', e);
     }
-  }, [accounts, trades, rules, strategies, notices, noticeScenarios, wikiEntries, setupTypes, confluences, mistakesList, emotionsList, customSymbols, customPillars]);
+  }, [accounts, trades, rules, strategies, notices, wikiEntries, setupTypes, confluences, mistakesList, emotionsList, customSymbols, customPillars]);
 
   // ---- Life Discipline Hub persistence ----
   // Kept in its own localStorage key, deliberately separate from the trading
@@ -5569,16 +5513,6 @@ function App() {
     if (editingNoticeId === id) { setEditingNoticeId(null); setShowAddNotice(false); }
   };
 
-  const handleAddScenario = () => {
-    if (!newScenario.scenario.trim()) return;
-    const tags = newScenario.tags.split(',').map(t => t.trim()).filter(Boolean);
-    setNoticeScenarios([...noticeScenarios, { id: generateId(), scenario: newScenario.scenario.trim(), tags, lesson: newScenario.lesson.trim() }]);
-    setNewScenario({ scenario: '', tags: '', lesson: '' });
-    setShowAddScenario(false);
-  };
-
-  const handleDeleteScenario = (id: string) => setNoticeScenarios(noticeScenarios.filter(s => s.id !== id));
-
   const handleAddWiki = () => {
     if (!newWiki.title) return;
     setWikiEntries([...wikiEntries, { id: generateId(), title: newWiki.title, content: newWiki.content || '', category: newWiki.category || '' }]);
@@ -5787,7 +5721,6 @@ function App() {
       rules,
       strategies,
       notices,
-      noticeScenarios,
       wikiEntries,
       setupTypes,
       confluences,
@@ -5854,7 +5787,6 @@ function App() {
         setRules(migrated.rules);
         setStrategies(migrated.strategies);
         setNotices(migrated.notices);
-        setNoticeScenarios(migrated.noticeScenarios);
         setWikiEntries(migrated.wikiEntries);
         setSetupTypes(migrated.setupTypes);
         setConfluences(migrated.confluences);
@@ -10619,16 +10551,6 @@ function App() {
   };
 
   const renderNotices = () => {
-    const matchesFilters = (n: MarketNotice) => {
-      if (noticeSessionFilter !== 'all' && n.session !== noticeSessionFilter) return false;
-      if (noticeTagFilter !== 'all' && n.tag !== noticeTagFilter) return false;
-      return true;
-    };
-
-    // Tag options pulled across both categories so one filter row works for
-    // both columns at once.
-    const tagOptions = Array.from(new Set(notices.map(n => n.tag).filter(Boolean))).sort();
-
     // Compact horizontal card — small thumbnail + condensed text — used by
     // both columns so the whole gallery reads as a dense, scannable list
     // instead of large tiles.
@@ -10704,7 +10626,7 @@ function App() {
     // visible side by side, nothing to click through.
     const renderColumn = (type: NoticeType) => {
       const meta = NOTICE_TYPE_META[type];
-      const list = notices.filter(n => n.type === type && matchesFilters(n));
+      const list = notices.filter(n => n.type === type);
       return (
         <div className="min-w-0 space-y-3">
           <div className={cn(
@@ -10766,42 +10688,6 @@ function App() {
           }
         />
 
-        {/* Filters: Session / Tag — apply to both columns at once */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1.5 text-zinc-500">
-            <Filter className="w-3.5 h-3.5" />
-            <span className="text-xs uppercase tracking-wider">Filter</span>
-          </div>
-          <select
-            value={noticeSessionFilter}
-            onChange={(e) => setNoticeSessionFilter(e.target.value as SessionOption | 'all')}
-            className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-zinc-600"
-          >
-            <option value="all">All Sessions</option>
-            {SESSION_OPTIONS.map(s => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-          <select
-            value={noticeTagFilter}
-            onChange={(e) => setNoticeTagFilter(e.target.value)}
-            className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-zinc-600"
-          >
-            <option value="all">All Tags</option>
-            {tagOptions.map(tag => (
-              <option key={tag} value={tag}>{tag}</option>
-            ))}
-          </select>
-          {(noticeSessionFilter !== 'all' || noticeTagFilter !== 'all') && (
-            <button
-              onClick={() => { setNoticeSessionFilter('all'); setNoticeTagFilter('all'); }}
-              className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
-            >
-              Clear filters
-            </button>
-          )}
-        </div>
-
         {/* Two always-visible columns: Price Action Insights on the left,
             Anti-Mistakes & Traps on the right — nothing to click through. */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -10809,78 +10695,6 @@ function App() {
           {renderColumn('mistake')}
         </div>
 
-        {/* Scenarios & Lessons table */}
-        <div className="min-w-0">
-          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-            <h2 className="text-sm uppercase tracking-wider text-zinc-500">Scenarios &amp; Lessons</h2>
-            <button
-              onClick={() => setShowAddScenario(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs transition-colors flex-shrink-0"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Row</span>
-            </button>
-          </div>
-
-          {noticeScenarios.length > 0 ? (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 overflow-x-auto">
-              <table className="w-full text-sm min-w-[640px]">
-                <thead>
-                  <tr className="border-b border-zinc-800 text-left text-xs uppercase tracking-wider text-zinc-500">
-                    <th className="px-4 py-3 w-12 font-medium">#</th>
-                    <th className="px-4 py-3 font-medium">Scenario</th>
-                    <th className="px-4 py-3 w-64 font-medium">Result / Tags</th>
-                    <th className="px-4 py-3 font-medium">Lesson</th>
-                    <th className="px-4 py-3 w-10 font-medium"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {noticeScenarios.map((row, idx) => (
-                    <tr
-                      key={row.id}
-                      className="group border-b border-zinc-800/70 last:border-b-0 hover:bg-zinc-800/30 transition-colors"
-                    >
-                      <td className="px-4 py-3 text-zinc-500 align-top">{idx + 1}</td>
-                      <td className="px-4 py-3 text-zinc-300 align-top">{row.scenario}</td>
-                      <td className="px-4 py-3 align-top">
-                        <div className="flex flex-wrap gap-1.5">
-                          {row.tags.map(tag => (
-                            <span
-                              key={tag}
-                              className={cn("px-2 py-0.5 rounded-full text-xs border", getScenarioTagStyle(tag))}
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-zinc-400 align-top">{row.lesson}</td>
-                      <td className="px-4 py-3 align-top">
-                        <button
-                          onClick={() => handleDeleteScenario(row.id)}
-                          className="p-1 text-zinc-600 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="text-center py-10 rounded-xl border border-zinc-800 bg-zinc-900/50">
-              <p className="text-zinc-500 text-sm mb-3">No scenarios logged yet</p>
-              <button
-                onClick={() => setShowAddScenario(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                Add Scenario
-              </button>
-            </div>
-          )}
-        </div>
       </div>
     );
   };
@@ -14024,40 +13838,6 @@ function App() {
     )
   );
 
-  const renderAddScenarioModal = () => (
-    showAddScenario && (
-      <ModalBackdrop
-        onClose={() => setShowAddScenario(false)}
-        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 py-8"
-      >
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-          <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
-            <h3 className="text-lg font-bold text-white truncate">Add Scenario</h3>
-            <button onClick={() => setShowAddScenario(false)} className="p-1 text-zinc-400 hover:text-white">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-          <div className="p-6 space-y-4">
-            <div>
-              <label className="block text-sm text-zinc-400 mb-2">Scenario</label>
-              <textarea value={newScenario.scenario} onChange={(e) => setNewScenario(prev => ({ ...prev, scenario: e.target.value }))} placeholder="What happened..." rows={3} className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600 resize-none" />
-            </div>
-            <div>
-              <label className="block text-sm text-zinc-400 mb-2">Tags</label>
-              <input type="text" value={newScenario.tags} onChange={(e) => setNewScenario(prev => ({ ...prev, tags: e.target.value }))} placeholder="overtrade, chase, FOMO" className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600" />
-              <p className="text-xs text-zinc-600 mt-1.5">Comma-separated. Each becomes a colored pill.</p>
-            </div>
-            <div>
-              <label className="block text-sm text-zinc-400 mb-2">Lesson</label>
-              <textarea value={newScenario.lesson} onChange={(e) => setNewScenario(prev => ({ ...prev, lesson: e.target.value }))} placeholder="What to do differently next time..." rows={2} className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-zinc-600 resize-none" />
-            </div>
-            <button type="button" onClick={handleAddScenario} disabled={!newScenario.scenario.trim()} className="w-full py-2.5 bg-white hover:bg-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed text-black rounded-lg text-sm font-medium transition-colors">Add Scenario</button>
-          </div>
-        </div>
-      </ModalBackdrop>
-    )
-  );
-
   const renderAddWikiModal = () => (
     showAddWiki && (
       <ModalBackdrop
@@ -14733,7 +14513,6 @@ function App() {
       {renderDeleteStepConfirm()}
       {renderStrategyDetailModal()}
       {renderAddNoticeModal()}
-      {renderAddScenarioModal()}
       {renderAddWikiModal()}
       {renderDeleteTradeConfirm()}
       {renderDeleteAccountConfirm()}
