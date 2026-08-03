@@ -7503,24 +7503,45 @@ function App() {
 
     // Live routine categories: fully user-configured — however many the
     // user has added (could be 0, 1, 4, or more), in whatever order they
-    // were created, each with its own dynamic item list.
+    // were created, each with its own dynamic item list. `routineGroups`
+    // keeps the FULL array (including the single fixed Weekly category, if
+    // present) so gI stays a stable index into challengeConfig.categories
+    // for toggleLifeDisciplineItem / todayChecks lookups everywhere below.
     const routineGroups = challengeConfig.categories;
 
-    // Today's Weekly Targets: Specific-Days items across every category
-    // that happen to be scheduled for today's weekday. Kept out of the
-    // standard per-category cards below and surfaced in their own section
-    // instead, so the everyday Daily Checklist view stays uncluttered on
-    // days those items don't apply.
+    // STRICT DATA SEPARATION: the Daily Checklist grid only ever renders
+    // categories OTHER than the single fixed Weekly card — matched by its
+    // reserved id, not by inspecting item contents. This guarantees a daily
+    // category's items (e.g. everything inside "haynako") can never end up
+    // rendered as part of the Weekly card, and that the Weekly card itself
+    // never renders as one of the Daily Checklist cards (which used to leak
+    // through for any weekly item that hadn't had a day assigned yet).
+    const dailyOnlyGroups = routineGroups
+      .map((group, gI) => ({ group, gI }))
+      .filter(({ group }) => group.id !== WEEKLY_CATEGORY_ID);
+
+    // Today's Weekly Targets: items from the single fixed Weekly category
+    // ONLY — sourced strictly by category id, never by scanning every
+    // category for stray frequency/day flags — that are scheduled for
+    // today's weekday. Kept out of the Daily Checklist cards above and
+    // surfaced in their own section instead, so the everyday view stays
+    // uncluttered on days those items don't apply, and items assigned to
+    // other days (e.g. a Sunday-only item) stay hidden today.
+    const weeklyGroupEntry = routineGroups
+      .map((group, gI) => ({ group, gI }))
+      .find(({ group }) => group.id === WEEKLY_CATEGORY_ID);
     const weeklyTargetsToday: { group: RoutineCategory; gI: number; item: RoutineItem; iI: number }[] = [];
-    if (weeklyRoutinesEnabled) {
-      routineGroups.forEach((group, gI) => {
-        group.items.forEach((item, iI) => {
-          if (item.frequency === 'specific' && item.days && item.days.length > 0 && item.days.includes(todayWeekday)) {
-            weeklyTargetsToday.push({ group, gI, item, iI });
-          }
-        });
+    if (weeklyRoutinesEnabled && weeklyGroupEntry) {
+      const { group, gI } = weeklyGroupEntry;
+      group.items.forEach((item, iI) => {
+        if (item.frequency === 'specific' && item.days && item.days.length > 0 && item.days.includes(todayWeekday)) {
+          weeklyTargetsToday.push({ group, gI, item, iI });
+        }
       });
     }
+    // Retained for any regular (non-weekly) category item — always false in
+    // practice since only the fixed Weekly card ever assigns frequency
+    // 'specific', but kept as a defensive no-op filter within daily cards.
     const isWeeklyTargetItem = (item: RoutineItem) =>
       weeklyRoutinesEnabled && item.frequency === 'specific' && !!item.days && item.days.length > 0;
 
@@ -7709,17 +7730,20 @@ function App() {
                 Add Category
               </button>
             </div>
-          ) : routineGroups.every(group => group.items.length > 0 && group.items.filter(item => !isWeeklyTargetItem(item)).length === 0) ? (
+          ) : dailyOnlyGroups.length === 0 ? (
             <p className="text-sm text-zinc-500 italic py-2 select-none">
-              All routines are scheduled on specific days — see Weekly Targets below.
+              All routines live in the Weekly card — see {WEEKDAY_FULL_NAME[todayWeekday]} Specifics below.
             </p>
           ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {routineGroups.map((group, gI) => {
-              // Weekly Target items (Specific-Days, scheduled or not for
-              // today) live in their own section below — this card only
-              // shows the category's Daily items, so the everyday view
-              // doesn't get cluttered with tasks that aren't relevant today.
+            {dailyOnlyGroups.map(({ group, gI }) => {
+              // STRICT DATA SEPARATION: dailyOnlyGroups already excludes the
+              // fixed Weekly category by id (see above), so every item
+              // rendered in this grid is guaranteed to come from a genuine
+              // daily category — never from the Weekly card. The
+              // isWeeklyTargetItem filter below is now just a defensive
+              // no-op for regular categories (their items never carry a
+              // 'specific' frequency in the first place).
               const dailyItemsWithIndex = group.items
                 .map((item, iI) => ({ item, iI }))
                 .filter(({ item }) => !isWeeklyTargetItem(item));
@@ -8017,14 +8041,23 @@ function App() {
     const dayWeekday = getWeekdayForDateKey(dateKey);
     const isWeeklySpecificItem = (item: RoutineItem) =>
       weeklyRoutinesEnabledForModal && item.frequency === 'specific' && !!item.days && item.days.length > 0;
+    // STRICT DATA SEPARATION (mirrors the live dashboard): daily categories
+    // are matched by excluding the fixed Weekly category id, and the Weekly
+    // Specifics section is sourced ONLY from that same fixed category — not
+    // by scanning every category for stray frequency/day flags.
+    const dailyOnlyGroupsForModal = challengeConfig.categories
+      .map((cat, gI) => ({ cat, gI }))
+      .filter(({ cat }) => cat.id !== WEEKLY_CATEGORY_ID);
+    const weeklyGroupEntryForModal = challengeConfig.categories
+      .map((cat, gI) => ({ cat, gI }))
+      .find(({ cat }) => cat.id === WEEKLY_CATEGORY_ID);
     const weeklyItemsForDay: { gI: number; item: RoutineItem; iI: number }[] = [];
-    if (weeklyRoutinesEnabledForModal) {
-      challengeConfig.categories.forEach((cat, gI) => {
-        cat.items.forEach((item, iI) => {
-          if (isWeeklySpecificItem(item) && item.days!.includes(dayWeekday)) {
-            weeklyItemsForDay.push({ gI, item, iI });
-          }
-        });
+    if (weeklyRoutinesEnabledForModal && weeklyGroupEntryForModal) {
+      const { cat, gI } = weeklyGroupEntryForModal;
+      cat.items.forEach((item, iI) => {
+        if (isWeeklySpecificItem(item) && item.days!.includes(dayWeekday)) {
+          weeklyItemsForDay.push({ gI, item, iI });
+        }
       });
     }
 
@@ -8091,11 +8124,11 @@ function App() {
               </div>
               {challengeConfig.categories.length === 0 ? (
                 <p className="text-sm text-zinc-500 italic">No routine categories configured.</p>
-              ) : challengeConfig.categories.every(cat => cat.items.length > 0 && cat.items.filter(item => !isWeeklySpecificItem(item)).length === 0) ? (
-                <p className="text-sm text-zinc-500 italic">All routines are scheduled on specific days — see Weekly Specifics below.</p>
+              ) : dailyOnlyGroupsForModal.length === 0 ? (
+                <p className="text-sm text-zinc-500 italic">All routines live in the Weekly card — see Weekly Specifics below.</p>
               ) : (
                 <div className="space-y-3">
-                  {challengeConfig.categories.map((cat, gI) => {
+                  {dailyOnlyGroupsForModal.map(({ cat, gI }) => {
                     // Weekly Specifics items live in their own section
                     // below — a category that's 100% weekly items has
                     // nothing left to show here, so skip the whole block
