@@ -11285,17 +11285,20 @@ function App() {
       const meta = NOTICE_TYPE_META[type];
       const list = notices.filter(n => n.type === type);
       return (
-        <div className="min-w-0 h-[450px] bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 flex flex-col">
-          <div className={cn(
-            'flex items-center justify-between gap-2 px-3 py-2 rounded-lg border flex-shrink-0',
-            type === 'mistake' ? 'bg-rose-500/10 border-rose-500/30' : 'bg-cyan-500/10 border-cyan-500/30'
-          )}>
+        <div className={cn(
+          'min-w-0 h-[450px] bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 flex flex-col border-t-2',
+          type === 'mistake' ? 'border-t-rose-500/50' : 'border-t-cyan-500/50'
+        )}>
+          <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-zinc-800 bg-zinc-800/40 flex-shrink-0">
             <div className="flex items-center gap-2 min-w-0">
               <meta.headerIcon className={cn('w-4 h-4 flex-shrink-0', type === 'mistake' ? 'text-rose-400' : 'text-cyan-400')} />
               <h2 className={cn('text-sm font-semibold truncate', type === 'mistake' ? 'text-rose-300' : 'text-cyan-300')}>
                 {meta.tabLabel}
               </h2>
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-black/30 text-zinc-300 flex-shrink-0">
+              <span className={cn(
+                'px-1.5 py-0.5 rounded-full text-[10px] border flex-shrink-0',
+                type === 'mistake' ? 'bg-rose-500/10 text-rose-300 border-rose-500/20' : 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20'
+              )}>
                 {list.length}
               </span>
             </div>
