@@ -3393,9 +3393,9 @@ function App() {
       .then(results => {
         if (cancelled) return;
         const merged: RawEconomicEvent[] = ([] as RawEconomicEvent[]).concat(...results);
-        // Red Folder filter: strictly High-impact events only.
+        // Red Folder filter: strictly High-impact, USD-only events.
         const highImpactOnly: EconomicEvent[] = merged
-          .filter(e => (e.impact || '').toLowerCase() === 'high')
+          .filter(e => (e.impact || '').toLowerCase() === 'high' && (e.country || '').toUpperCase() === 'USD')
           .map(e => ({
             id: `${e.country}-${e.title}-${e.date}`,
             title: e.title,
@@ -11042,7 +11042,7 @@ function App() {
             <AlertTriangle className="w-4 h-4 text-rose-400" />
             <h2 className="text-sm font-semibold text-white">Economic Calendar</h2>
             <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-rose-500/10 text-rose-400 border border-rose-500/30 flex-shrink-0">
-              Red Folder · High Impact Only
+              Red Folder · USD High Impact Only
             </span>
           </div>
 
