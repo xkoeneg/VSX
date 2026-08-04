@@ -2059,6 +2059,94 @@ const EconomicCalendarCard: React.FC = () => {
 };
 
 // ============================================================
+// NASDAQ 100 HEATMAP — embeds TradingView's official Stock Heatmap
+// widget script, scoped to the NASDAQ 100 / US Tech Index dataset and
+// grouped by sector. The widget itself is an iframe that TradingView's
+// script injects and manages entirely on its own; this component's job
+// is just to mount that script exactly once and clean up the DOM it
+// created if the card is ever unmounted.
+// ============================================================
+const NasdaqHeatmapCard: React.FC = () => {
+  const widgetHostRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const host = widgetHostRef.current;
+    if (!host) return;
+
+    // Wipe any prior contents before mounting. This guards against two
+    // real-world double-mount cases: React 18 StrictMode's dev-only
+    // double-invoke of effects, and fast view-switching remounting this
+    // card before a previous script finished loading — either of which
+    // would otherwise stack a second TradingView iframe inside the same
+    // host and leak the first one.
+    host.innerHTML = '';
+
+    const widgetDiv = document.createElement('div');
+    widgetDiv.className = 'tradingview-widget-container__widget';
+    widgetDiv.style.width = '100%';
+    widgetDiv.style.height = '100%';
+    host.appendChild(widgetDiv);
+
+    const script = document.createElement('script');
+    script.type = 'text/javascript';
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js';
+    script.async = true;
+    // TradingView's heatmap widget reads its config from this script
+    // tag's own text content (JSON), not from a prop/attribute — this is
+    // the officially documented embed pattern for this widget.
+    script.text = JSON.stringify({
+      exchanges: [],
+      dataSource: 'NASDAQ100', // NASDAQ 100 / US Tech Index constituents
+      grouping: 'sector', // block map grouped by sector, per spec
+      blockSize: 'market_cap_basic',
+      blockColor: 'change',
+      locale: 'en',
+      symbolUrl: '',
+      colorTheme: 'dark', // matches the app's dark theme
+      hasTopBar: false, // clean, embedded look — no TradingView top bar
+      isDataSetEnabled: false,
+      isZoomEnabled: true,
+      hasSymbolTooltip: true,
+      isMonoSize: false,
+      width: '100%',
+      height: '100%',
+    });
+    host.appendChild(script);
+
+    // No manual widget API to tear down — the injected iframe/script is
+    // just DOM content, so clearing the host's innerHTML on unmount (or
+    // before the next mount, above) is sufficient to avoid leaks.
+    return () => {
+      host.innerHTML = '';
+    };
+    // Empty deps: mount the widget exactly once. The heatmap script owns
+    // its own internal refresh/re-render loop from here on, so this
+    // effect must never re-run on parent re-renders.
+  }, []);
+
+  return (
+    <div className="min-w-0 bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 flex flex-col">
+      <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border flex-shrink-0 bg-cyan-500/10 border-cyan-500/30 mb-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <LayoutGrid className="w-4 h-4 flex-shrink-0 text-cyan-400" />
+          <h2 className="text-sm font-semibold truncate text-cyan-300">NASDAQ 100 Heatmap</h2>
+          <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-black/30 text-zinc-300 flex-shrink-0">
+            US Tech Index · By Sector
+          </span>
+        </div>
+      </div>
+      {/* Fixed-height, 100%-width shell — the widget itself is configured
+          with width: '100%' / height: '100%' so it fills this shell and
+          reflows with it on any viewport/container resize. */}
+      <div
+        ref={widgetHostRef}
+        className="tradingview-widget-container w-full h-[420px] sm:h-[520px] rounded-lg overflow-hidden"
+      />
+    </div>
+  );
+};
+
+// ============================================================
 // CALCULATOR VALIDATION - Same strict rules as input fields
 // ============================================================
 
@@ -11602,6 +11690,10 @@ function App() {
             Fetches live from /api/calendar (Vercel serverless proxy for
             the Myfxbook RSS feed) and filters to USD high-impact events. */}
         <EconomicCalendarCard />
+
+        {/* NASDAQ 100 Heatmap — live TradingView widget, sector-grouped,
+            dark theme, no top bar. Full width, below the calendar. */}
+        <NasdaqHeatmapCard />
 
       </div>
     );
