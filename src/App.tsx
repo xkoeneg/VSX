@@ -14680,7 +14680,18 @@ function App() {
           {view === 'discipline' && renderDisciplineTracker()}
           {view === 'lifeDiscipline' && renderLifeDisciplineHub()}
           {view === 'playbook' && renderPlaybook()}
-          {view === 'notices' && renderNotices()}
+          {/* Market Notices stays mounted in the DOM at all times (rather
+              than being conditionally rendered like the other tabs) and is
+              only hidden via CSS display when inactive. It hosts the
+              Myfxbook Economic Calendar iframe, which — like any iframe —
+              fully unmounts and reloads from scratch (losing whatever
+              impact/currency filters the user manually set inside it) the
+              moment its container leaves the DOM. Keeping it always
+              mounted, just visually hidden, preserves that iframe's live
+              state across tab switches. */}
+          <div style={{ display: view === 'notices' ? 'block' : 'none' }}>
+            {renderNotices()}
+          </div>
           {view === 'wiki' && renderWiki()}
           {view === 'calendar' && renderCalendar()}
         </div>
