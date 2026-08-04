@@ -2147,6 +2147,70 @@ const NasdaqHeatmapCard: React.FC = () => {
 };
 
 // ============================================================
+// TICKER TAPE — TradingView's official Ticker Tape widget, pinned to the
+// very top of the Market Notices layout. Same "mount once, tear down on
+// unmount" pattern as the heatmap above: the script owns its own render
+// loop once injected, so this component never touches it again after
+// the initial mount.
+// ============================================================
+const TICKER_TAPE_SYMBOLS = [
+  { proName: 'CME_MINI:NQ1!', title: 'NASDAQ Futures' },
+  { proName: 'CME_MINI:ES1!', title: 'S&P 500 Futures' },
+  { proName: 'TVC:DXY', title: 'US Dollar Index' },
+  { proName: 'TVC:US10Y', title: 'US 10-Yr Yield' },
+];
+
+const TickerTapeBar: React.FC = () => {
+  const widgetHostRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const host = widgetHostRef.current;
+    if (!host) return;
+
+    // Same StrictMode/remount guard as the heatmap card: wipe before
+    // mounting so a dev-mode double-invoke (or fast tab-switching back
+    // to this page) can never stack two ticker tapes in the same host.
+    host.innerHTML = '';
+
+    const widgetDiv = document.createElement('div');
+    widgetDiv.className = 'tradingview-widget-container__widget';
+    host.appendChild(widgetDiv);
+
+    const script = document.createElement('script');
+    script.type = 'text/javascript';
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js';
+    script.async = true;
+    // Ticker Tape widget reads its config from this script tag's own
+    // text content — same officially documented pattern as the heatmap.
+    script.text = JSON.stringify({
+      symbols: TICKER_TAPE_SYMBOLS,
+      showSymbolLogo: true,
+      colorTheme: 'dark', // matches the app's dark theme
+      isTransparent: true, // blends into the page background, no widget card behind it
+      displayMode: 'adaptive', // widget's own responsive behavior across breakpoints
+      locale: 'en',
+    });
+    host.appendChild(script);
+
+    return () => {
+      host.innerHTML = '';
+    };
+    // Empty deps: mount exactly once, same reasoning as the heatmap card.
+  }, []);
+
+  return (
+    // Sticky to the top of the Market Notices layout as the page scrolls.
+    // top-[52px] on mobile clears the app's own sticky "VSX" top bar
+    // (md:hidden, ~52px tall) so the two sticky bars stack cleanly
+    // instead of overlapping; on md+ there's no app top bar, so it pins
+    // to top-0. z-10 keeps it below that app top bar's z-20 on mobile.
+    <div className="sticky top-[52px] md:top-0 z-10 -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 mb-4 border-b border-zinc-800 bg-zinc-950">
+      <div ref={widgetHostRef} className="tradingview-widget-container w-full" />
+    </div>
+  );
+};
+
+// ============================================================
 // CALCULATOR VALIDATION - Same strict rules as input fields
 // ============================================================
 
@@ -11658,6 +11722,10 @@ function App() {
 
     return (
       <div className="space-y-6 min-w-0">
+        {/* Ticker Tape — live TradingView widget pinned to the very top
+            of this layout (NQ / ES futures, DXY, US10Y). */}
+        <TickerTapeBar />
+
         <PageHeader
           title="Market Notices"
           description="Anti-mistake database & price action playbook"
