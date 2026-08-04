@@ -2059,6 +2059,367 @@ const EconomicCalendarCard: React.FC = () => {
 };
 
 // ============================================================
+// NASDAQ 100 HEATMAP — embeds TradingView's official Stock Heatmap
+// widget script, scoped to the NASDAQ 100 / US Tech Index dataset and
+// grouped by sector. The widget itself is an iframe that TradingView's
+// script injects and manages entirely on its own; this component's job
+// is just to mount that script exactly once and clean up the DOM it
+// created if the card is ever unmounted.
+// ============================================================
+const NasdaqHeatmapCard: React.FC = () => {
+  const widgetHostRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const host = widgetHostRef.current;
+    if (!host) return;
+
+    // Wipe any prior contents before mounting. This guards against two
+    // real-world double-mount cases: React 18 StrictMode's dev-only
+    // double-invoke of effects, and fast view-switching remounting this
+    // card before a previous script finished loading — either of which
+    // would otherwise stack a second TradingView iframe inside the same
+    // host and leak the first one.
+    host.innerHTML = '';
+
+    const widgetDiv = document.createElement('div');
+    widgetDiv.className = 'tradingview-widget-container__widget';
+    widgetDiv.style.width = '100%';
+    widgetDiv.style.height = '100%';
+    host.appendChild(widgetDiv);
+
+    const script = document.createElement('script');
+    script.type = 'text/javascript';
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js';
+    script.async = true;
+    // TradingView's heatmap widget reads its config from this script
+    // tag's own text content (JSON), not from a prop/attribute — this is
+    // the officially documented embed pattern for this widget.
+    script.text = JSON.stringify({
+      exchanges: [],
+      dataSource: 'NASDAQ100', // NASDAQ 100 / US Tech Index constituents
+      grouping: 'sector', // block map grouped by sector, per spec
+      blockSize: 'market_cap_basic',
+      blockColor: 'change',
+      locale: 'en',
+      symbolUrl: '',
+      colorTheme: 'dark', // matches the app's dark theme
+      hasTopBar: false, // clean, embedded look — no TradingView top bar
+      isDataSetEnabled: false,
+      isZoomEnabled: true,
+      hasSymbolTooltip: true,
+      isMonoSize: false,
+      width: '100%',
+      height: '100%',
+    });
+    host.appendChild(script);
+
+    // No manual widget API to tear down — the injected iframe/script is
+    // just DOM content, so clearing the host's innerHTML on unmount (or
+    // before the next mount, above) is sufficient to avoid leaks.
+    return () => {
+      host.innerHTML = '';
+    };
+    // Empty deps: mount the widget exactly once. The heatmap script owns
+    // its own internal refresh/re-render loop from here on, so this
+    // effect must never re-run on parent re-renders.
+  }, []);
+
+  return (
+    <div className="min-w-0 bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 flex flex-col">
+      <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border flex-shrink-0 bg-cyan-500/10 border-cyan-500/30 mb-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <LayoutGrid className="w-4 h-4 flex-shrink-0 text-cyan-400" />
+          <h2 className="text-sm font-semibold truncate text-cyan-300">NASDAQ 100 Heatmap</h2>
+          <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-black/30 text-zinc-300 flex-shrink-0">
+            US Tech Index · By Sector
+          </span>
+        </div>
+      </div>
+      {/* Fixed-height, 100%-width shell — the widget itself is configured
+          with width: '100%' / height: '100%' so it fills this shell and
+          reflows with it on any viewport/container resize. */}
+      <div
+        ref={widgetHostRef}
+        className="tradingview-widget-container w-full h-[420px] sm:h-[520px] rounded-lg overflow-hidden"
+      />
+    </div>
+  );
+};
+
+// ============================================================
+// TICKER TAPE — TradingView's official Ticker Tape widget, pinned to the
+// very top of the Market Notices layout. Same "mount once, tear down on
+// unmount" pattern as the heatmap above: the script owns its own render
+// loop once injected, so this component never touches it again after
+// the initial mount.
+// ============================================================
+const TICKER_TAPE_SYMBOLS = [
+  { proName: 'CME_MINI:NQ1!', title: 'NASDAQ Futures' },
+  { proName: 'CME_MINI:ES1!', title: 'S&P 500 Futures' },
+  { proName: 'TVC:DXY', title: 'US Dollar Index' },
+  { proName: 'TVC:US10Y', title: 'US 10-Yr Yield' },
+];
+
+const TickerTapeBar: React.FC = () => {
+  const widgetHostRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const host = widgetHostRef.current;
+    if (!host) return;
+
+    // Same StrictMode/remount guard as the heatmap card: wipe before
+    // mounting so a dev-mode double-invoke (or fast tab-switching back
+    // to this page) can never stack two ticker tapes in the same host.
+    host.innerHTML = '';
+
+    const widgetDiv = document.createElement('div');
+    widgetDiv.className = 'tradingview-widget-container__widget';
+    host.appendChild(widgetDiv);
+
+    const script = document.createElement('script');
+    script.type = 'text/javascript';
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js';
+    script.async = true;
+    // Ticker Tape widget reads its config from this script tag's own
+    // text content — same officially documented pattern as the heatmap.
+    script.text = JSON.stringify({
+      symbols: TICKER_TAPE_SYMBOLS,
+      showSymbolLogo: true,
+      colorTheme: 'dark', // matches the app's dark theme
+      isTransparent: true, // blends into the page background, no widget card behind it
+      displayMode: 'adaptive', // widget's own responsive behavior across breakpoints
+      locale: 'en',
+    });
+    host.appendChild(script);
+
+    return () => {
+      host.innerHTML = '';
+    };
+    // Empty deps: mount exactly once, same reasoning as the heatmap card.
+  }, []);
+
+  return (
+    // Sticky to the top of the Market Notices layout as the page scrolls.
+    // top-[52px] on mobile clears the app's own sticky "VSX" top bar
+    // (md:hidden, ~52px tall) so the two sticky bars stack cleanly
+    // instead of overlapping; on md+ there's no app top bar, so it pins
+    // to top-0. z-10 keeps it below that app top bar's z-20 on mobile.
+    <div className="sticky top-[52px] md:top-0 z-10 -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 mb-4 border-b border-zinc-800 bg-zinc-950">
+      <div ref={widgetHostRef} className="tradingview-widget-container w-full" />
+    </div>
+  );
+};
+
+// ============================================================
+// NATIVE NASDAQ 100 HEATMAP — a from-scratch React/Tailwind grid (no
+// TradingView iframe). Pulls live quotes for a fixed set of NASDAQ-100
+// mega-cap tech names through a same-origin `/api/quotes` serverless
+// proxy — mirroring the existing `/api/calendar` proxy pattern used by
+// the Economic Calendar above — so a Finnhub (or equivalent) API key
+// only ever lives server-side and never ships to the browser.
+//
+// Expected contract for that proxy: GET /api/quotes?symbols=NVDA,AAPL,...
+// returns JSON as either `[{ symbol, price, changePercent }, ...]` or the
+// raw per-symbol shape Finnhub's own /quote endpoint uses (`c` = current
+// price, `dp` = percent change) with a `symbol` field merged in — the
+// normalizer below accepts both so the proxy can be a thin pass-through.
+// ============================================================
+
+interface NasdaqHeatmapTicker {
+  symbol: string;
+  companyName: string;
+  // Approximate NASDAQ-100 index weight, used ONLY to size each box's
+  // flex-basis below (bigger constituents render as bigger blocks). Not
+  // live float/market-cap data — periodically stale weights are fine
+  // here since this only ever drives relative box size, never the % change
+  // figure itself (which always comes from the live quote).
+  weight: number;
+}
+
+const NASDAQ_HEATMAP_TICKERS: NasdaqHeatmapTicker[] = [
+  { symbol: 'NVDA', companyName: 'NVIDIA', weight: 9 },
+  { symbol: 'AAPL', companyName: 'Apple', weight: 8.5 },
+  { symbol: 'MSFT', companyName: 'Microsoft', weight: 8 },
+  { symbol: 'AMZN', companyName: 'Amazon', weight: 5.5 },
+  { symbol: 'META', companyName: 'Meta Platforms', weight: 4.5 },
+  { symbol: 'GOOGL', companyName: 'Alphabet', weight: 4 },
+  { symbol: 'TSLA', companyName: 'Tesla', weight: 2.5 },
+];
+
+interface NasdaqQuote {
+  symbol: string;
+  price: number | null;
+  changePercent: number | null;
+}
+
+// Accepts either a clean `{ symbol, price, changePercent }` shape or
+// Finnhub's raw per-symbol fields (`c`, `dp`) merged with a `symbol` key,
+// so the serverless proxy can forward Finnhub's response with minimal
+// (or zero) reshaping.
+const normalizeQuotesResponse = (raw: any): Record<string, NasdaqQuote> => {
+  const list: any[] = Array.isArray(raw) ? raw : Array.isArray(raw?.quotes) ? raw.quotes : [];
+  return list.reduce((acc: Record<string, NasdaqQuote>, item: any) => {
+    const symbol = typeof item?.symbol === 'string' ? item.symbol.toUpperCase() : '';
+    if (!symbol) return acc;
+    const changePercent = typeof item?.changePercent === 'number' ? item.changePercent
+      : typeof item?.dp === 'number' ? item.dp // Finnhub /quote field: percent change
+      : null;
+    const price = typeof item?.price === 'number' ? item.price
+      : typeof item?.c === 'number' ? item.c // Finnhub /quote field: current price
+      : null;
+    acc[symbol] = { symbol, price, changePercent };
+    return acc;
+  }, {});
+};
+
+// Fetching hook — same shape as useEconomicCalendarFeed above (loading /
+// error / lastUpdated / manual reload), auto-refreshing every 5 minutes.
+// 7 symbols per refresh at that cadence is comfortably inside Finnhub's
+// free-tier rate limit (60 calls/min) even before accounting for the
+// manual refresh button.
+function useNasdaqHeatmapQuotes(tickers: NasdaqHeatmapTicker[]) {
+  const [quotes, setQuotes] = useState<Record<string, NasdaqQuote>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  const symbolsParam = useMemo(() => tickers.map(t => t.symbol).join(','), [tickers]);
+
+  const loadQuotes = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/quotes?symbols=${encodeURIComponent(symbolsParam)}`);
+      if (!res.ok) throw new Error(`Quotes request failed (${res.status})`);
+      const raw = await res.json();
+      setQuotes(normalizeQuotesResponse(raw));
+      setLastUpdated(new Date());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load live quotes');
+    } finally {
+      setLoading(false);
+    }
+  }, [symbolsParam]);
+
+  useEffect(() => {
+    loadQuotes();
+    const interval = setInterval(loadQuotes, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [loadQuotes]);
+
+  return { quotes, loading, error, lastUpdated, loadQuotes };
+}
+
+const NativeNasdaqHeatmapCard: React.FC = () => {
+  const { quotes, loading, error, lastUpdated, loadQuotes } = useNasdaqHeatmapQuotes(NASDAQ_HEATMAP_TICKERS);
+  const hasAnyData = Object.keys(quotes).length > 0;
+
+  return (
+    <div className="min-w-0 bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 flex flex-col">
+      <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border flex-shrink-0 bg-cyan-500/10 border-cyan-500/30 mb-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <LayoutGrid className="w-4 h-4 flex-shrink-0 text-cyan-400" />
+          <h2 className="text-sm font-semibold truncate text-cyan-300">NASDAQ 100 Heatmap</h2>
+          <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-black/30 text-zinc-300 flex-shrink-0">
+            Mega-Cap Tech
+          </span>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {lastUpdated && !loading && (
+            <span className="hidden sm:inline text-[10px] text-zinc-500">
+              Updated {lastUpdated.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
+          <button
+            onClick={loadQuotes}
+            disabled={loading}
+            className="p-1.5 rounded-lg bg-black/20 hover:bg-black/40 text-zinc-300 hover:text-white transition-colors disabled:opacity-50"
+            aria-label="Refresh NASDAQ heatmap"
+          >
+            <RefreshCw className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />
+          </button>
+        </div>
+      </div>
+
+      {loading && !hasAnyData ? (
+        <div className="flex flex-wrap gap-2">
+          {NASDAQ_HEATMAP_TICKERS.map(t => (
+            <div
+              key={t.symbol}
+              style={{ flex: `${t.weight} 1 90px` }}
+              className="min-w-[90px] h-20 rounded-lg bg-zinc-800/40 animate-pulse"
+            />
+          ))}
+        </div>
+      ) : error && !hasAnyData ? (
+        <div className="text-center py-8 rounded-lg border border-dashed border-rose-900/50 bg-rose-950/10">
+          <AlertTriangle className="w-5 h-5 mx-auto text-rose-400 mb-2" />
+          <p className="text-rose-300 text-xs mb-2">{error}</p>
+          <button
+            onClick={loadQuotes}
+            className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+          >
+            <RefreshCw className="w-3 h-3" />
+            Retry
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {NASDAQ_HEATMAP_TICKERS.map(ticker => {
+            const quote = quotes[ticker.symbol];
+            const change = quote?.changePercent ?? null;
+            const isUp = change !== null && change >= 0;
+            // Clamp the magnitude to a 0–4% visual range so one outlier
+            // move doesn't wash out the rest of the grid, then map that
+            // to background opacity for an actual heatmap gradient
+            // instead of a single flat color per side.
+            const magnitude = change === null ? 0 : Math.min(Math.abs(change), 4) / 4;
+            const bg = change === null
+              ? 'rgba(113, 113, 122, 0.08)' // zinc-500, low opacity — no data yet
+              : isUp
+                ? `rgba(16, 185, 129, ${0.10 + magnitude * 0.30})` // soft emerald -> stronger with magnitude
+                : `rgba(244, 63, 94, ${0.10 + magnitude * 0.30})`; // soft rose -> stronger with magnitude
+            const borderClass = change === null ? 'border-zinc-700' : isUp ? 'border-emerald-500/30' : 'border-rose-500/30';
+            const textClass = change === null ? 'text-zinc-400' : isUp ? 'text-emerald-300' : 'text-rose-300';
+
+            return (
+              <div
+                key={ticker.symbol}
+                // flex-basis approximates the ticker's NASDAQ-100 index
+                // weight so heavier constituents render as visibly larger
+                // blocks; 90px floor keeps the smallest boxes legible on
+                // narrow viewports.
+                style={{ flex: `${ticker.weight} 1 90px`, backgroundColor: bg }}
+                className={cn('min-w-[90px] rounded-lg border p-3 flex flex-col justify-between gap-2 transition-colors', borderClass)}
+              >
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-xs font-bold text-white truncate">{ticker.symbol}</span>
+                  {change !== null && (
+                    isUp
+                      ? <TrendingUp className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+                      : <TrendingDown className="w-3 h-3 text-rose-400 flex-shrink-0" />
+                  )}
+                </div>
+                <div>
+                  <p className={cn('text-base font-mono font-semibold tabular-nums', textClass)}>
+                    {change === null ? '—' : `${isUp ? '+' : ''}${change.toFixed(2)}%`}
+                  </p>
+                  <p className="text-[10px] text-zinc-500 truncate">{ticker.companyName}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <p className="mt-3 text-[10px] text-zinc-600">
+        Box size approximates each stock's NASDAQ-100 index weight. Auto-refreshes every 5 minutes — use the refresh button for an on-demand update.
+      </p>
+    </div>
+  );
+};
+
+// ============================================================
 // CALCULATOR VALIDATION - Same strict rules as input fields
 // ============================================================
 
@@ -11570,6 +11931,10 @@ function App() {
 
     return (
       <div className="space-y-6 min-w-0">
+        {/* Ticker Tape — live TradingView widget pinned to the very top
+            of this layout (NQ / ES futures, DXY, US10Y). */}
+        <TickerTapeBar />
+
         <PageHeader
           title="Market Notices"
           description="Anti-mistake database & price action playbook"
@@ -11602,6 +11967,11 @@ function App() {
             Fetches live from /api/calendar (Vercel serverless proxy for
             the Myfxbook RSS feed) and filters to USD high-impact events. */}
         <EconomicCalendarCard />
+
+        {/* NASDAQ 100 Heatmap — native Tailwind grid (no TradingView
+            iframe), live quotes via /api/quotes, sized by index weight.
+            Full width, directly below the calendar. */}
+        <NativeNasdaqHeatmapCard />
 
       </div>
     );
