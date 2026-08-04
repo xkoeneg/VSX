@@ -10801,45 +10801,6 @@ function App() {
           {renderColumn('mistake')}
         </div>
 
-        {/* ---- Economic Calendar ----
-            Embeds the Myfxbook Economic Calendar widget directly rather
-            than maintaining our own JSON feed/proxy/cache pipeline.
-            Filtered to High-impact USD events only (impacts=3&symbols=USD).
-            The widget itself doesn't offer a dark theme, so its own
-            colors are CSS-inverted (filter: invert + hue-rotate) to
-            approximate one and match the rest of the dashboard — this
-            flips the widget's light background dark and roughly
-            preserves its original hue relationships, but exact colors
-            (e.g. red/green impact tags) will look somewhat different
-            from native dark-mode styling since it's a visual trick
-            rather than the widget actually rendering dark. */}
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 mb-3 flex-wrap">
-            <AlertTriangle className="w-4 h-4 text-rose-400" />
-            <h2 className="text-sm font-semibold text-white">Economic Calendar</h2>
-            <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-rose-500/10 text-rose-400 border border-rose-500/30 flex-shrink-0">
-              Myfxbook · USD High Impact Only
-            </span>
-          </div>
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 sm:p-3 overflow-hidden">
-            <div
-              className="w-full"
-              style={{ minHeight: 500, borderRadius: 8, overflow: 'hidden', filter: 'invert(0.9) hue-rotate(180deg)' }}
-            >
-              <iframe
-                src="https://widgets.myfxbook.com/widgets/calendar.html?lang=en&impacts=3&symbols=USD"
-                title="Myfxbook Economic Calendar"
-                width="100%"
-                height="500"
-                frameBorder={0}
-                scrolling="auto"
-                className="w-full rounded-lg border-0"
-                loading="lazy"
-              />
-            </div>
-          </div>
-        </div>
-
       </div>
     );
   };
@@ -14680,18 +14641,7 @@ function App() {
           {view === 'discipline' && renderDisciplineTracker()}
           {view === 'lifeDiscipline' && renderLifeDisciplineHub()}
           {view === 'playbook' && renderPlaybook()}
-          {/* Market Notices stays mounted in the DOM at all times (rather
-              than being conditionally rendered like the other tabs) and is
-              only hidden via CSS display when inactive. It hosts the
-              Myfxbook Economic Calendar iframe, which — like any iframe —
-              fully unmounts and reloads from scratch (losing whatever
-              impact/currency filters the user manually set inside it) the
-              moment its container leaves the DOM. Keeping it always
-              mounted, just visually hidden, preserves that iframe's live
-              state across tab switches. */}
-          <div style={{ display: view === 'notices' ? 'block' : 'none' }}>
-            {renderNotices()}
-          </div>
+          {view === 'notices' && renderNotices()}
           {view === 'wiki' && renderWiki()}
           {view === 'calendar' && renderCalendar()}
         </div>
