@@ -10803,24 +10803,31 @@ function App() {
 
         {/* ---- Economic Calendar ----
             Embeds the Myfxbook Economic Calendar widget directly rather
-            than maintaining our own JSON feed/proxy/cache pipeline. The
-            iframe is responsive (fluid width, fixed height) and the
-            wrapper card is styled to match the rest of the dashboard's
-            dark theme — the widget's own internal chrome still renders
-            in Myfxbook's styling, since that's out of our control from
-            inside an iframe. */}
+            than maintaining our own JSON feed/proxy/cache pipeline.
+            Filtered to High-impact USD events only (impacts=3&symbols=USD).
+            The widget itself doesn't offer a dark theme, so its own
+            colors are CSS-inverted (filter: invert + hue-rotate) to
+            approximate one and match the rest of the dashboard — this
+            flips the widget's light background dark and roughly
+            preserves its original hue relationships, but exact colors
+            (e.g. red/green impact tags) will look somewhat different
+            from native dark-mode styling since it's a visual trick
+            rather than the widget actually rendering dark. */}
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             <AlertTriangle className="w-4 h-4 text-rose-400" />
             <h2 className="text-sm font-semibold text-white">Economic Calendar</h2>
             <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-rose-500/10 text-rose-400 border border-rose-500/30 flex-shrink-0">
-              Myfxbook · High &amp; Medium Impact
+              Myfxbook · USD High Impact Only
             </span>
           </div>
           <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 sm:p-3 overflow-hidden">
-            <div className="w-full" style={{ minHeight: 500 }}>
+            <div
+              className="w-full"
+              style={{ minHeight: 500, borderRadius: 8, overflow: 'hidden', filter: 'invert(0.9) hue-rotate(180deg)' }}
+            >
               <iframe
-                src="https://widgets.myfxbook.com/widgets/calendar.html?lang=en&impacts=2,3&symbols=USD,EUR,GBP,JPY,AUD,NZD,CAD,CHF"
+                src="https://widgets.myfxbook.com/widgets/calendar.html?lang=en&impacts=3&symbols=USD"
                 title="Myfxbook Economic Calendar"
                 width="100%"
                 height="500"
