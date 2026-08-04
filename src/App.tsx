@@ -837,7 +837,16 @@ const getTimeZoneOffsetMinutes = (timeZone: string, date: Date): number => {
   // Some environments report midnight as "24" under hour: '2-digit'.
   const hour = raw.hour === '24' ? 0 : Number(raw.hour);
   const asUTC = Date.UTC(Number(raw.year), Number(raw.month) - 1, Number(raw.day), hour, Number(raw.minute), Number(raw.second));
-  return (asUTC - date.getTime()) / 60000;
+  // Rounded to the nearest whole minute: Intl.DateTimeFormat's parts only
+  // resolve down to whole seconds (no milliseconds), while `date.getTime()`
+  // still carries real-world milliseconds (e.g. from a setInterval tick).
+  // Without rounding, that mismatch produces fractional offsets like
+  // -240.006 instead of a clean -240, which then fail the strict `===`
+  // equality check in isObservingDST() below almost all the time — making
+  // the bar silently fall back to winter windows even in the middle of
+  // summer DST. Real-world timezone offsets are always whole minutes, so
+  // rounding here is always safe.
+  return Math.round((asUTC - date.getTime()) / 60000);
 };
 
 // True when `timeZone` is currently observing DST. Compares the current
@@ -990,7 +999,19 @@ const MarketSessionsBar: React.FC = () => {
             </div>
 
             <div className="flex items-center justify-between gap-2 mb-1">
-              <span className="text-[10px] text-zinc-500">{session.cityLabel} time</span>
+              <span className="flex items-center gap-1.5 min-w-0">
+                <span className="text-[10px] text-zinc-500 truncate">{session.cityLabel} time</span>
+                {session.dstTimeZone && (
+                  <span className={cn(
+                    'px-1 py-0.5 rounded text-[9px] font-medium border flex-shrink-0 leading-none whitespace-nowrap',
+                    inDST
+                      ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                      : 'bg-sky-500/10 text-sky-300 border-sky-500/30'
+                  )}>
+                    {inDST ? '☀️ DST' : '❄️ Standard'}
+                  </span>
+                )}
+              </span>
               <span className="font-mono text-sm text-zinc-200 tabular-nums tracking-tight">{localClock}</span>
             </div>
             <p className="text-[11px] text-zinc-500 truncate">{formatPHTWindowLabel(activeWindow)}</p>
