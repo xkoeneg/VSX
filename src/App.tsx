@@ -3343,13 +3343,19 @@ function App() {
   // (last/this/next week) so every range filter (Yesterday..Next Week)
   // can be served instantly from one in-memory list without refetching.
   // This is an unofficial public feed, so the fetch chain is defensive:
-  //   1) try each feed directly
-  //   2) on failure (CORS/network), retry the same feed through the
-  //      allorigins.win read-only proxy, which adds permissive CORS
-  //      headers on top of the raw JSON
-  //   3) if every feed still fails, fall back to a built-in sample set
-  //      of High-impact USD events for the current week — the table
-  //      never shows a hard error or goes empty.
+  //   1) try each feed through a chain of CORS proxies, in order —
+  //      allorigins.win, corsproxy.io, thingproxy.freeboard.io — moving
+  //      to the next proxy the moment one errors or returns non-200
+  //   2) if every proxy in the chain fails, make one last direct
+  //      (unproxied) attempt, for environments where CORS isn't an issue
+  //   3) if that also fails, silently fall back to the last successfully
+  //      fetched payload cached in localStorage, so the table still shows
+  //      data instead of a blank/error screen
+  //   4) only if there's no usable cache either does the table show the
+  //      hard error state with a manual Retry button
+  const ECONOMIC_CACHE_KEY = 'vsx_eco_calendar_cache';
+  const ECONOMIC_CACHE_MAX_AGE_MS = 60 * 60 * 1000; // 1 hour
+  const [economicEventsCachedAt, setEconomicEventsCachedAt] = useState<number | null>(null);
   const [economicEventsRetryToken, setEconomicEventsRetryToken] = useState(0);
   useEffect(() => {
     let cancelled = false;
@@ -3360,15 +3366,51 @@ function App() {
       return r.json();
     };
 
-    // Direct-then-proxied fetch of a single feed URL: try it as-is first,
-    // and if that fails (most commonly CORS from a browser context), retry
-    // the same URL wrapped through the allorigins.win read-only CORS proxy.
-    const fetchWithProxyFallback = async (url: string): Promise<RawEconomicEvent[]> => {
+    // Ordered chain of CORS proxy wrappers tried around a feed URL before
+    // falling back to a direct (unproxied) request. Each entry wraps the
+    // target URL differently, so a proxy outage or rate-limit on one
+    // service doesn't take the whole calendar down with it.
+    const PROXY_WRAPPERS: Array<(url: string) => string> = [
+      (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+      (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+      (url) => `https://thingproxy.freeboard.io/fetch/${url}`,
+    ];
+
+    // Walks the proxy chain in order for a single feed URL: proxy #1,
+    // then #2, then #3, then finally a direct fetch with no proxy at all.
+    // Moves to the next attempt on ANY error (network failure, CORS
+    // rejection, or non-200 response) and only throws once every attempt
+    // in the chain has been exhausted.
+    const fetchWithProxyChain = async (url: string): Promise<RawEconomicEvent[]> => {
+      const attempts = [...PROXY_WRAPPERS.map(wrap => wrap(url)), url];
+      let lastError: unknown = null;
+      for (const attemptUrl of attempts) {
+        try {
+          return await fetchJson(attemptUrl);
+        } catch (err) {
+          lastError = err;
+        }
+      }
+      throw lastError ?? new Error('All proxy attempts failed');
+    };
+
+    const readCache = (): { data: EconomicEvent[]; timestamp: number } | null => {
       try {
-        return await fetchJson(url);
+        const raw = localStorage.getItem(ECONOMIC_CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !Array.isArray(parsed.data) || typeof parsed.timestamp !== 'number') return null;
+        return parsed;
       } catch {
-        const proxiedUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-        return await fetchJson(proxiedUrl);
+        return null;
+      }
+    };
+
+    const writeCache = (data: EconomicEvent[]) => {
+      try {
+        localStorage.setItem(ECONOMIC_CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() }));
+      } catch {
+        // Storage unavailable/full — caching is best-effort, never fatal.
       }
     };
 
@@ -3379,10 +3421,10 @@ function App() {
     // covers both "a different raw JSON feed" and "my own CORS proxy in
     // front of the default feed" use cases.
     const fetchPromise: Promise<RawEconomicEvent[][]> = trimmedCustomUrl
-      ? fetchWithProxyFallback(trimmedCustomUrl).then(events => [events])
+      ? fetchWithProxyChain(trimmedCustomUrl).then(events => [events])
       : Promise.all(
           ['ff_calendar_lastweek.json', 'ff_calendar_thisweek.json', 'ff_calendar_nextweek.json'].map(path =>
-            fetchWithProxyFallback(`https://nfs.faireconomy.media/${path}`)
+            fetchWithProxyChain(`https://nfs.faireconomy.media/${path}`)
           )
         );
 
@@ -3410,15 +3452,30 @@ function App() {
         // genuinely quiet stretch with no High-impact releases) is shown
         // as-is via the table's own empty state.
         setEconomicEvents(highImpactOnly);
+        setEconomicEventsCachedAt(null);
+        // Every live feed in the chain succeeded — refresh the local cache
+        // so the next total outage still has something recent to fall back on.
+        writeCache(highImpactOnly);
       })
       .catch(() => {
         if (cancelled) return;
-        setEconomicEvents([]);
-        setEconomicEventsError(
-          trimmedCustomUrl
-            ? 'Could not load the configured feed URL (direct and proxied attempts both failed). Double-check the URL in Feed Source settings.'
-            : 'Could not load the live economic calendar feed (direct and proxied attempts both failed). It may be temporarily unavailable — try again in a moment.'
-        );
+        // Every proxy AND the direct fallback failed for every feed —
+        // reach for the last known-good cached payload instead of
+        // showing a blank/error table.
+        const cached = readCache();
+        if (cached && cached.data.length > 0) {
+          setEconomicEvents(cached.data);
+          setEconomicEventsCachedAt(cached.timestamp);
+          setEconomicEventsError(null);
+        } else {
+          setEconomicEvents([]);
+          setEconomicEventsCachedAt(null);
+          setEconomicEventsError(
+            trimmedCustomUrl
+              ? 'Could not load the configured feed URL (all proxies and direct fetch failed). Double-check the URL in Feed Source settings.'
+              : 'Could not load the live economic calendar feed (all proxies and direct fetch failed). It may be temporarily unavailable — try again in a moment.'
+          );
+        }
       })
       .finally(() => {
         if (!cancelled) setEconomicEventsLoading(false);
@@ -11173,6 +11230,19 @@ function App() {
                   )}
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Offline/outage banner — shown only when live fetch + every
+              proxy failed and we fell back to the localStorage cache. */}
+          {economicEventsCachedAt !== null && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 border-x border-amber-500/20 text-[11px] text-amber-300">
+              <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+              <span>
+                Live feed unreachable — showing cached data from{' '}
+                {new Date(economicEventsCachedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                {Date.now() - economicEventsCachedAt > ECONOMIC_CACHE_MAX_AGE_MS ? ' (over an hour old)' : ''}.
+              </span>
             </div>
           )}
 
