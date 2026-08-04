@@ -3339,18 +3339,22 @@ function App() {
   const [pillarsPerRow, setPillarsPerRow] = useState<PillarsPerRow>(3);
 
   // ---- Economic Calendar: fetch + live countdown ticker ----
-  // Pulls all three community-hosted Forex Factory JSON mirrors once
-  // (last/this/next week) so every range filter (Yesterday..Next Week)
-  // can be served instantly from one in-memory list without refetching.
-  // This is an unofficial public feed, so the fetch chain is defensive:
-  //   1) try each feed through a chain of CORS proxies, in order —
-  //      allorigins.win, corsproxy.io, thingproxy.freeboard.io — moving
-  //      to the next proxy the moment one errors or returns non-200
-  //   2) if every proxy in the chain fails, make one last direct
-  //      (unproxied) attempt, for environments where CORS isn't an issue
-  //   3) if that also fails, silently fall back to the last successfully
-  //      fetched payload cached in localStorage, so the table still shows
-  //      data instead of a blank/error screen
+  // Pulls all three week-feeds once (last/this/next week) so every range
+  // filter (Yesterday..Next Week) can be served instantly from one
+  // in-memory list without refetching. Fetch strategy, in order:
+  //   1) default feed: hit our own /api/calendar serverless route, which
+  //      fetches nfs.faireconomy.media server-side (no CORS concerns
+  //      there) — see api/calendar.ts
+  //   2) if /api/calendar itself is unreachable (e.g. running the SPA
+  //      without that backend deployed), or if the user configured a
+  //      custom Feed Source URL, fall back to a browser-side chain of
+  //      CORS proxies — allorigins.win, corsproxy.io,
+  //      thingproxy.freeboard.io — then a final direct (unproxied)
+  //      attempt, moving to the next the moment one errors or returns
+  //      non-200
+  //   3) if every attempt fails, silently fall back to the last
+  //      successfully fetched payload cached in localStorage, so the
+  //      table still shows data instead of a blank/error screen
   //   4) only if there's no usable cache either does the table show the
   //      hard error state with a manual Retry button
   const ECONOMIC_CACHE_KEY = 'vsx_eco_calendar_cache';
@@ -3416,17 +3420,32 @@ function App() {
 
     const trimmedCustomUrl = customFeedUrl.trim();
 
-    // If the user has configured a custom feed/proxy URL, use exactly that
-    // single endpoint instead of the built-in three-week mirror set. This
-    // covers both "a different raw JSON feed" and "my own CORS proxy in
-    // front of the default feed" use cases.
+    // Default path: fetch through our own /api/calendar serverless route,
+    // which does the actual nfs.faireconomy.media request server-side
+    // (no CORS issue there, so no public proxy chain needed). Falls back
+    // to the direct-then-proxy-chain browser fetch only if the internal
+    // route itself errors (e.g. running the SPA standalone without the
+    // API route deployed).
+    //
+    // Custom feed path: if the user has configured a custom feed/proxy
+    // URL in Feed Source settings, that stays a browser-side fetch
+    // through the proxy chain — piping arbitrary user-supplied URLs
+    // through our own server would make /api/calendar an open proxy.
+    const fetchDefaultWeek = async (week: 'lastweek' | 'thisweek' | 'nextweek'): Promise<RawEconomicEvent[]> => {
+      try {
+        const r = await fetch(`/api/calendar?week=${week}`);
+        if (!r.ok) throw new Error(`${r.status}`);
+        return await r.json();
+      } catch {
+        // /api/calendar unreachable (e.g. no serverless backend deployed
+        // for this environment) — fall back to the browser-side chain.
+        return fetchWithProxyChain(`https://nfs.faireconomy.media/ff_calendar_${week}.json`);
+      }
+    };
+
     const fetchPromise: Promise<RawEconomicEvent[][]> = trimmedCustomUrl
       ? fetchWithProxyChain(trimmedCustomUrl).then(events => [events])
-      : Promise.all(
-          ['ff_calendar_lastweek.json', 'ff_calendar_thisweek.json', 'ff_calendar_nextweek.json'].map(path =>
-            fetchWithProxyChain(`https://nfs.faireconomy.media/${path}`)
-          )
-        );
+      : Promise.all((['lastweek', 'thisweek', 'nextweek'] as const).map(fetchDefaultWeek));
 
     setEconomicEventsLoading(true);
     setEconomicEventsError(null);
