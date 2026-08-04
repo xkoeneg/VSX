@@ -1271,6 +1271,278 @@ const SessionBadge: React.FC<{ value?: SessionOption | string; size?: 'sm' | 'md
 };
 
 // ============================================================
+// ECONOMIC CALENDAR — USD high-impact events pulled live from the
+// Myfxbook RSS feed via /api/calendar (a Vercel serverless function that
+// fetches the feed server-side so the browser never hits Myfxbook
+// directly, permanently avoiding CORS). Self-contained: owns its own
+// fetch/parse/refresh state so it can be dropped in anywhere.
+// ============================================================
+interface EconomicEvent {
+  id: string;
+  title: string;
+  currency: string;
+  impact: 'high' | 'medium' | 'low' | 'none';
+  time: Date | null;
+  previous: string;
+  forecast: string;
+  actual: string;
+}
+
+// Myfxbook titles each event with the COUNTRY name, not the currency code
+// (e.g. "United States Core PCE Price Index MoM"), so this maps the
+// country prefix to a currency. Only the majors are listed — extend as
+// needed if you want to filter by other currencies later.
+const COUNTRY_CURRENCY_MAP: Record<string, string> = {
+  'united states': 'USD',
+  'euro area': 'EUR',
+  'eurozone': 'EUR',
+  'germany': 'EUR',
+  'france': 'EUR',
+  'italy': 'EUR',
+  'spain': 'EUR',
+  'united kingdom': 'GBP',
+  'japan': 'JPY',
+  'canada': 'CAD',
+  'australia': 'AUD',
+  'new zealand': 'NZD',
+  'switzerland': 'CHF',
+  'china': 'CNY',
+};
+
+const getCurrencyFromTitle = (title: string): string => {
+  const lower = title.toLowerCase();
+  for (const country of Object.keys(COUNTRY_CURRENCY_MAP)) {
+    if (lower.startsWith(country)) return COUNTRY_CURRENCY_MAP[country];
+  }
+  return '';
+};
+
+// Myfxbook encodes impact as a CSS class on a <span> inside the
+// description table: sprite-no-impact / sprite-low-impact /
+// sprite-medium-impact / sprite-high-impact.
+const getImpactFromDescriptionHtml = (html: string): EconomicEvent['impact'] => {
+  const match = html.match(/sprite-(no|low|medium|high)-impact/);
+  if (!match) return 'none';
+  return (match[1] === 'no' ? 'none' : match[1]) as EconomicEvent['impact'];
+};
+
+// Best-effort directional hint (beat/miss) for the Actual column — only
+// meaningful when both Actual and Forecast parse as numbers. Handles %,
+// $, and K/M/B suffixes (e.g. "1.395M", "-1.54%", "$16.0B").
+const compareActualToForecast = (actual: string, forecast: string): 'up' | 'down' | null => {
+  const parse = (v: string): number | null => {
+    if (!v) return null;
+    const cleaned = v.replace(/[,%$]/g, '').trim();
+    const multiplier = /B$/i.test(cleaned) ? 1e9 : /M$/i.test(cleaned) ? 1e6 : /K$/i.test(cleaned) ? 1e3 : 1;
+    const num = parseFloat(cleaned.replace(/[BMK]$/i, ''));
+    return Number.isNaN(num) ? null : num * multiplier;
+  };
+  const a = parse(actual);
+  const f = parse(forecast);
+  if (a === null || f === null || a === f) return null;
+  return a > f ? 'up' : 'down';
+};
+
+// Parses the raw RSS XML (as returned by /api/calendar) into typed
+// events. Each <item>'s <description> is itself an HTML <table> (Time
+// left / Impact / Previous / Consensus / Actual), so it's parsed a
+// second time as HTML to pull the cell values out.
+const parseCalendarXml = (xmlText: string): EconomicEvent[] => {
+  const xmlDoc = new DOMParser().parseFromString(xmlText, 'text/xml');
+  if (xmlDoc.querySelector('parsererror')) return [];
+  const items = Array.from(xmlDoc.querySelectorAll('item'));
+
+  return items.map((item, idx) => {
+    const title = item.querySelector('title')?.textContent?.trim() || 'Unknown Event';
+    const pubDateStr = item.querySelector('pubDate')?.textContent?.trim() || '';
+    const descriptionHtml = item.querySelector('description')?.textContent || '';
+
+    const descDoc = new DOMParser().parseFromString(descriptionHtml, 'text/html');
+    const cells = Array.from(descDoc.querySelectorAll('td')).map(td => td.textContent?.trim() || '');
+    const [, , previous = '', forecast = '', actual = ''] = cells;
+
+    const parsedDate = pubDateStr ? new Date(pubDateStr) : null;
+
+    return {
+      id: `${idx}-${title}-${pubDateStr}`,
+      title,
+      currency: getCurrencyFromTitle(title),
+      impact: getImpactFromDescriptionHtml(descriptionHtml),
+      time: parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate : null,
+      previous,
+      forecast,
+      actual,
+    };
+  });
+};
+
+const IMPACT_META: Record<EconomicEvent['impact'], { label: string; className: string }> = {
+  high: { label: 'High', className: 'bg-rose-500/15 text-rose-300 border-rose-500/30' },
+  medium: { label: 'Medium', className: 'bg-amber-500/15 text-amber-300 border-amber-500/30' },
+  low: { label: 'Low', className: 'bg-zinc-700/30 text-zinc-400 border-zinc-700/50' },
+  none: { label: 'None', className: 'bg-zinc-800/40 text-zinc-500 border-zinc-800' },
+};
+
+// Full-width card: fetches /api/calendar on mount (and every 5 min after),
+// parses it, and renders a dark, sleek table of USD high-impact events.
+const EconomicCalendarCard: React.FC = () => {
+  const [events, setEvents] = useState<EconomicEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  const loadCalendar = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/calendar');
+      if (!res.ok) throw new Error(`Feed request failed (${res.status})`);
+      const xmlText = await res.text();
+      setEvents(parseCalendarXml(xmlText));
+      setLastUpdated(new Date());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load the economic calendar');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCalendar();
+    // Auto-refresh every 5 minutes so Actual/Forecast values stay current.
+    const interval = setInterval(loadCalendar, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [loadCalendar]);
+
+  const usdHighImpact = useMemo(() => {
+    return events
+      .filter(e => e.currency === 'USD' && e.impact === 'high')
+      .sort((a, b) => (a.time?.getTime() || 0) - (b.time?.getTime() || 0));
+  }, [events]);
+
+  const formatEventTime = (date: Date | null) => {
+    if (!date) return '—';
+    return date.toLocaleString('en-US', {
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
+    }) + ' UTC';
+  };
+
+  return (
+    <div className="min-w-0 bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 flex flex-col">
+      <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border flex-shrink-0 bg-amber-500/10 border-amber-500/30">
+        <div className="flex items-center gap-2 min-w-0">
+          <Calendar className="w-4 h-4 flex-shrink-0 text-amber-400" />
+          <h2 className="text-sm font-semibold truncate text-amber-300">Economic Calendar</h2>
+          <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-black/30 text-zinc-300 flex-shrink-0">
+            USD · High Impact
+          </span>
+          {!loading && !error && (
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-black/30 text-zinc-400 flex-shrink-0">
+              {usdHighImpact.length}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {lastUpdated && !loading && (
+            <span className="hidden sm:inline text-[10px] text-zinc-500">
+              Updated {lastUpdated.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
+          <button
+            onClick={loadCalendar}
+            disabled={loading}
+            className="p-1.5 rounded-lg bg-black/20 hover:bg-black/40 text-zinc-300 hover:text-white transition-colors disabled:opacity-50"
+            aria-label="Refresh economic calendar"
+          >
+            <RefreshCw className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-3">
+        {loading && events.length === 0 ? (
+          <div className="space-y-2">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-10 rounded-lg bg-zinc-800/40 animate-pulse" />
+            ))}
+          </div>
+        ) : error ? (
+          <div className="text-center py-8 rounded-lg border border-dashed border-rose-900/50 bg-rose-950/10">
+            <AlertTriangle className="w-5 h-5 mx-auto text-rose-400 mb-2" />
+            <p className="text-rose-300 text-xs mb-2">{error}</p>
+            <button
+              onClick={loadCalendar}
+              className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+            >
+              <RefreshCw className="w-3 h-3" />
+              Retry
+            </button>
+          </div>
+        ) : usdHighImpact.length === 0 ? (
+          <div className="text-center py-8 rounded-lg border border-dashed border-zinc-800 bg-zinc-900/30">
+            <Calendar className="w-5 h-5 mx-auto text-zinc-700 mb-2" />
+            <p className="text-zinc-600 text-xs">No high-impact USD events in the current feed window</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto -mx-1">
+            <table className="w-full text-xs min-w-[640px]">
+              <thead>
+                <tr className="text-zinc-500 border-b border-zinc-800">
+                  <th className="text-left font-medium py-2 px-2 whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" />Time</span>
+                  </th>
+                  <th className="text-left font-medium py-2 px-2">Event</th>
+                  <th className="text-left font-medium py-2 px-2 whitespace-nowrap">Impact</th>
+                  <th className="text-right font-medium py-2 px-2 whitespace-nowrap">Previous</th>
+                  <th className="text-right font-medium py-2 px-2 whitespace-nowrap">Forecast</th>
+                  <th className="text-right font-medium py-2 px-2 whitespace-nowrap">Actual</th>
+                </tr>
+              </thead>
+              <tbody>
+                {usdHighImpact.map(evt => {
+                  const trend = compareActualToForecast(evt.actual, evt.forecast);
+                  const meta = IMPACT_META[evt.impact];
+                  return (
+                    <tr key={evt.id} className="border-b border-zinc-800/60 hover:bg-zinc-800/30 transition-colors">
+                      <td className="py-2 px-2 text-zinc-400 whitespace-nowrap">{formatEventTime(evt.time)}</td>
+                      <td className="py-2 px-2 text-white font-medium">
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="px-1.5 py-0.5 rounded text-[10px] border border-zinc-700 text-zinc-400 bg-zinc-800/60 flex-shrink-0">
+                            {evt.currency}
+                          </span>
+                          <span className="truncate">{evt.title.replace(/^United States\s*/i, '')}</span>
+                        </span>
+                      </td>
+                      <td className="py-2 px-2 whitespace-nowrap">
+                        <span className={cn('px-1.5 py-0.5 rounded-full text-[10px] border', meta.className)}>
+                          {meta.label}
+                        </span>
+                      </td>
+                      <td className="py-2 px-2 text-right text-zinc-400 whitespace-nowrap">{evt.previous || '—'}</td>
+                      <td className="py-2 px-2 text-right text-zinc-400 whitespace-nowrap">{evt.forecast || '—'}</td>
+                      <td className="py-2 px-2 text-right whitespace-nowrap">
+                        <span className={cn(
+                          'inline-flex items-center gap-1 font-semibold',
+                          trend === 'up' ? 'text-emerald-400' : trend === 'down' ? 'text-rose-400' : 'text-white'
+                        )}>
+                          {trend === 'up' && <TrendingUp className="w-3 h-3" />}
+                          {trend === 'down' && <TrendingDown className="w-3 h-3" />}
+                          {evt.actual || '—'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
 // CALCULATOR VALIDATION - Same strict rules as input fields
 // ============================================================
 
@@ -10800,6 +11072,11 @@ function App() {
           {renderColumn('insight')}
           {renderColumn('mistake')}
         </div>
+
+        {/* Economic Calendar — full width, spans below both columns.
+            Fetches live from /api/calendar (Vercel serverless proxy for
+            the Myfxbook RSS feed) and filters to USD high-impact events. */}
+        <EconomicCalendarCard />
 
       </div>
     );
