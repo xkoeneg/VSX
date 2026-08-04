@@ -3310,6 +3310,17 @@ function App() {
   const [calendarRange, setCalendarRange] = useState<'yesterday' | 'today' | 'tomorrow' | 'thisWeek' | 'nextWeek'>('today');
   const [calendarSearch, setCalendarSearch] = useState('');
   const [calendarAlertIds, setCalendarAlertIds] = useState<Record<string, boolean>>({});
+  // ---- Economic Calendar: user-configurable feed source ----
+  // Lets the user override the default nfs.faireconomy.media feed with
+  // their own JSON feed URL or CORS-proxy-wrapped endpoint (e.g. if the
+  // default mirror is down or blocked on their network). Persisted to
+  // localStorage so it survives reloads; empty string means "use default".
+  const ECONOMIC_FEED_URL_KEY = 'economicCalendarFeedUrl';
+  const [customFeedUrl, setCustomFeedUrl] = useState<string>(() => {
+    try { return localStorage.getItem(ECONOMIC_FEED_URL_KEY) || ''; } catch { return ''; }
+  });
+  const [feedSettingsOpen, setFeedSettingsOpen] = useState(false);
+  const [feedUrlDraft, setFeedUrlDraft] = useState(customFeedUrl);
   // Ticks once a minute purely to force the "Time Left" countdown column
   // to re-render — no data refetch involved.
   const [calendarNowTick, setCalendarNowTick] = useState(() => Date.now());
@@ -3342,7 +3353,6 @@ function App() {
   const [economicEventsRetryToken, setEconomicEventsRetryToken] = useState(0);
   useEffect(() => {
     let cancelled = false;
-    const feedPaths = ['ff_calendar_lastweek.json', 'ff_calendar_thisweek.json', 'ff_calendar_nextweek.json'];
 
     const fetchJson = async (url: string): Promise<RawEconomicEvent[]> => {
       const r = await fetch(url);
@@ -3350,22 +3360,36 @@ function App() {
       return r.json();
     };
 
-    const fetchFeed = async (path: string): Promise<RawEconomicEvent[]> => {
-      const directUrl = `https://nfs.faireconomy.media/${path}`;
+    // Direct-then-proxied fetch of a single feed URL: try it as-is first,
+    // and if that fails (most commonly CORS from a browser context), retry
+    // the same URL wrapped through the allorigins.win read-only CORS proxy.
+    const fetchWithProxyFallback = async (url: string): Promise<RawEconomicEvent[]> => {
       try {
-        return await fetchJson(directUrl);
+        return await fetchJson(url);
       } catch {
-        // Direct fetch failed (most commonly CORS from a browser context) —
-        // retry via a read-only CORS proxy that wraps the same raw feed.
-        const proxiedUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`;
+        const proxiedUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
         return await fetchJson(proxiedUrl);
       }
     };
 
+    const trimmedCustomUrl = customFeedUrl.trim();
+
+    // If the user has configured a custom feed/proxy URL, use exactly that
+    // single endpoint instead of the built-in three-week mirror set. This
+    // covers both "a different raw JSON feed" and "my own CORS proxy in
+    // front of the default feed" use cases.
+    const fetchPromise: Promise<RawEconomicEvent[][]> = trimmedCustomUrl
+      ? fetchWithProxyFallback(trimmedCustomUrl).then(events => [events])
+      : Promise.all(
+          ['ff_calendar_lastweek.json', 'ff_calendar_thisweek.json', 'ff_calendar_nextweek.json'].map(path =>
+            fetchWithProxyFallback(`https://nfs.faireconomy.media/${path}`)
+          )
+        );
+
     setEconomicEventsLoading(true);
     setEconomicEventsError(null);
 
-    Promise.all(feedPaths.map(fetchFeed))
+    fetchPromise
       .then(results => {
         if (cancelled) return;
         const merged: RawEconomicEvent[] = ([] as RawEconomicEvent[]).concat(...results);
@@ -3390,13 +3414,17 @@ function App() {
       .catch(() => {
         if (cancelled) return;
         setEconomicEvents([]);
-        setEconomicEventsError('Could not load the live economic calendar feed (direct and proxied attempts both failed). It may be temporarily unavailable — try again in a moment.');
+        setEconomicEventsError(
+          trimmedCustomUrl
+            ? 'Could not load the configured feed URL (direct and proxied attempts both failed). Double-check the URL in Feed Source settings.'
+            : 'Could not load the live economic calendar feed (direct and proxied attempts both failed). It may be temporarily unavailable — try again in a moment.'
+        );
       })
       .finally(() => {
         if (!cancelled) setEconomicEventsLoading(false);
       });
     return () => { cancelled = true; };
-  }, [economicEventsRetryToken]);
+  }, [economicEventsRetryToken, customFeedUrl]);
 
   useEffect(() => {
     const id = setInterval(() => setCalendarNowTick(Date.now()), 60000);
@@ -11046,7 +11074,107 @@ function App() {
                 className="w-full pl-8 pr-2.5 py-1.5 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors"
               />
             </div>
+            <button
+              onClick={() => { setFeedUrlDraft(customFeedUrl); setFeedSettingsOpen(true); }}
+              title="Configure the JSON feed / CORS proxy URL this calendar pulls from"
+              className={cn(
+                'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors flex-shrink-0',
+                customFeedUrl.trim()
+                  ? 'bg-amber-500/10 text-amber-300 border-amber-500/30 hover:bg-amber-500/15'
+                  : 'text-zinc-400 hover:text-white hover:bg-zinc-800 border-zinc-800'
+              )}
+            >
+              <Settings className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Feed Source</span>
+            </button>
           </div>
+
+          {/* Feed Source settings popover */}
+          {feedSettingsOpen && (
+            <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4 bg-black/50" onClick={() => setFeedSettingsOpen(false)}>
+              <div
+                className="w-full max-w-md bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl p-4"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Settings className="w-4 h-4 text-amber-400" />
+                    <h3 className="text-sm font-semibold text-white">Feed Source Settings</h3>
+                  </div>
+                  <button onClick={() => setFeedSettingsOpen(false)} className="text-zinc-500 hover:text-white transition-colors">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <label className="block text-[11px] font-medium text-zinc-400 mb-1.5">
+                  Custom JSON Feed / Proxy URL
+                </label>
+                <input
+                  type="text"
+                  value={feedUrlDraft}
+                  onChange={(e) => setFeedUrlDraft(e.target.value)}
+                  placeholder="https://nfs.faireconomy.media/ff_calendar_thisweek.json"
+                  className="w-full px-3 py-2 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-amber-500/50 transition-colors font-mono"
+                  spellCheck={false}
+                  autoFocus
+                />
+                <p className="mt-1.5 text-[11px] text-zinc-500">
+                  Leave empty to use the default feed (last/this/next week, merged). A single custom URL
+                  replaces that default and is fetched as-is, falling back to a CORS-proxy-wrapped
+                  request if the direct fetch fails.
+                </p>
+
+                <div className="mt-3">
+                  <p className="text-[10px] uppercase tracking-wide text-zinc-600 mb-1.5">Presets</p>
+                  <div className="flex flex-col gap-1.5">
+                    <button
+                      onClick={() => setFeedUrlDraft('https://nfs.faireconomy.media/ff_calendar_thisweek.json')}
+                      className="text-left px-2.5 py-1.5 rounded-md bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-[11px] text-zinc-300 font-mono truncate transition-colors"
+                    >
+                      nfs.faireconomy.media/ff_calendar_thisweek.json
+                    </button>
+                    <button
+                      onClick={() => setFeedUrlDraft('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://nfs.faireconomy.media/ff_calendar_thisweek.json'))}
+                      className="text-left px-2.5 py-1.5 rounded-md bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-[11px] text-zinc-300 font-mono truncate transition-colors"
+                    >
+                      api.allorigins.win/raw?url=...ff_calendar_thisweek.json
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const cleaned = feedUrlDraft.trim();
+                      setFeedUrlDraft(cleaned);
+                      try { localStorage.setItem(ECONOMIC_FEED_URL_KEY, cleaned); } catch { /* localStorage unavailable */ }
+                      setCustomFeedUrl(cleaned);
+                      setEconomicEventsRetryToken(t => t + 1);
+                      setFeedSettingsOpen(false);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-medium transition-colors"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Save &amp; Fetch
+                  </button>
+                  {customFeedUrl.trim() && (
+                    <button
+                      onClick={() => {
+                        setFeedUrlDraft('');
+                        try { localStorage.removeItem(ECONOMIC_FEED_URL_KEY); } catch { /* localStorage unavailable */ }
+                        setCustomFeedUrl('');
+                        setEconomicEventsRetryToken(t => t + 1);
+                        setFeedSettingsOpen(false);
+                      }}
+                      className="px-3 py-2 rounded-md bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-white text-xs font-medium transition-colors"
+                    >
+                      Reset to Default
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Table body — sticky header, scrollable list */}
           <div className="bg-zinc-900/50 border border-t-0 border-zinc-800 rounded-b-xl overflow-hidden">
