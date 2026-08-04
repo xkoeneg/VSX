@@ -1270,126 +1270,80 @@ const SessionBadge: React.FC<{ value?: SessionOption | string; size?: 'sm' | 'md
   );
 };
 
+
 // ============================================================
-// ECONOMIC CALENDAR — USD high-impact events pulled live from the
-// Myfxbook RSS feed via /api/calendar (a Vercel serverless function that
-// fetches the feed server-side so the browser never hits Myfxbook
-// directly, permanently avoiding CORS). Self-contained: owns its own
-// fetch/parse/refresh state so it can be dropped in anywhere.
+// ECONOMIC CALENDAR — USD events for the current Mon–Fri trading week,
+// pulled live from Forex Factory's weekly JSON feed via /api/calendar (a
+// Vercel serverless function that fetches it server-side so the browser
+// never talks to Forex Factory directly, permanently avoiding CORS).
+// Self-contained: owns its own fetch/parse/refresh state so it can be
+// dropped in anywhere.
 // ============================================================
+type EconomicImpact = 'high' | 'medium' | 'low' | 'holiday';
+
 interface EconomicEvent {
   id: string;
   title: string;
   currency: string;
-  impact: 'high' | 'medium' | 'low' | 'none';
+  impact: EconomicImpact;
   time: Date | null;
   previous: string;
   forecast: string;
-  actual: string;
 }
 
-// Myfxbook titles each event with the COUNTRY name, not the currency code
-// (e.g. "United States Core PCE Price Index MoM"), so this maps the
-// country prefix to a currency. Only the majors are listed — extend as
-// needed if you want to filter by other currencies later.
-const COUNTRY_CURRENCY_MAP: Record<string, string> = {
-  'united states': 'USD',
-  'euro area': 'EUR',
-  'eurozone': 'EUR',
-  'germany': 'EUR',
-  'france': 'EUR',
-  'italy': 'EUR',
-  'spain': 'EUR',
-  'united kingdom': 'GBP',
-  'japan': 'JPY',
-  'canada': 'CAD',
-  'australia': 'AUD',
-  'new zealand': 'NZD',
-  'switzerland': 'CHF',
-  'china': 'CNY',
+// Raw shape of each entry in the Forex Factory weekly JSON feed.
+interface ForexFactoryRawEvent {
+  title?: string;
+  country?: string; // actually a currency code, e.g. "USD", "EUR", "All"
+  date?: string; // ISO 8601 with offset, e.g. "2026-08-07T08:30:00-04:00"
+  impact?: string; // "High" | "Medium" | "Low" | "Holiday"
+  forecast?: string;
+  previous?: string;
+}
+
+const normalizeImpact = (raw?: string): EconomicImpact => {
+  const lower = (raw || '').toLowerCase();
+  if (lower === 'high' || lower === 'medium' || lower === 'low') return lower;
+  return 'holiday';
 };
 
-const getCurrencyFromTitle = (title: string): string => {
-  const lower = title.toLowerCase();
-  for (const country of Object.keys(COUNTRY_CURRENCY_MAP)) {
-    if (lower.startsWith(country)) return COUNTRY_CURRENCY_MAP[country];
-  }
-  return '';
-};
-
-// Myfxbook encodes impact as a CSS class on a <span> inside the
-// description table: sprite-no-impact / sprite-low-impact /
-// sprite-medium-impact / sprite-high-impact.
-const getImpactFromDescriptionHtml = (html: string): EconomicEvent['impact'] => {
-  const match = html.match(/sprite-(no|low|medium|high)-impact/);
-  if (!match) return 'none';
-  return (match[1] === 'no' ? 'none' : match[1]) as EconomicEvent['impact'];
-};
-
-// Best-effort directional hint (beat/miss) for the Actual column — only
-// meaningful when both Actual and Forecast parse as numbers. Handles %,
-// $, and K/M/B suffixes (e.g. "1.395M", "-1.54%", "$16.0B").
-const compareActualToForecast = (actual: string, forecast: string): 'up' | 'down' | null => {
-  const parse = (v: string): number | null => {
-    if (!v) return null;
-    const cleaned = v.replace(/[,%$]/g, '').trim();
-    const multiplier = /B$/i.test(cleaned) ? 1e9 : /M$/i.test(cleaned) ? 1e6 : /K$/i.test(cleaned) ? 1e3 : 1;
-    const num = parseFloat(cleaned.replace(/[BMK]$/i, ''));
-    return Number.isNaN(num) ? null : num * multiplier;
-  };
-  const a = parse(actual);
-  const f = parse(forecast);
-  if (a === null || f === null || a === f) return null;
-  return a > f ? 'up' : 'down';
-};
-
-// Parses the raw RSS XML (as returned by /api/calendar) into typed
-// events. Each <item>'s <description> is itself an HTML <table> (Time
-// left / Impact / Previous / Consensus / Actual), so it's parsed a
-// second time as HTML to pull the cell values out.
-const parseCalendarXml = (xmlText: string): EconomicEvent[] => {
-  const xmlDoc = new DOMParser().parseFromString(xmlText, 'text/xml');
-  if (xmlDoc.querySelector('parsererror')) return [];
-  const items = Array.from(xmlDoc.querySelectorAll('item'));
-
-  return items.map((item, idx) => {
-    const title = item.querySelector('title')?.textContent?.trim() || 'Unknown Event';
-    const pubDateStr = item.querySelector('pubDate')?.textContent?.trim() || '';
-    const descriptionHtml = item.querySelector('description')?.textContent || '';
-
-    const descDoc = new DOMParser().parseFromString(descriptionHtml, 'text/html');
-    const cells = Array.from(descDoc.querySelectorAll('td')).map(td => td.textContent?.trim() || '');
-    const [, , previous = '', forecast = '', actual = ''] = cells;
-
-    const parsedDate = pubDateStr ? new Date(pubDateStr) : null;
-
+// Parses the JSON array returned by /api/calendar into typed events.
+const parseCalendarJson = (raw: unknown): EconomicEvent[] => {
+  if (!Array.isArray(raw)) return [];
+  return (raw as ForexFactoryRawEvent[]).map((item, idx) => {
+    const parsedDate = item.date ? new Date(item.date) : null;
     return {
-      id: `${idx}-${title}-${pubDateStr}`,
-      title,
-      currency: getCurrencyFromTitle(title),
-      impact: getImpactFromDescriptionHtml(descriptionHtml),
+      id: `${idx}-${item.title || 'event'}-${item.date || ''}`,
+      title: item.title?.trim() || 'Unknown Event',
+      currency: (item.country || '').trim().toUpperCase(),
+      impact: normalizeImpact(item.impact),
       time: parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate : null,
-      previous,
-      forecast,
-      actual,
+      previous: item.previous?.trim() || '',
+      forecast: item.forecast?.trim() || '',
     };
   });
 };
 
-const IMPACT_META: Record<EconomicEvent['impact'], { label: string; className: string }> = {
+const IMPACT_META: Record<EconomicImpact, { label: string; className: string }> = {
   high: { label: 'High', className: 'bg-rose-500/15 text-rose-300 border-rose-500/30' },
   medium: { label: 'Medium', className: 'bg-amber-500/15 text-amber-300 border-amber-500/30' },
   low: { label: 'Low', className: 'bg-zinc-700/30 text-zinc-400 border-zinc-700/50' },
-  none: { label: 'None', className: 'bg-zinc-800/40 text-zinc-500 border-zinc-800' },
+  holiday: { label: 'Holiday', className: 'bg-zinc-800/40 text-zinc-500 border-zinc-800' },
 };
 
-// Full-width card: fetches /api/calendar on mount (and every 5 min after),
-// parses it, and renders a dark, sleek table of USD high-impact events.
+// Full-width card: fetches /api/calendar on mount (and periodically after),
+// parses the weekly JSON feed, and renders a dark, sleek, day-grouped
+// table of USD High/Medium impact events for the whole trading week.
 const EconomicCalendarCard: React.FC = () => {
   const [events, setEvents] = useState<EconomicEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  // Both High and Medium impact are shown by default; either can be
+  // toggled off to narrow the table down further.
+  const [activeImpacts, setActiveImpacts] = useState<Set<EconomicImpact>>(
+    () => new Set<EconomicImpact>(['high', 'medium'])
+  );
 
   const loadCalendar = useCallback(async () => {
     setLoading(true);
@@ -1397,8 +1351,8 @@ const EconomicCalendarCard: React.FC = () => {
     try {
       const res = await fetch('/api/calendar');
       if (!res.ok) throw new Error(`Feed request failed (${res.status})`);
-      const xmlText = await res.text();
-      setEvents(parseCalendarXml(xmlText));
+      const json = await res.json();
+      setEvents(parseCalendarJson(json));
       setLastUpdated(new Date());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load the economic calendar');
@@ -1409,40 +1363,89 @@ const EconomicCalendarCard: React.FC = () => {
 
   useEffect(() => {
     loadCalendar();
-    // Auto-refresh every 5 minutes so Actual/Forecast values stay current.
-    const interval = setInterval(loadCalendar, 5 * 60 * 1000);
+    // Refresh periodically — the weekly file itself doesn't change often,
+    // this just keeps the view honest if the user leaves the tab open.
+    const interval = setInterval(loadCalendar, 15 * 60 * 1000);
     return () => clearInterval(interval);
   }, [loadCalendar]);
 
-  const usdHighImpact = useMemo(() => {
+  const toggleImpact = (impact: EconomicImpact) => {
+    setActiveImpacts(prev => {
+      const next = new Set(prev);
+      if (next.has(impact)) next.delete(impact);
+      else next.add(impact);
+      return next;
+    });
+  };
+
+  // USD events for the week, filtered to the active impact levels,
+  // sorted chronologically.
+  const usdEvents = useMemo(() => {
     return events
-      .filter(e => e.currency === 'USD' && e.impact === 'high')
+      .filter(e => e.currency === 'USD' && activeImpacts.has(e.impact))
       .sort((a, b) => (a.time?.getTime() || 0) - (b.time?.getTime() || 0));
-  }, [events]);
+  }, [events, activeImpacts]);
+
+  // Group into Mon–Fri buckets (by local calendar day) so the whole week
+  // reads as a clean, scannable agenda instead of one long flat list.
+  const eventsByDay = useMemo(() => {
+    const groups = new Map<string, { label: string; events: EconomicEvent[] }>();
+    for (const evt of usdEvents) {
+      if (!evt.time) continue;
+      const key = evt.time.toDateString();
+      if (!groups.has(key)) {
+        groups.set(key, {
+          label: evt.time.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }),
+          events: [],
+        });
+      }
+      groups.get(key)!.events.push(evt);
+    }
+    return Array.from(groups.values());
+  }, [usdEvents]);
 
   const formatEventTime = (date: Date | null) => {
     if (!date) return '—';
-    return date.toLocaleString('en-US', {
-      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
-    }) + ' UTC';
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   };
+
+  const isPast = (date: Date | null) => !!date && date.getTime() < Date.now();
 
   return (
     <div className="min-w-0 bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 flex flex-col">
-      <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border flex-shrink-0 bg-amber-500/10 border-amber-500/30">
+      <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border flex-shrink-0 bg-amber-500/10 border-amber-500/30 flex-wrap">
         <div className="flex items-center gap-2 min-w-0">
           <Calendar className="w-4 h-4 flex-shrink-0 text-amber-400" />
           <h2 className="text-sm font-semibold truncate text-amber-300">Economic Calendar</h2>
           <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-black/30 text-zinc-300 flex-shrink-0">
-            USD · High Impact
+            USD · This Week
           </span>
           {!loading && !error && (
             <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-black/30 text-zinc-400 flex-shrink-0">
-              {usdHighImpact.length}
+              {usdEvents.length}
             </span>
           )}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Impact toggle chips — High + Medium active by default */}
+          <div className="flex items-center gap-1">
+            {(['high', 'medium'] as EconomicImpact[]).map(impact => {
+              const meta = IMPACT_META[impact];
+              const active = activeImpacts.has(impact);
+              return (
+                <button
+                  key={impact}
+                  onClick={() => toggleImpact(impact)}
+                  className={cn(
+                    'px-2 py-0.5 rounded-full text-[10px] border transition-colors',
+                    active ? meta.className : 'bg-black/20 text-zinc-600 border-zinc-800'
+                  )}
+                >
+                  {meta.label}
+                </button>
+              );
+            })}
+          </div>
           {lastUpdated && !loading && (
             <span className="hidden sm:inline text-[10px] text-zinc-500">
               Updated {lastUpdated.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
@@ -1478,10 +1481,10 @@ const EconomicCalendarCard: React.FC = () => {
               Retry
             </button>
           </div>
-        ) : usdHighImpact.length === 0 ? (
+        ) : eventsByDay.length === 0 ? (
           <div className="text-center py-8 rounded-lg border border-dashed border-zinc-800 bg-zinc-900/30">
             <Calendar className="w-5 h-5 mx-auto text-zinc-700 mb-2" />
-            <p className="text-zinc-600 text-xs">No high-impact USD events in the current feed window</p>
+            <p className="text-zinc-600 text-xs">No matching USD events found for this week</p>
           </div>
         ) : (
           <div className="overflow-x-auto -mx-1">
@@ -1495,49 +1498,62 @@ const EconomicCalendarCard: React.FC = () => {
                   <th className="text-left font-medium py-2 px-2 whitespace-nowrap">Impact</th>
                   <th className="text-right font-medium py-2 px-2 whitespace-nowrap">Previous</th>
                   <th className="text-right font-medium py-2 px-2 whitespace-nowrap">Forecast</th>
-                  <th className="text-right font-medium py-2 px-2 whitespace-nowrap">Actual</th>
+                  <th className="text-right font-medium py-2 px-2 whitespace-nowrap">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {usdHighImpact.map(evt => {
-                  const trend = compareActualToForecast(evt.actual, evt.forecast);
-                  const meta = IMPACT_META[evt.impact];
-                  return (
-                    <tr key={evt.id} className="border-b border-zinc-800/60 hover:bg-zinc-800/30 transition-colors">
-                      <td className="py-2 px-2 text-zinc-400 whitespace-nowrap">{formatEventTime(evt.time)}</td>
-                      <td className="py-2 px-2 text-white font-medium">
-                        <span className="inline-flex items-center gap-1.5">
-                          <span className="px-1.5 py-0.5 rounded text-[10px] border border-zinc-700 text-zinc-400 bg-zinc-800/60 flex-shrink-0">
-                            {evt.currency}
-                          </span>
-                          <span className="truncate">{evt.title.replace(/^United States\s*/i, '')}</span>
-                        </span>
-                      </td>
-                      <td className="py-2 px-2 whitespace-nowrap">
-                        <span className={cn('px-1.5 py-0.5 rounded-full text-[10px] border', meta.className)}>
-                          {meta.label}
-                        </span>
-                      </td>
-                      <td className="py-2 px-2 text-right text-zinc-400 whitespace-nowrap">{evt.previous || '—'}</td>
-                      <td className="py-2 px-2 text-right text-zinc-400 whitespace-nowrap">{evt.forecast || '—'}</td>
-                      <td className="py-2 px-2 text-right whitespace-nowrap">
-                        <span className={cn(
-                          'inline-flex items-center gap-1 font-semibold',
-                          trend === 'up' ? 'text-emerald-400' : trend === 'down' ? 'text-rose-400' : 'text-white'
-                        )}>
-                          {trend === 'up' && <TrendingUp className="w-3 h-3" />}
-                          {trend === 'down' && <TrendingDown className="w-3 h-3" />}
-                          {evt.actual || '—'}
+                {eventsByDay.map(day => (
+                  <React.Fragment key={day.label}>
+                    <tr>
+                      <td colSpan={6} className="pt-3 pb-1.5 px-2">
+                        <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wide">
+                          {day.label}
                         </span>
                       </td>
                     </tr>
-                  );
-                })}
+                    {day.events.map(evt => {
+                      const meta = IMPACT_META[evt.impact];
+                      const past = isPast(evt.time);
+                      return (
+                        <tr key={evt.id} className="border-b border-zinc-800/60 hover:bg-zinc-800/30 transition-colors">
+                          <td className="py-2 px-2 text-zinc-400 whitespace-nowrap">{formatEventTime(evt.time)}</td>
+                          <td className="py-2 px-2 text-white font-medium">
+                            <span className="inline-flex items-center gap-1.5">
+                              <span className="px-1.5 py-0.5 rounded text-[10px] border border-zinc-700 text-zinc-400 bg-zinc-800/60 flex-shrink-0">
+                                {evt.currency}
+                              </span>
+                              <span className="truncate">{evt.title}</span>
+                            </span>
+                          </td>
+                          <td className="py-2 px-2 whitespace-nowrap">
+                            <span className={cn('px-1.5 py-0.5 rounded-full text-[10px] border', meta.className)}>
+                              {meta.label}
+                            </span>
+                          </td>
+                          <td className="py-2 px-2 text-right text-zinc-400 whitespace-nowrap">{evt.previous || '—'}</td>
+                          <td className="py-2 px-2 text-right text-zinc-400 whitespace-nowrap">{evt.forecast || '—'}</td>
+                          <td className="py-2 px-2 text-right whitespace-nowrap">
+                            <span className={cn(
+                              'inline-flex items-center gap-1 text-[10px]',
+                              past ? 'text-zinc-500' : 'text-cyan-400'
+                            )}>
+                              {past ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                              {past ? 'Released' : 'Upcoming'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </React.Fragment>
+                ))}
               </tbody>
             </table>
           </div>
         )}
       </div>
+      {/* Forex Factory's weekly feed doesn't include released "actual"
+          values (only forecast/previous) — the Status column shows
+          whether each event has passed instead of a released figure. */}
     </div>
   );
 };
