@@ -963,9 +963,11 @@ const MarketSessionsBar: React.FC = () => {
         const activeWindow = session.dstTimeZone && !inDST ? session.winterWindow : session.summerWindow;
         const isOpen = isWithinPHTWindow(nowPHTMin, activeWindow);
         const inKillzone = isOpen && isWithinPHTWindow(nowPHTMin, session.killzoneWindow);
+        // 12-hour clock with AM/PM (e.g. "02:27:28 PM"), zero-padded hour
+        // for stable digit-width alignment across all three cards.
         const localClock = now.toLocaleTimeString('en-US', {
-          timeZone: session.clockTimeZone, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-        });
+          timeZone: session.clockTimeZone, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true,
+        }).replace(/^(\d):/, '0$1:');
 
         return (
           <div
