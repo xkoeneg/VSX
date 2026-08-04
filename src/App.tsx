@@ -1383,6 +1383,63 @@ const IMPACT_META: Record<EconomicEvent['impact'], { label: string; className: s
   none: { label: 'None', className: 'bg-zinc-800/40 text-zinc-500 border-zinc-800' },
 };
 
+// Same tolerant numeric parser used by compareActualToForecast (%, $, and
+// K/M/B suffixes), pulled out standalone so the Market Effect badge and the
+// Actual-column trend arrow always agree with each other.
+const parseCalendarNumber = (v: string): number | null => {
+  if (!v) return null;
+  const cleaned = v.replace(/[,%$]/g, '').trim();
+  if (!cleaned) return null;
+  const multiplier = /B$/i.test(cleaned) ? 1e9 : /M$/i.test(cleaned) ? 1e6 : /K$/i.test(cleaned) ? 1e3 : 1;
+  const num = parseFloat(cleaned.replace(/[BMK]$/i, ''));
+  return Number.isNaN(num) ? null : num * multiplier;
+};
+
+// Market Effect badge — a plain-English "what does this mean for USD" read
+// on top of the raw Actual vs Forecast numbers. Deliberately conservative:
+// anything that doesn't cleanly parse as a beat/miss (missing Actual, equal
+// values, or unparsable text) falls back to a neutral "Pending" badge
+// instead of guessing, so it can never crash or mislabel on odd feed data.
+type MarketEffect = 'bullish' | 'bearish' | 'neutral';
+const MARKET_EFFECT_META: Record<MarketEffect, { label: string; className: string }> = {
+  bullish: { label: 'Bullish / Good for USD', className: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' },
+  bearish: { label: 'Bearish / Bad for USD', className: 'bg-rose-500/15 text-rose-300 border-rose-500/30' },
+  neutral: { label: 'Pending / Neutral', className: 'bg-zinc-700/30 text-zinc-400 border-zinc-700/50' },
+};
+const getMarketEffect = (actual: string, forecast: string): MarketEffect => {
+  const a = parseCalendarNumber(actual);
+  const f = parseCalendarNumber(forecast);
+  if (a === null || f === null || a === f) return 'neutral';
+  return a > f ? 'bullish' : 'bearish';
+};
+
+// Renders an event time in Philippine Time (UTC+8) instead of UTC. PHT has
+// no DST so it's safe to hard-code the IANA zone here.
+const formatEventTimePHT = (date: Date | null): string => {
+  if (!date) return '—';
+  return date.toLocaleString('en-US', {
+    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Manila',
+  }) + ' PHT';
+};
+
+// Live "Time Left" countdown, recomputed against whatever `now` the caller
+// passes in (the card ticks this every 30s). Handles null/invalid event
+// times and negative/zero deltas safely so a malformed feed entry never
+// crashes the row — it just reads "—" or "Passed".
+const formatCountdown = (eventTime: Date | null, now: Date): string => {
+  if (!eventTime || Number.isNaN(eventTime.getTime())) return '—';
+  const diffMs = eventTime.getTime() - now.getTime();
+  if (diffMs <= 0) return 'Passed';
+  const totalMinutes = Math.floor(diffMs / 60000);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+  if (days > 0) return `In ${days}d ${hours}h`;
+  if (hours > 0) return `In ${hours}h ${minutes}m`;
+  if (minutes > 0) return `In ${minutes}m`;
+  return 'In <1m';
+};
+
 // Full-width card: fetches /api/calendar on mount (and every 5 min after),
 // parses it, and renders a dark, sleek table of USD high-impact events.
 const EconomicCalendarCard: React.FC = () => {
@@ -1390,6 +1447,14 @@ const EconomicCalendarCard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  // Drives the live "Time Left" countdown column — ticks independently of
+  // the data refresh so countdowns stay fresh even between fetches.
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const tick = setInterval(() => setNow(new Date()), 30 * 1000);
+    return () => clearInterval(tick);
+  }, []);
 
   const loadCalendar = useCallback(async () => {
     setLoading(true);
@@ -1419,13 +1484,6 @@ const EconomicCalendarCard: React.FC = () => {
       .filter(e => e.currency === 'USD' && e.impact === 'high')
       .sort((a, b) => (a.time?.getTime() || 0) - (b.time?.getTime() || 0));
   }, [events]);
-
-  const formatEventTime = (date: Date | null) => {
-    if (!date) return '—';
-    return date.toLocaleString('en-US', {
-      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
-    }) + ' UTC';
-  };
 
   return (
     <div className="min-w-0 bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 flex flex-col">
@@ -1485,26 +1543,45 @@ const EconomicCalendarCard: React.FC = () => {
           </div>
         ) : (
           <div className="overflow-x-auto -mx-1">
-            <table className="w-full text-xs min-w-[640px]">
+            <table className="w-full text-xs min-w-[860px]">
               <thead>
                 <tr className="text-zinc-500 border-b border-zinc-800">
                   <th className="text-left font-medium py-2 px-2 whitespace-nowrap">
-                    <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" />Time</span>
+                    <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" />Time (PHT)</span>
                   </th>
+                  <th className="text-left font-medium py-2 px-2 whitespace-nowrap">Time Left</th>
                   <th className="text-left font-medium py-2 px-2">Event</th>
                   <th className="text-left font-medium py-2 px-2 whitespace-nowrap">Impact</th>
                   <th className="text-right font-medium py-2 px-2 whitespace-nowrap">Previous</th>
                   <th className="text-right font-medium py-2 px-2 whitespace-nowrap">Forecast</th>
                   <th className="text-right font-medium py-2 px-2 whitespace-nowrap">Actual</th>
+                  <th className="text-left font-medium py-2 px-2 whitespace-nowrap">Market Effect</th>
                 </tr>
               </thead>
               <tbody>
                 {usdHighImpact.map(evt => {
                   const trend = compareActualToForecast(evt.actual, evt.forecast);
                   const meta = IMPACT_META[evt.impact];
+                  const effect = getMarketEffect(evt.actual, evt.forecast);
+                  const effectMeta = MARKET_EFFECT_META[effect];
+                  const countdown = formatCountdown(evt.time, now);
+                  const isPassed = countdown === 'Passed';
+                  // "Imminent" = releasing within the next hour and not yet
+                  // passed — surfaced in amber so it's easy to spot at a
+                  // glance which events are about to drop.
+                  const isImminent = !isPassed && evt.time !== null
+                    && evt.time.getTime() - now.getTime() <= 60 * 60 * 1000;
                   return (
                     <tr key={evt.id} className="border-b border-zinc-800/60 hover:bg-zinc-800/30 transition-colors">
-                      <td className="py-2 px-2 text-zinc-400 whitespace-nowrap">{formatEventTime(evt.time)}</td>
+                      <td className="py-2 px-2 text-zinc-400 whitespace-nowrap">{formatEventTimePHT(evt.time)}</td>
+                      <td className="py-2 px-2 whitespace-nowrap">
+                        <span className={cn(
+                          'font-medium',
+                          isPassed ? 'text-zinc-600' : isImminent ? 'text-amber-300' : 'text-zinc-300'
+                        )}>
+                          {countdown}
+                        </span>
+                      </td>
                       <td className="py-2 px-2 text-white font-medium">
                         <span className="inline-flex items-center gap-1.5">
                           <span className="px-1.5 py-0.5 rounded text-[10px] border border-zinc-700 text-zinc-400 bg-zinc-800/60 flex-shrink-0">
@@ -1528,6 +1605,11 @@ const EconomicCalendarCard: React.FC = () => {
                           {trend === 'up' && <TrendingUp className="w-3 h-3" />}
                           {trend === 'down' && <TrendingDown className="w-3 h-3" />}
                           {evt.actual || '—'}
+                        </span>
+                      </td>
+                      <td className="py-2 px-2 whitespace-nowrap">
+                        <span className={cn('px-1.5 py-0.5 rounded-full text-[10px] border', effectMeta.className)}>
+                          {effectMeta.label}
                         </span>
                       </td>
                     </tr>
