@@ -78,8 +78,8 @@ import {
   Lock,
   Crosshair,
   Rocket,
-  Bell,
   Award,
+  Bell,
   Gem,
   Anchor,
   Compass,
@@ -807,89 +807,7 @@ const NOTICE_TYPE_META: Record<NoticeType, {
   },
 };
 
-// ============================================================
-// ECONOMIC CALENDAR (Myfxbook-style, Red Folder / High Impact only)
-// ============================================================
-// Raw shape returned by the community-maintained Forex Factory calendar
-// JSON mirror (nfs.faireconomy.media) — an unofficial, publicly-hosted
-// feed widely used by third-party trading tools since Forex Factory
-// itself has no official public API. `date` arrives as a full ISO 8601
-// datetime string with timezone offset.
-interface RawEconomicEvent {
-  title: string;
-  country: string; // 3-letter currency code, e.g. "USD"
-  date: string; // ISO 8601
-  impact: string; // "High" | "Medium" | "Low" | "Holiday"
-  forecast: string;
-  previous: string;
-  actual?: string;
-}
-
-interface EconomicEvent {
-  id: string;
-  title: string;
-  currency: string;
-  dateISO: string;
-  impact: string;
-  forecast: string;
-  previous: string;
-  actual: string;
-}
-
-// Flag emoji per 3-letter currency code — covers every currency that
-// shows up on the Forex Factory calendar feed.
-const CURRENCY_FLAGS: Record<string, string> = {
-  USD: '🇺🇸', EUR: '🇪🇺', GBP: '🇬🇧', JPY: '🇯🇵', AUD: '🇦🇺',
-  CAD: '🇨🇦', CHF: '🇨🇭', NZD: '🇳🇿', CNY: '🇨🇳', SEK: '🇸🇪',
-  NOK: '🇳🇴', TRY: '🇹🇷', ZAR: '🇿🇦', MXN: '🇲🇽', HKD: '🇭🇰',
-  SGD: '🇸🇬', INR: '🇮🇳', KRW: '🇰🇷', BRL: '🇧🇷', RUB: '🇷🇺',
-  PLN: '🇵🇱', DKK: '🇩🇰', ALL: '🌐',
-};
-
-
 const generateId = () => Math.random().toString(36).substr(2, 9);
-
-// ---- Economic Calendar helpers ----
-// All date-range logic is anchored to Philippine local time (Asia/Manila),
-// matching the "Local PH time" column requirement, regardless of the
-// device's own system timezone.
-const PH_TZ = 'Asia/Manila';
-
-const getPHDateKey = (d: Date): string =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: PH_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
-
-const addDaysToKey = (key: string, days: number): string => {
-  const [y, m, d] = key.split('-').map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  dt.setUTCDate(dt.getUTCDate() + days);
-  return dt.toISOString().slice(0, 10);
-};
-
-const formatEventDateTimePH = (dateISO: string): string => {
-  const d = new Date(dateISO);
-  if (isNaN(d.getTime())) return '—';
-  return new Intl.DateTimeFormat('en-US', {
-    timeZone: PH_TZ, month: 'short', day: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
-  }).format(d);
-};
-
-// Mirrors Myfxbook's countdown style: "16h 1min" while under a day away,
-// "1 day" / "2 days" once it's further out, "Released" once it's passed.
-const formatEventTimeLeft = (dateISO: string, nowMs: number): string => {
-  const eventMs = new Date(dateISO).getTime();
-  if (isNaN(eventMs)) return '—';
-  const diffMs = eventMs - nowMs;
-  if (diffMs <= 0) {
-    return diffMs > -60 * 60000 ? 'Just released' : 'Released';
-  }
-  const totalMinutes = Math.floor(diffMs / 60000);
-  const days = Math.floor(totalMinutes / 1440);
-  const hours = Math.floor((totalMinutes % 1440) / 60);
-  const mins = totalMinutes % 60;
-  if (days >= 1) return `${days} day${days > 1 ? 's' : ''}`;
-  if (hours >= 1) return `${hours}h ${mins}min`;
-  return `${mins}min`;
-};
 
 // ============================================================
 // DATA SCHEMA VERSIONING & MIGRATION
@@ -3302,28 +3220,6 @@ function App() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [notices, setNotices] = useState<MarketNotice[]>([]);
-  // ---- Economic Calendar (Myfxbook-style, Red Folder / High Impact only) ----
-  const [economicEvents, setEconomicEvents] = useState<EconomicEvent[]>([]);
-  const [economicEventsLoading, setEconomicEventsLoading] = useState(false);
-  const [economicEventsError, setEconomicEventsError] = useState<string | null>(null);
-  // Defaults to "Today" so the table opens scoped to the current day.
-  const [calendarRange, setCalendarRange] = useState<'yesterday' | 'today' | 'tomorrow' | 'thisWeek' | 'nextWeek'>('today');
-  const [calendarSearch, setCalendarSearch] = useState('');
-  const [calendarAlertIds, setCalendarAlertIds] = useState<Record<string, boolean>>({});
-  // ---- Economic Calendar: user-configurable feed source ----
-  // Lets the user override the default nfs.faireconomy.media feed with
-  // their own JSON feed URL or CORS-proxy-wrapped endpoint (e.g. if the
-  // default mirror is down or blocked on their network). Persisted to
-  // localStorage so it survives reloads; empty string means "use default".
-  const ECONOMIC_FEED_URL_KEY = 'economicCalendarFeedUrl';
-  const [customFeedUrl, setCustomFeedUrl] = useState<string>(() => {
-    try { return localStorage.getItem(ECONOMIC_FEED_URL_KEY) || ''; } catch { return ''; }
-  });
-  const [feedSettingsOpen, setFeedSettingsOpen] = useState(false);
-  const [feedUrlDraft, setFeedUrlDraft] = useState(customFeedUrl);
-  // Ticks once a minute purely to force the "Time Left" countdown column
-  // to re-render — no data refetch involved.
-  const [calendarNowTick, setCalendarNowTick] = useState(() => Date.now());
   const [wikiEntries, setWikiEntries] = useState<WikiEntry[]>([]);
   const [setupTypes, setSetupTypes] = useState<SetupType[]>([]);
   const [confluences, setConfluences] = useState<Confluence[]>([]);
@@ -3337,185 +3233,6 @@ function App() {
   // Purely a display preference — not persisted to the trading journal
   // schema, so it always starts at a sensible default per session.
   const [pillarsPerRow, setPillarsPerRow] = useState<PillarsPerRow>(3);
-
-  // ---- Economic Calendar: fetch + live countdown ticker ----
-  // Pulls all three week-feeds once (last/this/next week) so every range
-  // filter (Yesterday..Next Week) can be served instantly from one
-  // in-memory list without refetching. Fetch strategy:
-  //   1) default feed: fetched exclusively via relative same-origin calls
-  //      to our own /api/calendar route (?week=lastweek/thisweek/nextweek),
-  //      which does the actual nfs.faireconomy.media request server-side
-  //      — see api/calendar.ts. No client-side proxy fallback for this
-  //      path: rerouting through public CORS proxies on every /api
-  //      hiccup was masking real /api/calendar failures behind proxy
-  //      failures, so a failed /api/calendar call now fails cleanly
-  //      instead of silently trying something else.
-  //   2) custom Feed Source path (user-configured override URL only):
-  //      browser-side chain of CORS proxies — allorigins.win,
-  //      corsproxy.io, thingproxy.freeboard.io — then a final direct
-  //      (unproxied) attempt, moving to the next the moment one errors
-  //      or returns non-200. Kept client-side because piping an
-  //      arbitrary user-supplied URL through our own server would make
-  //      /api/calendar an open proxy.
-  //   3) if the active path (1 or 2) fails entirely, silently fall back
-  //      to the last successfully fetched payload cached in localStorage,
-  //      so the table still shows data instead of a blank/error screen
-  //   4) only if there's no usable cache either does the table show the
-  //      hard error state with a manual Retry button
-  const ECONOMIC_CACHE_KEY = 'vsx_eco_calendar_cache';
-  const ECONOMIC_CACHE_MAX_AGE_MS = 60 * 60 * 1000; // 1 hour
-  const [economicEventsCachedAt, setEconomicEventsCachedAt] = useState<number | null>(null);
-  const [economicEventsRetryToken, setEconomicEventsRetryToken] = useState(0);
-  useEffect(() => {
-    let cancelled = false;
-
-    const fetchJson = async (url: string): Promise<RawEconomicEvent[]> => {
-      const r = await fetch(url);
-      if (!r.ok) throw new Error(`${r.status}`);
-      return r.json();
-    };
-
-    // Ordered chain of CORS proxy wrappers tried around a feed URL before
-    // falling back to a direct (unproxied) request. Each entry wraps the
-    // target URL differently, so a proxy outage or rate-limit on one
-    // service doesn't take the whole calendar down with it.
-    const PROXY_WRAPPERS: Array<(url: string) => string> = [
-      (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-      (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-      (url) => `https://thingproxy.freeboard.io/fetch/${url}`,
-    ];
-
-    // Walks the proxy chain in order for a single feed URL: proxy #1,
-    // then #2, then #3, then finally a direct fetch with no proxy at all.
-    // Moves to the next attempt on ANY error (network failure, CORS
-    // rejection, or non-200 response) and only throws once every attempt
-    // in the chain has been exhausted.
-    const fetchWithProxyChain = async (url: string): Promise<RawEconomicEvent[]> => {
-      const attempts = [...PROXY_WRAPPERS.map(wrap => wrap(url)), url];
-      let lastError: unknown = null;
-      for (const attemptUrl of attempts) {
-        try {
-          return await fetchJson(attemptUrl);
-        } catch (err) {
-          lastError = err;
-        }
-      }
-      throw lastError ?? new Error('All proxy attempts failed');
-    };
-
-    const readCache = (): { data: EconomicEvent[]; timestamp: number } | null => {
-      try {
-        const raw = localStorage.getItem(ECONOMIC_CACHE_KEY);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        if (!parsed || !Array.isArray(parsed.data) || typeof parsed.timestamp !== 'number') return null;
-        return parsed;
-      } catch {
-        return null;
-      }
-    };
-
-    const writeCache = (data: EconomicEvent[]) => {
-      try {
-        localStorage.setItem(ECONOMIC_CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() }));
-      } catch {
-        // Storage unavailable/full — caching is best-effort, never fatal.
-      }
-    };
-
-    const trimmedCustomUrl = customFeedUrl.trim();
-
-    // Default path: fetch exclusively through our own /api/calendar
-    // serverless route (relative URL — same origin, no CORS involved at
-    // all) which does the actual nfs.faireconomy.media request
-    // server-side. No proxy-chain fallback here: silently rerouting a
-    // working default fetch through public CORS proxies on any hiccup
-    // was masking real /api/calendar errors behind proxy failures. If
-    // /api/calendar fails now, that error propagates to the outer
-    // .catch below, which already has its own fallback (localStorage
-    // cache, then the hard error state) — no need for a second,
-    // proxy-based fallback layer in between.
-    //
-    // Custom feed path: if the user has configured a custom feed/proxy
-    // URL in Feed Source settings, that stays a browser-side fetch
-    // through the proxy chain — piping arbitrary user-supplied URLs
-    // through our own server would make /api/calendar an open proxy.
-    const fetchDefaultWeek = async (week: 'lastweek' | 'thisweek' | 'nextweek'): Promise<RawEconomicEvent[]> => {
-      const r = await fetch(`/api/calendar?week=${week}`, { headers: { Accept: 'application/json' } });
-      if (!r.ok) throw new Error(`/api/calendar?week=${week} returned ${r.status}`);
-      const json = await r.json();
-      // /api/calendar returns the upstream feed's JSON array as-is
-      // (RawEconomicEvent[]) — guard against any unexpected shape
-      // (e.g. an {error: ...} body that still came back 200) rather
-      // than letting a malformed payload silently break the merge/filter
-      // step further down.
-      if (!Array.isArray(json)) throw new Error(`/api/calendar?week=${week} did not return a JSON array`);
-      return json;
-    };
-
-    const fetchPromise: Promise<RawEconomicEvent[][]> = trimmedCustomUrl
-      ? fetchWithProxyChain(trimmedCustomUrl).then(events => [events])
-      : Promise.all((['lastweek', 'thisweek', 'nextweek'] as const).map(fetchDefaultWeek));
-
-    setEconomicEventsLoading(true);
-    setEconomicEventsError(null);
-
-    fetchPromise
-      .then(results => {
-        if (cancelled) return;
-        const merged: RawEconomicEvent[] = ([] as RawEconomicEvent[]).concat(...results);
-        // Red Folder filter: strictly High-impact, USD-only events.
-        const highImpactOnly: EconomicEvent[] = merged
-          .filter(e => (e.impact || '').toLowerCase() === 'high' && (e.country || '').toUpperCase() === 'USD')
-          .map(e => ({
-            id: `${e.country}-${e.title}-${e.date}`,
-            title: e.title,
-            currency: e.country,
-            dateISO: e.date,
-            impact: e.impact,
-            forecast: e.forecast || '—',
-            previous: e.previous || '—',
-            actual: e.actual || '—',
-          }));
-        // No fallback/mock substitution — an empty result (e.g. a
-        // genuinely quiet stretch with no High-impact releases) is shown
-        // as-is via the table's own empty state.
-        setEconomicEvents(highImpactOnly);
-        setEconomicEventsCachedAt(null);
-        // Every live feed in the chain succeeded — refresh the local cache
-        // so the next total outage still has something recent to fall back on.
-        writeCache(highImpactOnly);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        // Every proxy AND the direct fallback failed for every feed —
-        // reach for the last known-good cached payload instead of
-        // showing a blank/error table.
-        const cached = readCache();
-        if (cached && cached.data.length > 0) {
-          setEconomicEvents(cached.data);
-          setEconomicEventsCachedAt(cached.timestamp);
-          setEconomicEventsError(null);
-        } else {
-          setEconomicEvents([]);
-          setEconomicEventsCachedAt(null);
-          setEconomicEventsError(
-            trimmedCustomUrl
-              ? 'Could not load the configured feed URL (all proxies and direct fetch failed). Double-check the URL in Feed Source settings.'
-              : 'Could not load the live economic calendar feed from /api/calendar. It may be temporarily unavailable — try again in a moment.'
-          );
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setEconomicEventsLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [economicEventsRetryToken, customFeedUrl]);
-
-  useEffect(() => {
-    const id = setInterval(() => setCalendarNowTick(Date.now()), 60000);
-    return () => clearInterval(id);
-  }, []);
 
   // ---- Playbook: Daily Trading Creed quote card ----
   // Each quote carries its own short attribution/tag line (shown bottom-right
@@ -11059,39 +10776,6 @@ function App() {
       );
     };
 
-    // ---- Economic Calendar: range filter + search, PH-time anchored ----
-    const CALENDAR_RANGE_OPTIONS: { key: typeof calendarRange; label: string }[] = [
-      { key: 'yesterday', label: 'Yesterday' },
-      { key: 'today', label: 'Today' },
-      { key: 'tomorrow', label: 'Tomorrow' },
-      { key: 'thisWeek', label: 'This Week' },
-      { key: 'nextWeek', label: 'Next Week' },
-    ];
-    const phTodayKey = getPHDateKey(new Date(calendarNowTick));
-    const dowOfKey = (key: string) => new Date(`${key}T00:00:00Z`).getUTCDay();
-    const mondayOffset = (dowOfKey(phTodayKey) + 6) % 7;
-    const thisWeekStartKey = addDaysToKey(phTodayKey, -mondayOffset);
-    const thisWeekEndKey = addDaysToKey(thisWeekStartKey, 6);
-    const nextWeekStartKey = addDaysToKey(thisWeekStartKey, 7);
-    const nextWeekEndKey = addDaysToKey(thisWeekStartKey, 13);
-    const [rangeStartKey, rangeEndKey] = (() => {
-      switch (calendarRange) {
-        case 'yesterday': { const k = addDaysToKey(phTodayKey, -1); return [k, k]; }
-        case 'tomorrow': { const k = addDaysToKey(phTodayKey, 1); return [k, k]; }
-        case 'thisWeek': return [thisWeekStartKey, thisWeekEndKey];
-        case 'nextWeek': return [nextWeekStartKey, nextWeekEndKey];
-        default: return [phTodayKey, phTodayKey];
-      }
-    })();
-    const searchLower = calendarSearch.trim().toLowerCase();
-    const visibleEconomicEvents = economicEvents
-      .filter(e => {
-        const key = getPHDateKey(new Date(e.dateISO));
-        return key >= rangeStartKey && key <= rangeEndKey;
-      })
-      .filter(e => !searchLower || e.title.toLowerCase().includes(searchLower) || e.currency.toLowerCase().includes(searchLower))
-      .sort((a, b) => new Date(a.dateISO).getTime() - new Date(b.dateISO).getTime());
-
     return (
       <div className="space-y-6 min-w-0">
         <PageHeader
@@ -11117,245 +10801,34 @@ function App() {
           {renderColumn('mistake')}
         </div>
 
-        {/* ---- Economic Calendar (Myfxbook-style, Red Folder / High
-            Impact only) ---- Sits directly below the two Market Notice
-            cards. Data comes from the community-hosted Forex Factory
-            JSON mirror — an unofficial but widely-used public feed —
-            filtered to High-impact events only and shown in Philippine
-            local time throughout. */}
+        {/* ---- Economic Calendar ----
+            Embeds the Myfxbook Economic Calendar widget directly rather
+            than maintaining our own JSON feed/proxy/cache pipeline. The
+            iframe is responsive (fluid width, fixed height) and the
+            wrapper card is styled to match the rest of the dashboard's
+            dark theme — the widget's own internal chrome still renders
+            in Myfxbook's styling, since that's out of our control from
+            inside an iframe. */}
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             <AlertTriangle className="w-4 h-4 text-rose-400" />
             <h2 className="text-sm font-semibold text-white">Economic Calendar</h2>
             <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-rose-500/10 text-rose-400 border border-rose-500/30 flex-shrink-0">
-              Red Folder · USD High Impact Only
+              Myfxbook · High &amp; Medium Impact
             </span>
           </div>
-
-          {/* Dark top toolbar: date-range buttons + search, Myfxbook-style */}
-          <div className="flex flex-wrap items-center gap-2 bg-zinc-950 border border-zinc-800 rounded-t-xl px-3 py-2.5">
-            <div className="flex flex-wrap items-center gap-1">
-              {CALENDAR_RANGE_OPTIONS.map(opt => (
-                <button
-                  key={opt.key}
-                  onClick={() => setCalendarRange(opt.key)}
-                  className={cn(
-                    'px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors',
-                    calendarRange === opt.key
-                      ? 'bg-rose-500/15 text-rose-300 border border-rose-500/40'
-                      : 'text-zinc-400 hover:text-white hover:bg-zinc-800 border border-transparent'
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            <div className="relative ml-auto w-full sm:w-56">
-              <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={calendarSearch}
-                onChange={(e) => setCalendarSearch(e.target.value)}
-                placeholder="Search event or currency..."
-                className="w-full pl-8 pr-2.5 py-1.5 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors"
+          <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 sm:p-3 overflow-hidden">
+            <div className="w-full" style={{ minHeight: 500 }}>
+              <iframe
+                src="https://widgets.myfxbook.com/widgets/calendar.html?lang=en&impacts=2,3&symbols=USD,EUR,GBP,JPY,AUD,NZD,CAD,CHF"
+                title="Myfxbook Economic Calendar"
+                width="100%"
+                height="500"
+                frameBorder={0}
+                scrolling="auto"
+                className="w-full rounded-lg border-0"
+                loading="lazy"
               />
-            </div>
-            <button
-              onClick={() => { setFeedUrlDraft(customFeedUrl); setFeedSettingsOpen(true); }}
-              title="Configure the JSON feed / CORS proxy URL this calendar pulls from"
-              className={cn(
-                'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors flex-shrink-0',
-                customFeedUrl.trim()
-                  ? 'bg-amber-500/10 text-amber-300 border-amber-500/30 hover:bg-amber-500/15'
-                  : 'text-zinc-400 hover:text-white hover:bg-zinc-800 border-zinc-800'
-              )}
-            >
-              <Settings className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Feed Source</span>
-            </button>
-          </div>
-
-          {/* Feed Source settings popover */}
-          {feedSettingsOpen && (
-            <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4 bg-black/50" onClick={() => setFeedSettingsOpen(false)}>
-              <div
-                className="w-full max-w-md bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl p-4"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Settings className="w-4 h-4 text-amber-400" />
-                    <h3 className="text-sm font-semibold text-white">Feed Source Settings</h3>
-                  </div>
-                  <button onClick={() => setFeedSettingsOpen(false)} className="text-zinc-500 hover:text-white transition-colors">
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <label className="block text-[11px] font-medium text-zinc-400 mb-1.5">
-                  Custom JSON Feed / Proxy URL
-                </label>
-                <input
-                  type="text"
-                  value={feedUrlDraft}
-                  onChange={(e) => setFeedUrlDraft(e.target.value)}
-                  placeholder="https://nfs.faireconomy.media/ff_calendar_thisweek.json"
-                  className="w-full px-3 py-2 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-amber-500/50 transition-colors font-mono"
-                  spellCheck={false}
-                  autoFocus
-                />
-                <p className="mt-1.5 text-[11px] text-zinc-500">
-                  Leave empty to use the default feed (last/this/next week, merged). A single custom URL
-                  replaces that default and is fetched as-is, falling back to a CORS-proxy-wrapped
-                  request if the direct fetch fails.
-                </p>
-
-                <div className="mt-3">
-                  <p className="text-[10px] uppercase tracking-wide text-zinc-600 mb-1.5">Presets</p>
-                  <div className="flex flex-col gap-1.5">
-                    <button
-                      onClick={() => setFeedUrlDraft('https://nfs.faireconomy.media/ff_calendar_thisweek.json')}
-                      className="text-left px-2.5 py-1.5 rounded-md bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-[11px] text-zinc-300 font-mono truncate transition-colors"
-                    >
-                      nfs.faireconomy.media/ff_calendar_thisweek.json
-                    </button>
-                    <button
-                      onClick={() => setFeedUrlDraft('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://nfs.faireconomy.media/ff_calendar_thisweek.json'))}
-                      className="text-left px-2.5 py-1.5 rounded-md bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-[11px] text-zinc-300 font-mono truncate transition-colors"
-                    >
-                      api.allorigins.win/raw?url=...ff_calendar_thisweek.json
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-4 flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      const cleaned = feedUrlDraft.trim();
-                      setFeedUrlDraft(cleaned);
-                      try { localStorage.setItem(ECONOMIC_FEED_URL_KEY, cleaned); } catch { /* localStorage unavailable */ }
-                      setCustomFeedUrl(cleaned);
-                      setEconomicEventsRetryToken(t => t + 1);
-                      setFeedSettingsOpen(false);
-                    }}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-medium transition-colors"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Save &amp; Fetch
-                  </button>
-                  {customFeedUrl.trim() && (
-                    <button
-                      onClick={() => {
-                        setFeedUrlDraft('');
-                        try { localStorage.removeItem(ECONOMIC_FEED_URL_KEY); } catch { /* localStorage unavailable */ }
-                        setCustomFeedUrl('');
-                        setEconomicEventsRetryToken(t => t + 1);
-                        setFeedSettingsOpen(false);
-                      }}
-                      className="px-3 py-2 rounded-md bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-white text-xs font-medium transition-colors"
-                    >
-                      Reset to Default
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Offline/outage banner — shown only when live fetch + every
-              proxy failed and we fell back to the localStorage cache. */}
-          {economicEventsCachedAt !== null && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 border-x border-amber-500/20 text-[11px] text-amber-300">
-              <AlertTriangle className="w-3 h-3 flex-shrink-0" />
-              <span>
-                Live feed unreachable — showing cached data from{' '}
-                {new Date(economicEventsCachedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                {Date.now() - economicEventsCachedAt > ECONOMIC_CACHE_MAX_AGE_MS ? ' (over an hour old)' : ''}.
-              </span>
-            </div>
-          )}
-
-          {/* Table body — sticky header, scrollable list */}
-          <div className="bg-zinc-900/50 border border-t-0 border-zinc-800 rounded-b-xl overflow-hidden">
-            <div className="notice-column-scroll-mistake max-h-[400px] overflow-y-auto overscroll-contain">
-              <table className="w-full text-xs border-collapse">
-                <thead className="sticky top-0 z-10">
-                  <tr className="bg-zinc-950 border-b border-zinc-800 text-zinc-500">
-                    <th className="text-left font-medium px-3 py-2 whitespace-nowrap">Date &amp; Time (PH)</th>
-                    <th className="text-left font-medium px-3 py-2 whitespace-nowrap">Time Left</th>
-                    <th className="text-left font-medium px-3 py-2 whitespace-nowrap">Currency</th>
-                    <th className="text-left font-medium px-3 py-2 min-w-[220px]">Event</th>
-                    <th className="text-center font-medium px-3 py-2 whitespace-nowrap">Impact</th>
-                    <th className="text-right font-medium px-3 py-2 whitespace-nowrap">Previous</th>
-                    <th className="text-right font-medium px-3 py-2 whitespace-nowrap">Consensus</th>
-                    <th className="text-right font-medium px-3 py-2 whitespace-nowrap">Actual</th>
-                    <th className="text-center font-medium px-3 py-2 whitespace-nowrap">Alert</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {economicEventsLoading ? (
-                    <tr>
-                      <td colSpan={9} className="px-3 py-8 text-center text-zinc-500">
-                        Loading economic calendar…
-                      </td>
-                    </tr>
-                  ) : economicEventsError ? (
-                    <tr>
-                      <td colSpan={9} className="px-3 py-8 text-center">
-                        <p className="text-zinc-500 mb-2">{economicEventsError}</p>
-                        <button
-                          onClick={() => setEconomicEventsRetryToken(t => t + 1)}
-                          className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-white transition-colors"
-                        >
-                          <RefreshCw className="w-3 h-3" />
-                          Retry
-                        </button>
-                      </td>
-                    </tr>
-                  ) : visibleEconomicEvents.length === 0 ? (
-                    <tr>
-                      <td colSpan={9} className="px-3 py-8 text-center text-zinc-600">
-                        No high-impact events in this range.
-                      </td>
-                    </tr>
-                  ) : (
-                    visibleEconomicEvents.map(ev => {
-                      const isAlertOn = !!calendarAlertIds[ev.id];
-                      return (
-                        <tr key={ev.id} className="border-b border-zinc-800/60 hover:bg-zinc-800/30 transition-colors">
-                          <td className="px-3 py-2 whitespace-nowrap text-zinc-300">{formatEventDateTimePH(ev.dateISO)}</td>
-                          <td className="px-3 py-2 whitespace-nowrap text-zinc-400">{formatEventTimeLeft(ev.dateISO, calendarNowTick)}</td>
-                          <td className="px-3 py-2 whitespace-nowrap text-zinc-200">
-                            <span className="mr-1">{CURRENCY_FLAGS[ev.currency] || '🌐'}</span>
-                            {ev.currency}
-                          </td>
-                          <td className="px-3 py-2 text-white">{ev.title}</td>
-                          <td className="px-3 py-2 text-center">
-                            <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-rose-600 text-white">
-                              High
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 text-right text-zinc-400 tabular-nums">{ev.previous}</td>
-                          <td className="px-3 py-2 text-right text-zinc-400 tabular-nums">{ev.forecast}</td>
-                          <td className="px-3 py-2 text-right text-white font-medium tabular-nums">{ev.actual}</td>
-                          <td className="px-3 py-2 text-center">
-                            <button
-                              onClick={() => setCalendarAlertIds(prev => ({ ...prev, [ev.id]: !prev[ev.id] }))}
-                              title={isAlertOn ? 'Alert on — click to turn off' : 'Get notified for this event'}
-                              className={cn(
-                                'p-1 rounded-md transition-colors',
-                                isAlertOn ? 'text-amber-400 hover:text-amber-300' : 'text-zinc-600 hover:text-zinc-300'
-                              )}
-                            >
-                              <Bell className="w-3.5 h-3.5" fill={isAlertOn ? 'currentColor' : 'none'} />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
             </div>
           </div>
         </div>
