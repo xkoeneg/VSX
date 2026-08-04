@@ -3341,20 +3341,25 @@ function App() {
   // ---- Economic Calendar: fetch + live countdown ticker ----
   // Pulls all three week-feeds once (last/this/next week) so every range
   // filter (Yesterday..Next Week) can be served instantly from one
-  // in-memory list without refetching. Fetch strategy, in order:
-  //   1) default feed: hit our own /api/calendar serverless route, which
-  //      fetches nfs.faireconomy.media server-side (no CORS concerns
-  //      there) — see api/calendar.ts
-  //   2) if /api/calendar itself is unreachable (e.g. running the SPA
-  //      without that backend deployed), or if the user configured a
-  //      custom Feed Source URL, fall back to a browser-side chain of
-  //      CORS proxies — allorigins.win, corsproxy.io,
-  //      thingproxy.freeboard.io — then a final direct (unproxied)
-  //      attempt, moving to the next the moment one errors or returns
-  //      non-200
-  //   3) if every attempt fails, silently fall back to the last
-  //      successfully fetched payload cached in localStorage, so the
-  //      table still shows data instead of a blank/error screen
+  // in-memory list without refetching. Fetch strategy:
+  //   1) default feed: fetched exclusively via relative same-origin calls
+  //      to our own /api/calendar route (?week=lastweek/thisweek/nextweek),
+  //      which does the actual nfs.faireconomy.media request server-side
+  //      — see api/calendar.ts. No client-side proxy fallback for this
+  //      path: rerouting through public CORS proxies on every /api
+  //      hiccup was masking real /api/calendar failures behind proxy
+  //      failures, so a failed /api/calendar call now fails cleanly
+  //      instead of silently trying something else.
+  //   2) custom Feed Source path (user-configured override URL only):
+  //      browser-side chain of CORS proxies — allorigins.win,
+  //      corsproxy.io, thingproxy.freeboard.io — then a final direct
+  //      (unproxied) attempt, moving to the next the moment one errors
+  //      or returns non-200. Kept client-side because piping an
+  //      arbitrary user-supplied URL through our own server would make
+  //      /api/calendar an open proxy.
+  //   3) if the active path (1 or 2) fails entirely, silently fall back
+  //      to the last successfully fetched payload cached in localStorage,
+  //      so the table still shows data instead of a blank/error screen
   //   4) only if there's no usable cache either does the table show the
   //      hard error state with a manual Retry button
   const ECONOMIC_CACHE_KEY = 'vsx_eco_calendar_cache';
@@ -3420,27 +3425,32 @@ function App() {
 
     const trimmedCustomUrl = customFeedUrl.trim();
 
-    // Default path: fetch through our own /api/calendar serverless route,
-    // which does the actual nfs.faireconomy.media request server-side
-    // (no CORS issue there, so no public proxy chain needed). Falls back
-    // to the direct-then-proxy-chain browser fetch only if the internal
-    // route itself errors (e.g. running the SPA standalone without the
-    // API route deployed).
+    // Default path: fetch exclusively through our own /api/calendar
+    // serverless route (relative URL — same origin, no CORS involved at
+    // all) which does the actual nfs.faireconomy.media request
+    // server-side. No proxy-chain fallback here: silently rerouting a
+    // working default fetch through public CORS proxies on any hiccup
+    // was masking real /api/calendar errors behind proxy failures. If
+    // /api/calendar fails now, that error propagates to the outer
+    // .catch below, which already has its own fallback (localStorage
+    // cache, then the hard error state) — no need for a second,
+    // proxy-based fallback layer in between.
     //
     // Custom feed path: if the user has configured a custom feed/proxy
     // URL in Feed Source settings, that stays a browser-side fetch
     // through the proxy chain — piping arbitrary user-supplied URLs
     // through our own server would make /api/calendar an open proxy.
     const fetchDefaultWeek = async (week: 'lastweek' | 'thisweek' | 'nextweek'): Promise<RawEconomicEvent[]> => {
-      try {
-        const r = await fetch(`/api/calendar?week=${week}`);
-        if (!r.ok) throw new Error(`${r.status}`);
-        return await r.json();
-      } catch {
-        // /api/calendar unreachable (e.g. no serverless backend deployed
-        // for this environment) — fall back to the browser-side chain.
-        return fetchWithProxyChain(`https://nfs.faireconomy.media/ff_calendar_${week}.json`);
-      }
+      const r = await fetch(`/api/calendar?week=${week}`, { headers: { Accept: 'application/json' } });
+      if (!r.ok) throw new Error(`/api/calendar?week=${week} returned ${r.status}`);
+      const json = await r.json();
+      // /api/calendar returns the upstream feed's JSON array as-is
+      // (RawEconomicEvent[]) — guard against any unexpected shape
+      // (e.g. an {error: ...} body that still came back 200) rather
+      // than letting a malformed payload silently break the merge/filter
+      // step further down.
+      if (!Array.isArray(json)) throw new Error(`/api/calendar?week=${week} did not return a JSON array`);
+      return json;
     };
 
     const fetchPromise: Promise<RawEconomicEvent[][]> = trimmedCustomUrl
@@ -3492,7 +3502,7 @@ function App() {
           setEconomicEventsError(
             trimmedCustomUrl
               ? 'Could not load the configured feed URL (all proxies and direct fetch failed). Double-check the URL in Feed Source settings.'
-              : 'Could not load the live economic calendar feed (all proxies and direct fetch failed). It may be temporarily unavailable — try again in a moment.'
+              : 'Could not load the live economic calendar feed from /api/calendar. It may be temporarily unavailable — try again in a moment.'
           );
         }
       })
