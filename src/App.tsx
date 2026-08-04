@@ -251,14 +251,16 @@ const WIKI_CATEGORIES = ['PD Arrays', 'Market Structure', 'Terminology', 'Execut
 type WikiCategory = typeof WIKI_CATEGORIES[number];
 
 // Accent styling per category — used for the filter tabs (active state)
-// and the small badge shown on each gallery card / detail modal.
-const WIKI_CATEGORY_STYLES: Record<WikiCategory, { badge: string; active: string; dot: string }> = {
-  'PD Arrays': { badge: 'bg-blue-950/40 text-blue-300 border border-blue-500/30', active: 'bg-blue-500/15 text-blue-300 border-blue-500/40', dot: 'bg-blue-500' },
-  'Market Structure': { badge: 'bg-purple-950/40 text-purple-300 border border-purple-500/30', active: 'bg-purple-500/15 text-purple-300 border-purple-500/40', dot: 'bg-purple-500' },
-  'Terminology': { badge: 'bg-emerald-950/40 text-emerald-300 border border-emerald-500/30', active: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40', dot: 'bg-emerald-500' },
-  'Execution Models': { badge: 'bg-amber-950/40 text-amber-300 border border-amber-500/30', active: 'bg-amber-500/15 text-amber-300 border-amber-500/40', dot: 'bg-amber-500' },
+// and the small badge shown on each gallery card / detail modal. `glow`
+// adds a subtle colored drop-shadow so badges read as "lit up" against
+// the near-black card background, per the app's dark design system.
+const WIKI_CATEGORY_STYLES: Record<WikiCategory, { badge: string; active: string; dot: string; icon: string; glow: string; ring: string }> = {
+  'PD Arrays': { badge: 'bg-blue-950/40 text-blue-300 border border-blue-500/30', active: 'bg-blue-500/15 text-blue-300 border-blue-500/40', dot: 'bg-blue-500', icon: 'text-blue-500', glow: 'shadow-[0_0_10px_-2px_rgba(59,130,246,0.6)]', ring: 'border-blue-500/40' },
+  'Market Structure': { badge: 'bg-purple-950/40 text-purple-300 border border-purple-500/30', active: 'bg-purple-500/15 text-purple-300 border-purple-500/40', dot: 'bg-purple-500', icon: 'text-purple-500', glow: 'shadow-[0_0_10px_-2px_rgba(168,85,247,0.6)]', ring: 'border-purple-500/40' },
+  'Terminology': { badge: 'bg-emerald-950/40 text-emerald-300 border border-emerald-500/30', active: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40', dot: 'bg-emerald-500', icon: 'text-emerald-500', glow: 'shadow-[0_0_10px_-2px_rgba(16,185,129,0.6)]', ring: 'border-emerald-500/40' },
+  'Execution Models': { badge: 'bg-amber-950/40 text-amber-300 border border-amber-500/30', active: 'bg-amber-500/15 text-amber-300 border-amber-500/40', dot: 'bg-amber-500', icon: 'text-amber-500', glow: 'shadow-[0_0_10px_-2px_rgba(245,158,11,0.6)]', ring: 'border-amber-500/40' },
 };
-const WIKI_CATEGORY_FALLBACK_STYLE = { badge: 'bg-zinc-800 text-zinc-400 border border-zinc-700', active: 'bg-zinc-700/50 text-zinc-300 border-zinc-600', dot: 'bg-zinc-500' };
+const WIKI_CATEGORY_FALLBACK_STYLE = { badge: 'bg-zinc-800 text-zinc-400 border border-zinc-700', active: 'bg-zinc-700/50 text-zinc-300 border-zinc-600', dot: 'bg-zinc-500', icon: 'text-zinc-500', glow: '', ring: 'border-zinc-700' };
 const getWikiCategoryStyle = (category?: string) =>
   (category && WIKI_CATEGORY_STYLES[category as WikiCategory]) || WIKI_CATEGORY_FALLBACK_STYLE;
 
@@ -273,6 +275,166 @@ interface WikiEntry {
   timeframe: string; // Trading Context — e.g. "5m / 15m HTF"
   contextNotes: string; // Trading Context — freeform notes
 }
+
+// ---- Wiki diagram thumbnails --------------------------------------------
+// The default PD Array entries ship with tiny generated SVG chart diagrams
+// (candles + a highlighted zone) so the gallery renders fully illustrated
+// out of the box instead of empty image placeholders. Encoded as inline
+// data URIs — no network fetch, no external asset dependency.
+const svgToDataUri = (svg: string) => `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+
+interface WikiCandle { x: number; open: number; close: number; high: number; low: number; }
+
+const buildWikiChartSvg = (opts: {
+  accent: string;
+  candles: WikiCandle[];
+  highlight?: { x: number; y: number; w: number; h: number };
+  level?: number;
+  arrow?: { x1: number; y1: number; x2: number; y2: number };
+}) => {
+  const { accent, candles, highlight, level, arrow } = opts;
+  const candleEls = candles.map(c => {
+    const bullish = c.close < c.open; // smaller y = higher price
+    const fill = bullish ? '#10b981' : '#ef4444';
+    const bodyTop = Math.min(c.open, c.close);
+    const bodyH = Math.max(Math.abs(c.close - c.open), 3);
+    return `<line x1="${c.x}" y1="${c.high}" x2="${c.x}" y2="${c.low}" stroke="${fill}" stroke-width="2"/><rect x="${c.x - 8}" y="${bodyTop}" width="16" height="${bodyH}" fill="${fill}" rx="1.5"/>`;
+  }).join('');
+  const highlightEl = highlight ? `<rect x="${highlight.x}" y="${highlight.y}" width="${highlight.w}" height="${highlight.h}" fill="${accent}" fill-opacity="0.16" stroke="${accent}" stroke-width="1.5" stroke-dasharray="4 3" rx="3"/>` : '';
+  const levelEl = typeof level === 'number' ? `<line x1="0" y1="${level}" x2="400" y2="${level}" stroke="${accent}" stroke-width="1.25" stroke-dasharray="5 4" stroke-opacity="0.7"/>` : '';
+  const arrowEl = arrow ? `<line x1="${arrow.x1}" y1="${arrow.y1}" x2="${arrow.x2}" y2="${arrow.y2}" stroke="${accent}" stroke-width="2" marker-end="url(#arrowhead)"/>` : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200"><defs><marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="${accent}"/></marker></defs><rect width="400" height="200" fill="#0a0a0f"/>${[40, 80, 120, 160].map(y => `<line x1="0" y1="${y}" x2="400" y2="${y}" stroke="#1c1c22" stroke-width="1"/>`).join('')}${levelEl}${highlightEl}${candleEls}${arrowEl}</svg>`;
+};
+
+const WIKI_IFVG_SVG = buildWikiChartSvg({
+  accent: '#3b82f6',
+  candles: [
+    { x: 30, open: 60, close: 90, high: 55, low: 95 },
+    { x: 80, open: 90, close: 120, high: 85, low: 125 },
+    { x: 130, open: 120, close: 80, high: 75, low: 125 },
+    { x: 180, open: 80, close: 60, high: 55, low: 85 },
+    { x: 230, open: 60, close: 95, high: 55, low: 100 },
+    { x: 280, open: 95, close: 65, high: 60, low: 100 },
+    { x: 330, open: 65, close: 50, high: 45, low: 70 },
+  ],
+  highlight: { x: 150, y: 65, w: 110, h: 35 },
+  arrow: { x1: 230, y1: 95, x2: 255, y2: 75 },
+});
+
+const WIKI_CISD_SVG = buildWikiChartSvg({
+  accent: '#a855f7',
+  candles: [
+    { x: 30, open: 60, close: 90, high: 55, low: 95 },
+    { x: 80, open: 90, close: 115, high: 85, low: 120 },
+    { x: 130, open: 115, close: 135, high: 110, low: 140 },
+    { x: 180, open: 135, close: 100, high: 95, low: 140 },
+    { x: 230, open: 100, close: 80, high: 75, low: 105 },
+    { x: 280, open: 80, close: 95, high: 75, low: 100 },
+    { x: 330, open: 95, close: 70, high: 65, low: 100 },
+  ],
+  level: 115,
+  highlight: { x: 160, y: 95, w: 40, h: 45 },
+});
+
+const WIKI_ORDER_BLOCK_SVG = buildWikiChartSvg({
+  accent: '#3b82f6',
+  candles: [
+    { x: 30, open: 70, close: 90, high: 65, low: 95 },
+    { x: 80, open: 90, close: 75, high: 70, low: 95 },
+    { x: 130, open: 75, close: 100, high: 70, low: 105 },
+    { x: 180, open: 100, close: 60, high: 55, low: 105 },
+    { x: 230, open: 60, close: 40, high: 35, low: 65 },
+    { x: 280, open: 40, close: 65, high: 35, low: 70 },
+    { x: 330, open: 65, close: 35, high: 30, low: 70 },
+  ],
+  highlight: { x: 114, y: 75, w: 186, h: 30 },
+});
+
+const WIKI_LIQUIDITY_SWEEP_SVG = buildWikiChartSvg({
+  accent: '#a855f7',
+  candles: [
+    { x: 30, open: 60, close: 75, high: 55, low: 80 },
+    { x: 80, open: 75, close: 65, high: 60, low: 80 },
+    { x: 130, open: 65, close: 78, high: 60, low: 82 },
+    { x: 180, open: 78, close: 70, high: 65, low: 83 },
+    { x: 230, open: 70, close: 95, high: 65, low: 100 },
+    { x: 280, open: 95, close: 60, high: 55, low: 100 },
+    { x: 330, open: 60, close: 40, high: 35, low: 65 },
+  ],
+  level: 82,
+  highlight: { x: 214, y: 82, w: 32, h: 18 },
+});
+
+// Ships pre-populated so the Knowledge Wiki page is never an empty screen
+// on first load — used as the initial wikiEntries state and only replaced
+// once a saved backup (which may legitimately be an empty array, e.g. the
+// user deleted everything) finishes loading from localStorage.
+const DEFAULT_WIKI_ENTRIES: WikiEntry[] = [
+  {
+    id: 'default-ifvg',
+    title: 'Inverse Fair Value Gap (IFVG)',
+    content: 'A Fair Value Gap that gets fully closed through and flips polarity — the old FVG now acts as an inverse support/resistance zone in the opposite direction.',
+    category: 'PD Arrays',
+    imageUrl: svgToDataUri(WIKI_IFVG_SVG),
+    keyRules: [
+      'Original FVG must be fully closed through (body close)',
+      'Displacement Candle confirms the flip',
+      'Respect the zone on first retest',
+      'HTF Confluence increases probability',
+    ],
+    bestSession: 'NY Open',
+    timeframe: '1m / 5m',
+    contextNotes: 'Best traded when aligned with a higher-timeframe draw on liquidity.',
+  },
+  {
+    id: 'default-cisd',
+    title: 'Change In State of Delivery (CISD)',
+    content: "A shift in short-term delivery — price closes back through the open of the most recent opposing candle, signaling a change in near-term order flow.",
+    category: 'Market Structure',
+    imageUrl: svgToDataUri(WIKI_CISD_SVG),
+    keyRules: [
+      "Close must break the opposing candle's open",
+      'Look for it right after a liquidity sweep',
+      'Confirms short-term shift, not full MSS',
+      'Combine with FVG / Order Block for entry',
+    ],
+    bestSession: 'London / NY Overlap',
+    timeframe: '1m / 3m',
+    contextNotes: 'Use as an early confirmation trigger before higher-timeframe structure actually breaks.',
+  },
+  {
+    id: 'default-order-block',
+    title: 'Order Block',
+    content: 'The last opposing candle before a strong displacement move — marks the footprint of institutional order flow and often gets revisited before continuation.',
+    category: 'PD Arrays',
+    imageUrl: svgToDataUri(WIKI_ORDER_BLOCK_SVG),
+    keyRules: [
+      'Last down/up candle before displacement',
+      'Must be followed by a strong impulsive move',
+      'Body Close Rule: trade the candle body, not the wick',
+      'Unmitigated OBs carry more weight',
+    ],
+    bestSession: 'NY Session',
+    timeframe: '5m / 15m HTF',
+    contextNotes: 'Unmitigated order blocks on higher timeframes carry more weight than intraday ones.',
+  },
+  {
+    id: 'default-liquidity-sweep',
+    title: 'Liquidity Sweep',
+    content: 'A deliberate move through resting liquidity (equal highs/lows, old swing points) to trigger stops before reversing hard in the opposite direction.',
+    category: 'Market Structure',
+    imageUrl: svgToDataUri(WIKI_LIQUIDITY_SWEEP_SVG),
+    keyRules: [
+      'Wick through prior swing high/low',
+      'Quick rejection back inside range',
+      'Displacement Candle confirms the reversal',
+      'Often precedes a CISD or full MSS',
+    ],
+    bestSession: 'Asia Low / NY Open',
+    timeframe: '1m / 5m',
+    contextNotes: 'Watch for equal highs/lows — that resting liquidity is the pool being targeted.',
+  },
+];
 
 interface SetupType {
   id: string;
@@ -1328,7 +1490,12 @@ const migrateStoredData = (raw: any): StoredData => {
     rules: Array.isArray(data.rules) ? data.rules.map(normalizeRule) : [],
     strategies: Array.isArray(data.strategies) ? data.strategies.map(normalizeStrategy) : [],
     notices: Array.isArray(data.notices) ? data.notices.map(normalizeNotice) : [],
-    wikiEntries: Array.isArray(data.wikiEntries) ? data.wikiEntries.map(normalizeWiki) : [],
+    // Older backups saved before the Knowledge Wiki existed have no
+    // wikiEntries field at all — treat that (undefined) as "never
+    // initialized" and seed the PD Array defaults, same as a first-ever
+    // run. An explicit empty array (user deleted every entry) is left
+    // alone so it doesn't keep coming back.
+    wikiEntries: Array.isArray(data.wikiEntries) ? data.wikiEntries.map(normalizeWiki) : DEFAULT_WIKI_ENTRIES,
     setupTypes: Array.isArray(data.setupTypes) ? data.setupTypes.map((item: any) => normalizeNamedItem(item, 'gray')) : [],
     confluences: Array.isArray(data.confluences) ? data.confluences.map((item: any) => normalizeNamedItem(item, 'gray')) : [],
     mistakesList: Array.isArray(data.mistakesList) ? data.mistakesList.map((item: any) => normalizeNamedItem(item, 'red')) : [],
@@ -4038,7 +4205,7 @@ function App() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [notices, setNotices] = useState<MarketNotice[]>([]);
-  const [wikiEntries, setWikiEntries] = useState<WikiEntry[]>([]);
+  const [wikiEntries, setWikiEntries] = useState<WikiEntry[]>(DEFAULT_WIKI_ENTRIES);
   const [setupTypes, setSetupTypes] = useState<SetupType[]>([]);
   const [confluences, setConfluences] = useState<Confluence[]>([]);
   const [mistakesList, setMistakesList] = useState<Mistake[]>([]);
@@ -4436,10 +4603,6 @@ function App() {
   const [newNotice, setNewNotice] = useState<{ type: NoticeType; title: string; session: SessionOption | ''; tag: string; imageUrl: string; description: string; consequence: string; prevention: string }>(emptyNoticeDraft);
   const [newWiki, setNewWiki] = useState<Partial<WikiEntry>>({ title: '', content: '', category: WIKI_CATEGORIES[0], imageUrl: '', keyRules: [], bestSession: '', timeframe: '', contextNotes: '' });
   const [editingWikiId, setEditingWikiId] = useState<string | null>(null);
-  // Notion-gallery filter tabs above the wiki grid — 'All' plus the 4
-  // fixed categories. Entries with a category outside this list still show
-  // up under "All" but won't have their own dedicated tab.
-  const [wikiCategoryFilter, setWikiCategoryFilter] = useState<'All' | WikiCategory>('All');
   // Which entry's full-detail modal is open, if any.
   const [viewWikiId, setViewWikiId] = useState<string | null>(null);
   const wikiImageInputRef = useRef<HTMLInputElement>(null);
@@ -11723,12 +11886,110 @@ function App() {
   };
 
   const renderWiki = () => {
-    const filteredWikiEntries = wikiCategoryFilter === 'All'
-      ? wikiEntries
-      : wikiEntries.filter(e => e.category === wikiCategoryFilter);
+    // Grouped by category (fixed order) so the whole library reads top to
+    // bottom on one page — no filter buttons, no clicking to switch views.
+    // Any entry with a category outside the 4 fixed ones still shows up
+    // under an "Other" section instead of getting hidden.
+    const groupedWikiSections = [...WIKI_CATEGORIES, 'Other'].map(cat => ({
+      category: cat,
+      entries: cat === 'Other'
+        ? wikiEntries.filter(e => !WIKI_CATEGORIES.includes(e.category as WikiCategory))
+        : wikiEntries.filter(e => e.category === cat),
+    })).filter(section => section.entries.length > 0);
+
+    const renderWikiCard = (entry: WikiEntry) => {
+      const style = getWikiCategoryStyle(entry.category);
+      const visibleRules = entry.keyRules.slice(0, 4);
+      const extraRuleCount = entry.keyRules.length - visibleRules.length;
+      const executionTag = [entry.timeframe, entry.bestSession].filter(Boolean).join(' • ');
+      return (
+        <div
+          key={entry.id}
+          onClick={() => setViewWikiId(entry.id)}
+          className={cn(
+            'group min-w-0 bg-[#111113] border rounded-xl overflow-hidden cursor-pointer flex flex-col transition-all hover:-translate-y-0.5',
+            'border-zinc-800/80 hover:border-zinc-700 hover:shadow-xl hover:shadow-black/40'
+          )}
+        >
+          {/* Live image preview container (~192px) */}
+          <div className="relative h-[188px] w-full flex-shrink-0 bg-zinc-950 border-b border-zinc-800/80 overflow-hidden">
+            {entry.imageUrl ? (
+              <img src={entry.imageUrl} alt={entry.title} className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-300" />
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 text-zinc-700">
+                <ImageIcon className="w-6 h-6" />
+                <span className="text-[11px]">No diagram yet</span>
+              </div>
+            )}
+            {/* Category badge overlaid on the image, top-left, with a colored glow */}
+            {entry.category && (
+              <span className={cn('absolute top-2.5 left-2.5 text-[10px] px-2 py-0.5 rounded-full font-semibold backdrop-blur-sm', style.badge, style.glow)}>
+                {entry.category}
+              </span>
+            )}
+            {/* Edit / Delete — visible on hover, top-right */}
+            <div className="absolute top-2.5 right-2.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={(e) => { e.stopPropagation(); handleOpenEditWiki(entry); }}
+                className="p-1.5 rounded-md bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-white transition-colors"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleDeleteWiki(entry.id); }}
+                className="p-1.5 rounded-md bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-rose-400 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            {/* gradient fade so the image blends into the card body */}
+            <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-[#111113] to-transparent pointer-events-none" />
+          </div>
+
+          {/* Content — header, rules checklist, execution context — all
+              visible right here, nothing hidden behind another click */}
+          <div className="p-4 flex flex-col gap-3 min-w-0 flex-1">
+            <h3 className="font-bold text-white text-[15px] leading-snug">{entry.title}</h3>
+
+            {entry.content && (
+              <p className="text-xs text-zinc-500 leading-relaxed line-clamp-2">{entry.content}</p>
+            )}
+
+            {/* Core Rules / Criteria checklist */}
+            {visibleRules.length > 0 && (
+              <ul className="space-y-1.5">
+                {visibleRules.map((rule, idx) => (
+                  <li key={idx} className="flex items-start gap-2 text-xs text-zinc-400 leading-snug">
+                    <CheckCircle2 className={cn('w-3.5 h-3.5 flex-shrink-0 mt-0.5', style.icon)} />
+                    <span className="line-clamp-1">{rule}</span>
+                  </li>
+                ))}
+                {extraRuleCount > 0 && (
+                  <li className="text-[11px] text-zinc-600 pl-[22px]">+{extraRuleCount} more rule{extraRuleCount === 1 ? '' : 's'}</li>
+                )}
+              </ul>
+            )}
+
+            {/* Execution Context tag — pinned to the bottom of the card */}
+            <div className="mt-auto pt-1">
+              {executionTag ? (
+                <span className="inline-flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-300 font-medium">
+                  <Clock className="w-3 h-3 text-zinc-500" />
+                  {executionTag}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-md bg-zinc-900/60 border border-zinc-800/60 text-zinc-600 italic">
+                  No execution context set
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    };
 
     return (
-      <div className="space-y-6 min-w-0">
+      <div className="space-y-8 min-w-0">
         <PageHeader
           title="Knowledge Wiki"
           description="Visual reference for PD Arrays & trading concepts"
@@ -11740,88 +12001,33 @@ function App() {
           }
         />
 
-        {/* CATEGORY FILTER TABS */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {(['All', ...WIKI_CATEGORIES] as const).map(cat => {
-            const active = wikiCategoryFilter === cat;
-            const style = cat === 'All' ? null : getWikiCategoryStyle(cat);
-            const count = cat === 'All' ? wikiEntries.length : wikiEntries.filter(e => e.category === cat).length;
-            return (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setWikiCategoryFilter(cat)}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all',
-                  active
-                    ? (style ? style.active : 'bg-zinc-700/50 text-white border-zinc-600')
-                    : 'bg-zinc-900/50 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
-                )}
-              >
-                {style && <span className={cn('w-1.5 h-1.5 rounded-full', style.dot)} />}
-                <span>{cat}</span>
-                <span className={cn('text-[10px]', active ? 'opacity-80' : 'text-zinc-600')}>{count}</span>
-              </button>
-            );
-          })}
-        </div>
+        {/* EVERYTHING ON ONE PAGE — grouped by category as plain section
+            labels (not buttons/tabs), so nothing needs to be clicked to
+            bring the rest of the library into view; just scroll. */}
+        {groupedWikiSections.map(section => {
+          const style = section.category === 'Other' ? WIKI_CATEGORY_FALLBACK_STYLE : getWikiCategoryStyle(section.category);
+          return (
+            <div key={section.category} className="space-y-4">
+              <div className="flex items-center gap-2.5">
+                <span className={cn('w-2 h-2 rounded-full', style.dot)} />
+                <h2 className="text-sm font-bold text-white uppercase tracking-wide">{section.category}</h2>
+                <span className="text-xs text-zinc-600">{section.entries.length}</span>
+                <div className="flex-1 h-px bg-zinc-800/80" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {section.entries.map(renderWikiCard)}
+              </div>
+            </div>
+          );
+        })}
 
-        {/* NOTION-STYLE GALLERY GRID */}
-        {filteredWikiEntries.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredWikiEntries.map(entry => {
-              const style = getWikiCategoryStyle(entry.category);
-              return (
-                <div
-                  key={entry.id}
-                  onClick={() => setViewWikiId(entry.id)}
-                  className="group min-w-0 bg-[#18181b] border border-zinc-800 rounded-xl overflow-hidden cursor-pointer hover:border-zinc-600 hover:shadow-lg hover:shadow-black/30 transition-all"
-                >
-                  {/* Image preview */}
-                  <div className="relative aspect-video w-full bg-zinc-950 border-b border-zinc-800 flex items-center justify-center overflow-hidden">
-                    {entry.imageUrl ? (
-                      <img src={entry.imageUrl} alt={entry.title} className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300" />
-                    ) : (
-                      <ImageIcon className="w-6 h-6 text-zinc-700" />
-                    )}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDeleteWiki(entry.id); }}
-                      className="absolute top-2 right-2 p-1.5 rounded-md bg-black/60 backdrop-blur-sm text-zinc-300 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  {/* Content */}
-                  <div className="p-3.5 space-y-2 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-semibold text-white text-sm leading-snug truncate">{entry.title}</h3>
-                    </div>
-                    {entry.category && (
-                      <span className={cn('inline-block text-[10px] px-2 py-0.5 rounded-full font-medium truncate max-w-full', style.badge)}>
-                        {entry.category}
-                      </span>
-                    )}
-                    {entry.content && (
-                      <p className="text-xs text-zinc-500 line-clamp-2 leading-relaxed">{entry.content}</p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {filteredWikiEntries.length === 0 && (
+        {wikiEntries.length === 0 && (
           <div className="text-center py-12">
             <div className="w-16 h-16 mx-auto rounded-full bg-zinc-800 flex items-center justify-center mb-4">
               <Lightbulb className="w-8 h-8 text-zinc-600" />
             </div>
-            <h3 className="text-lg font-medium text-white mb-2">
-              {wikiEntries.length === 0 ? 'No wiki entries yet' : `No entries in "${wikiCategoryFilter}"`}
-            </h3>
-            <p className="text-zinc-500 mb-4">
-              {wikiEntries.length === 0 ? 'Build your personal trading knowledge base' : 'Try a different category, or add one here'}
-            </p>
+            <h3 className="text-lg font-medium text-white mb-2">No wiki entries yet</h3>
+            <p className="text-zinc-500 mb-4">Build your personal trading knowledge base</p>
             <button onClick={handleOpenAddWiki} className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors">
               <Plus className="w-4 h-4" />
               Add Entry
@@ -15086,7 +15292,7 @@ function App() {
             <div className="min-w-0">
               <h3 className="text-lg font-bold text-white truncate">{entry.title}</h3>
               {entry.category && (
-                <span className={cn('inline-block mt-1.5 text-[10px] px-2 py-0.5 rounded-full font-medium', style.badge)}>
+                <span className={cn('inline-block mt-1.5 text-[10px] px-2 py-0.5 rounded-full font-medium', style.badge, style.glow)}>
                   {entry.category}
                 </span>
               )}
