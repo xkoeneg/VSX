@@ -1278,6 +1278,14 @@ const SessionBadge: React.FC<{ value?: SessionOption | string; size?: 'sm' | 'md
 // never talks to Forex Factory directly, permanently avoiding CORS).
 // Self-contained: owns its own fetch/parse/refresh state so it can be
 // dropped in anywhere.
+//
+// HARDENING: the upstream feed is a third-party payload we don't control
+// — fields can be missing, renamed, or the wrong type without warning.
+// Every read below goes through optional chaining / safe coercion / a
+// fallback value, parsing never throws past its own try/catch, and the
+// whole component is additionally wrapped in an Error Boundary (see
+// EconomicCalendarErrorBoundary, below) so a mistake here can only ever
+// take down this one card — never the rest of the Market Notices page.
 // ============================================================
 type EconomicImpact = 'high' | 'medium' | 'low' | 'holiday';
 
@@ -1291,37 +1299,81 @@ interface EconomicEvent {
   forecast: string;
 }
 
-// Raw shape of each entry in the Forex Factory weekly JSON feed.
+// Raw shape of each entry in the Forex Factory weekly JSON feed. Every
+// field is optional/unknown on purpose — this is untrusted third-party
+// data and any field can be missing, null, or an unexpected type.
 interface ForexFactoryRawEvent {
-  title?: string;
-  country?: string; // actually a currency code, e.g. "USD", "EUR", "All"
-  date?: string; // ISO 8601 with offset, e.g. "2026-08-07T08:30:00-04:00"
-  impact?: string; // "High" | "Medium" | "Low" | "Holiday"
-  forecast?: string;
-  previous?: string;
+  title?: unknown;
+  country?: unknown; // expected: currency code, e.g. "USD", "EUR", "All"
+  date?: unknown; // expected: ISO 8601 with offset, e.g. "2026-08-07T08:30:00-04:00"
+  impact?: unknown; // expected: "High" | "Medium" | "Low" | "Holiday"
+  forecast?: unknown;
+  previous?: unknown;
 }
 
-const normalizeImpact = (raw?: string): EconomicImpact => {
-  const lower = (raw || '').toLowerCase();
+// Coerces any value to a trimmed string, never throws regardless of the
+// input's actual type (number, null, object, etc.).
+const safeString = (value: unknown): string => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value.trim();
+  try {
+    return String(value).trim();
+  } catch {
+    return '';
+  }
+};
+
+const normalizeImpact = (raw: unknown): EconomicImpact => {
+  const lower = safeString(raw).toLowerCase();
   if (lower === 'high' || lower === 'medium' || lower === 'low') return lower;
   return 'holiday';
 };
 
+// Parses a single raw feed entry into a typed event. Never throws — any
+// field that's missing or the wrong type just falls back to a safe
+// default instead of taking down the whole list.
+const parseCalendarEvent = (item: ForexFactoryRawEvent | null | undefined, idx: number): EconomicEvent => {
+  const dateStr = safeString(item?.date);
+  let parsedDate: Date | null = null;
+  if (dateStr) {
+    try {
+      const candidate = new Date(dateStr);
+      if (!Number.isNaN(candidate.getTime())) parsedDate = candidate;
+    } catch {
+      parsedDate = null;
+    }
+  }
+
+  return {
+    id: `${idx}-${safeString(item?.title) || 'event'}-${dateStr}`,
+    title: safeString(item?.title) || 'Unknown Event',
+    currency: safeString(item?.country).toUpperCase(),
+    impact: normalizeImpact(item?.impact),
+    time: parsedDate,
+    previous: safeString(item?.previous),
+    forecast: safeString(item?.forecast),
+  };
+};
+
 // Parses the JSON array returned by /api/calendar into typed events.
+// Tolerant of a non-array payload, a non-object item, or a single bad
+// entry — worst case, that one entry is skipped rather than the whole
+// feed failing to render.
 const parseCalendarJson = (raw: unknown): EconomicEvent[] => {
-  if (!Array.isArray(raw)) return [];
-  return (raw as ForexFactoryRawEvent[]).map((item, idx) => {
-    const parsedDate = item.date ? new Date(item.date) : null;
-    return {
-      id: `${idx}-${item.title || 'event'}-${item.date || ''}`,
-      title: item.title?.trim() || 'Unknown Event',
-      currency: (item.country || '').trim().toUpperCase(),
-      impact: normalizeImpact(item.impact),
-      time: parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate : null,
-      previous: item.previous?.trim() || '',
-      forecast: item.forecast?.trim() || '',
-    };
-  });
+  try {
+    if (!Array.isArray(raw)) return [];
+    const out: EconomicEvent[] = [];
+    raw.forEach((item, idx) => {
+      try {
+        out.push(parseCalendarEvent(item as ForexFactoryRawEvent, idx));
+      } catch {
+        // Skip this single malformed entry, keep the rest of the feed.
+      }
+    });
+    return out;
+  } catch {
+    return [];
+  }
 };
 
 const IMPACT_META: Record<EconomicImpact, { label: string; className: string }> = {
@@ -1331,10 +1383,70 @@ const IMPACT_META: Record<EconomicImpact, { label: string; className: string }> 
   holiday: { label: 'Holiday', className: 'bg-zinc-800/40 text-zinc-500 border-zinc-800' },
 };
 
+// Safe lookup — always returns valid meta even if `impact` somehow isn't
+// one of the four known keys, instead of returning undefined and
+// crashing the component the moment `.className` is read off it.
+const getImpactMeta = (impact: EconomicImpact | undefined | null) =>
+  (impact && IMPACT_META[impact]) || IMPACT_META.holiday;
+
+// Minimal class-based Error Boundary. React only catches render errors
+// via componentDidCatch/getDerivedStateFromError — a try/catch inside a
+// function component does NOT catch errors thrown during that
+// component's own render, so this boundary is what actually stops an
+// Economic Calendar crash from taking down the whole Market Notices page.
+interface ErrorBoundaryState {
+  hasError: boolean;
+}
+
+class EconomicCalendarErrorBoundary extends React.Component<React.PropsWithChildren<{}>, ErrorBoundaryState> {
+  constructor(props: React.PropsWithChildren<{}>) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(): ErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: unknown, info: React.ErrorInfo) {
+    // Logged, not swallowed — makes the underlying bug visible in the
+    // console/Vercel logs instead of just silently blanking a card.
+    console.error('[EconomicCalendarCard] Render error caught by boundary:', error, info?.componentStack);
+  }
+
+  handleRetry = () => {
+    this.setState({ hasError: false });
+  };
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-w-0 bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 flex flex-col">
+          <div className="text-center py-8 rounded-lg border border-dashed border-rose-900/50 bg-rose-950/10">
+            <AlertTriangle className="w-5 h-5 mx-auto text-rose-400 mb-2" />
+            <p className="text-rose-300 text-xs mb-1">Economic Calendar couldn't be displayed</p>
+            <p className="text-zinc-500 text-[11px] mb-3">
+              Something in the live feed data caused a rendering error. The rest of this page is unaffected.
+            </p>
+            <button
+              onClick={this.handleRetry}
+              className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+            >
+              <RefreshCw className="w-3 h-3" />
+              Try again
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // Full-width card: fetches /api/calendar on mount (and periodically after),
 // parses the weekly JSON feed, and renders a dark, sleek, day-grouped
 // table of USD High/Medium impact events for the whole trading week.
-const EconomicCalendarCard: React.FC = () => {
+const EconomicCalendarCardInner: React.FC = () => {
   const [events, setEvents] = useState<EconomicEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1350,12 +1462,18 @@ const EconomicCalendarCard: React.FC = () => {
     setError(null);
     try {
       const res = await fetch('/api/calendar');
-      if (!res.ok) throw new Error(`Feed request failed (${res.status})`);
-      const json = await res.json();
+      if (!res?.ok) throw new Error(`Feed request failed (${res?.status ?? 'unknown'})`);
+      let json: unknown = null;
+      try {
+        json = await res.json();
+      } catch {
+        throw new Error('Feed response was not valid JSON');
+      }
       setEvents(parseCalendarJson(json));
       setLastUpdated(new Date());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load the economic calendar');
+      setEvents([]);
     } finally {
       setLoading(false);
     }
@@ -1379,11 +1497,12 @@ const EconomicCalendarCard: React.FC = () => {
   };
 
   // USD events for the week, filtered to the active impact levels,
-  // sorted chronologically.
+  // sorted chronologically. Every field is read defensively in case an
+  // entry slipped through parsing with an unexpected shape.
   const usdEvents = useMemo(() => {
-    return events
-      .filter(e => e.currency === 'USD' && activeImpacts.has(e.impact))
-      .sort((a, b) => (a.time?.getTime() || 0) - (b.time?.getTime() || 0));
+    return (events || [])
+      .filter(e => e?.currency === 'USD' && activeImpacts.has(e?.impact))
+      .sort((a, b) => (a?.time?.getTime?.() || 0) - (b?.time?.getTime?.() || 0));
   }, [events, activeImpacts]);
 
   // Group into Mon–Fri buckets (by local calendar day) so the whole week
@@ -1391,25 +1510,40 @@ const EconomicCalendarCard: React.FC = () => {
   const eventsByDay = useMemo(() => {
     const groups = new Map<string, { label: string; events: EconomicEvent[] }>();
     for (const evt of usdEvents) {
-      if (!evt.time) continue;
-      const key = evt.time.toDateString();
-      if (!groups.has(key)) {
-        groups.set(key, {
-          label: evt.time.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }),
-          events: [],
-        });
+      if (!evt?.time) continue;
+      try {
+        const key = evt.time.toDateString();
+        if (!groups.has(key)) {
+          groups.set(key, {
+            label: evt.time.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) || key,
+            events: [],
+          });
+        }
+        groups.get(key)?.events.push(evt);
+      } catch {
+        // Skip this event if its date somehow can't be grouped/formatted
+        // rather than letting one bad Date object break the whole table.
       }
-      groups.get(key)!.events.push(evt);
     }
     return Array.from(groups.values());
   }, [usdEvents]);
 
-  const formatEventTime = (date: Date | null) => {
+  const formatEventTime = (date: Date | null | undefined): string => {
     if (!date) return '—';
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    try {
+      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) || '—';
+    } catch {
+      return '—';
+    }
   };
 
-  const isPast = (date: Date | null) => !!date && date.getTime() < Date.now();
+  const isPast = (date: Date | null | undefined): boolean => {
+    try {
+      return !!date && date.getTime() < Date.now();
+    } catch {
+      return false;
+    }
+  };
 
   return (
     <div className="min-w-0 bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 flex flex-col">
@@ -1422,7 +1556,7 @@ const EconomicCalendarCard: React.FC = () => {
           </span>
           {!loading && !error && (
             <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-black/30 text-zinc-400 flex-shrink-0">
-              {usdEvents.length}
+              {usdEvents?.length ?? 0}
             </span>
           )}
         </div>
@@ -1430,7 +1564,7 @@ const EconomicCalendarCard: React.FC = () => {
           {/* Impact toggle chips — High + Medium active by default */}
           <div className="flex items-center gap-1">
             {(['high', 'medium'] as EconomicImpact[]).map(impact => {
-              const meta = IMPACT_META[impact];
+              const meta = getImpactMeta(impact);
               const active = activeImpacts.has(impact);
               return (
                 <button
@@ -1448,7 +1582,7 @@ const EconomicCalendarCard: React.FC = () => {
           </div>
           {lastUpdated && !loading && (
             <span className="hidden sm:inline text-[10px] text-zinc-500">
-              Updated {lastUpdated.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+              Updated {formatEventTime(lastUpdated)}
             </span>
           )}
           <button
@@ -1463,7 +1597,7 @@ const EconomicCalendarCard: React.FC = () => {
       </div>
 
       <div className="mt-3">
-        {loading && events.length === 0 ? (
+        {loading && (events?.length ?? 0) === 0 ? (
           <div className="space-y-2">
             {[...Array(4)].map((_, i) => (
               <div key={i} className="h-10 rounded-lg bg-zinc-800/40 animate-pulse" />
@@ -1481,7 +1615,7 @@ const EconomicCalendarCard: React.FC = () => {
               Retry
             </button>
           </div>
-        ) : eventsByDay.length === 0 ? (
+        ) : (eventsByDay?.length ?? 0) === 0 ? (
           <div className="text-center py-8 rounded-lg border border-dashed border-zinc-800 bg-zinc-900/30">
             <Calendar className="w-5 h-5 mx-auto text-zinc-700 mb-2" />
             <p className="text-zinc-600 text-xs">No matching USD events found for this week</p>
@@ -1502,27 +1636,27 @@ const EconomicCalendarCard: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {eventsByDay.map(day => (
-                  <React.Fragment key={day.label}>
+                {(eventsByDay || []).map(day => (
+                  <React.Fragment key={day?.label || Math.random()}>
                     <tr>
                       <td colSpan={6} className="pt-3 pb-1.5 px-2">
                         <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wide">
-                          {day.label}
+                          {day?.label || 'Unknown Date'}
                         </span>
                       </td>
                     </tr>
-                    {day.events.map(evt => {
-                      const meta = IMPACT_META[evt.impact];
-                      const past = isPast(evt.time);
+                    {(day?.events || []).map(evt => {
+                      const meta = getImpactMeta(evt?.impact);
+                      const past = isPast(evt?.time);
                       return (
-                        <tr key={evt.id} className="border-b border-zinc-800/60 hover:bg-zinc-800/30 transition-colors">
-                          <td className="py-2 px-2 text-zinc-400 whitespace-nowrap">{formatEventTime(evt.time)}</td>
+                        <tr key={evt?.id ?? Math.random()} className="border-b border-zinc-800/60 hover:bg-zinc-800/30 transition-colors">
+                          <td className="py-2 px-2 text-zinc-400 whitespace-nowrap">{formatEventTime(evt?.time)}</td>
                           <td className="py-2 px-2 text-white font-medium">
                             <span className="inline-flex items-center gap-1.5">
                               <span className="px-1.5 py-0.5 rounded text-[10px] border border-zinc-700 text-zinc-400 bg-zinc-800/60 flex-shrink-0">
-                                {evt.currency}
+                                {evt?.currency || 'USD'}
                               </span>
-                              <span className="truncate">{evt.title}</span>
+                              <span className="truncate">{evt?.title || 'Unknown Event'}</span>
                             </span>
                           </td>
                           <td className="py-2 px-2 whitespace-nowrap">
@@ -1530,8 +1664,8 @@ const EconomicCalendarCard: React.FC = () => {
                               {meta.label}
                             </span>
                           </td>
-                          <td className="py-2 px-2 text-right text-zinc-400 whitespace-nowrap">{evt.previous || '—'}</td>
-                          <td className="py-2 px-2 text-right text-zinc-400 whitespace-nowrap">{evt.forecast || '—'}</td>
+                          <td className="py-2 px-2 text-right text-zinc-400 whitespace-nowrap">{evt?.previous || '—'}</td>
+                          <td className="py-2 px-2 text-right text-zinc-400 whitespace-nowrap">{evt?.forecast || '—'}</td>
                           <td className="py-2 px-2 text-right whitespace-nowrap">
                             <span className={cn(
                               'inline-flex items-center gap-1 text-[10px]',
@@ -1557,6 +1691,15 @@ const EconomicCalendarCard: React.FC = () => {
     </div>
   );
 };
+
+// Public export used everywhere else in the app — always wrapped in the
+// Error Boundary so a bad payload/rendering bug can only ever blank out
+// this one card, never the surrounding Market Notices page.
+const EconomicCalendarCard: React.FC = () => (
+  <EconomicCalendarErrorBoundary>
+    <EconomicCalendarCardInner />
+  </EconomicCalendarErrorBoundary>
+);
 
 // ============================================================
 // CALCULATOR VALIDATION - Same strict rules as input fields
