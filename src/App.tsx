@@ -133,10 +133,13 @@ interface Trade {
   symbol: string;
   profitLoss: number;
   entryPrice: number;
+  exitPrice?: number; // Close price — mainly populated by MT4/MT5 import, optional for manual entries
   stopLoss: number;
   takeProfit: number;
   slPoints: number;
   tpPoints: number;
+  lotSize?: number; // Position size in lots — populated by MT4/MT5 import
+  orderType?: 'buy' | 'sell'; // Trade direction — populated by MT4/MT5 import
   setupTypes: string[];
   confluences: string[];
   mistakes: string[];
@@ -1275,10 +1278,13 @@ const normalizeTrade = (t: any, fallbackTradeNumber: number): Trade => ({
   symbol: typeof t?.symbol === 'string' ? t.symbol : '',
   profitLoss: typeof t?.profitLoss === 'number' ? t.profitLoss : 0,
   entryPrice: typeof t?.entryPrice === 'number' ? t.entryPrice : 0,
+  exitPrice: typeof t?.exitPrice === 'number' ? t.exitPrice : undefined,
   stopLoss: typeof t?.stopLoss === 'number' ? t.stopLoss : 0,
   takeProfit: typeof t?.takeProfit === 'number' ? t.takeProfit : 0,
   slPoints: typeof t?.slPoints === 'number' ? t.slPoints : 0,
   tpPoints: typeof t?.tpPoints === 'number' ? t.tpPoints : 0,
+  lotSize: typeof t?.lotSize === 'number' ? t.lotSize : undefined,
+  orderType: t?.orderType === 'buy' || t?.orderType === 'sell' ? t.orderType : undefined,
   setupTypes: Array.isArray(t?.setupTypes) ? t.setupTypes : [],
   confluences: Array.isArray(t?.confluences) ? t.confluences : [],
   mistakes: Array.isArray(t?.mistakes) ? t.mistakes : [],
@@ -1614,6 +1620,214 @@ const formatDate = (dateStr: string) => {
 
 const cn = (...classes: (string | boolean | undefined)[]) =>
   classes.filter(Boolean).join(' ');
+
+// ==================== MT4/MT5 Trade Import: parsing helpers ====================
+// Pure, framework-free functions that turn a raw .csv or .html file exported
+// from MetaTrader 4/5's Account History ("Save as Report" / "Export to CSV")
+// into a normalized list of trades. Broker report layouts vary slightly
+// (MT4 vs MT5, terminal build, language pack), so columns are matched by
+// keyword rather than fixed position, and duplicate headers (e.g. two
+// "Price" or two "Time" columns for open vs close) are resolved positionally.
+
+interface ParsedMTTrade {
+  ticketId: string;
+  symbol: string;
+  orderType: 'buy' | 'sell';
+  lotSize: number;
+  openTime: string;   // ISO 8601 ("yyyy-MM-ddTHH:mm:ss") when parseable, else the raw broker string
+  closeTime: string;  // ISO 8601 when parseable, else the raw broker string
+  entryPrice: number;
+  exitPrice: number;
+  stopLoss: number;
+  takeProfit: number;
+  profitLoss: number; // net P/L: profit + commission + swap + taxes (whichever columns are present)
+}
+
+// Strips thousands separators / currency symbols / parenthesis-negatives and
+// returns a finite number, defaulting to 0 for anything unparsable.
+const parseMTNumber = (raw: string | undefined): number => {
+  if (!raw) return 0;
+  let s = raw.trim();
+  if (!s) return 0;
+  const negParen = /^\(.*\)$/.test(s);
+  s = s.replace(/[()]/g, '').replace(/[, ]/g, '').replace(/[^\d.\-]/g, '');
+  if (!s || s === '-' || s === '.') return 0;
+  const n = parseFloat(s);
+  if (isNaN(n)) return 0;
+  return negParen ? -Math.abs(n) : n;
+};
+
+// MT4/MT5 timestamps look like "2024.01.15 10:23:45" or "2024.01.15 10:23".
+// Converts to ISO 8601; falls back to the raw trimmed string if it doesn't match.
+const parseMTTimestamp = (raw: string | undefined): string => {
+  if (!raw) return '';
+  const s = raw.trim();
+  const m = s.match(/(\d{4})[.\-\/](\d{2})[.\-\/](\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (!m) return s;
+  const [, y, mo, d, h, mi, se] = m;
+  return `${y}-${mo}-${d}T${h}:${mi}:${se || '00'}`;
+};
+
+type MTColumnRole = 'ticket' | 'time' | 'type' | 'size' | 'symbol' | 'price' | 'sl' | 'tp' | 'profit' | 'commission' | 'swap' | 'taxes';
+
+// Order matters: more specific patterns (profit/commission/swap/taxes/sl/tp)
+// are checked before the generic "price" pattern so e.g. "S / L" never gets
+// mis-tagged. Ticket/time/type/size/symbol are unambiguous.
+const MT_HEADER_PATTERNS: [MTColumnRole, RegExp][] = [
+  ['ticket', /^(ticket|order|position|deal)(\s*#|\s*id)?$/i],
+  ['time', /time/i],
+  ['type', /^type$/i],
+  ['size', /^(size|volume|lots?)$/i],
+  ['symbol', /^(symbol|item|instrument)$/i],
+  ['profit', /^(profit|net\s*profit|p\s*\/?\s*l)$/i],
+  ['commission', /commission/i],
+  ['swap', /swap/i],
+  ['taxes', /tax/i],
+  ['sl', /^s\s*\/?\s*l$|stop\s*loss/i],
+  ['tp', /^t\s*\/?\s*p$|take\s*profit/i],
+  ['price', /^price$/i],
+];
+
+// Classifies a header row into { role: [columnIndex, ...] }, indices kept in
+// left-to-right order so duplicate roles (two "Price" or two "Time" columns)
+// can be resolved positionally: occurrence 0 = open, occurrence 1 = close.
+const classifyMTHeaders = (headers: string[]): Partial<Record<MTColumnRole, number[]>> => {
+  const roles: Partial<Record<MTColumnRole, number[]>> = {};
+  headers.forEach((rawHeader, idx) => {
+    const header = rawHeader.trim();
+    if (!header) return;
+    for (const [role, pattern] of MT_HEADER_PATTERNS) {
+      if (pattern.test(header)) {
+        (roles[role] = roles[role] || []).push(idx);
+        return;
+      }
+    }
+  });
+  return roles;
+};
+
+const MT_TICKET_HEADER_RE = /^(ticket|order|position|deal)(\s*#|\s*id)?$/i;
+
+// Turns classified column roles + one data row into a ParsedMTTrade, or null
+// if the row doesn't look like a real closed buy/sell trade (e.g. balance,
+// credit, deposit, or cancelled-order rows that MT4/MT5 reports also list).
+const rowToMTTrade = (cells: string[], roles: Partial<Record<MTColumnRole, number[]>>): ParsedMTTrade | null => {
+  const get = (role: MTColumnRole, occurrence: number = 0): string | undefined => {
+    const idxList = roles[role];
+    if (!idxList || idxList.length <= occurrence) return undefined;
+    return cells[idxList[occurrence]];
+  };
+
+  const ticketRaw = get('ticket');
+  const typeRaw = (get('type') || '').trim().toLowerCase();
+  if (!ticketRaw || !/^\d+$/.test(ticketRaw.trim())) return null;
+  if (typeRaw !== 'buy' && typeRaw !== 'sell') return null;
+
+  const openTime = parseMTTimestamp(get('time', 0));
+  const closeTime = parseMTTimestamp(get('time', 1)) || openTime;
+  const entryPrice = parseMTNumber(get('price', 0));
+  const exitPrice = parseMTNumber(get('price', 1));
+  const profitBase = parseMTNumber(get('profit'));
+  const commission = parseMTNumber(get('commission'));
+  const swap = parseMTNumber(get('swap'));
+  const taxes = parseMTNumber(get('taxes'));
+
+  return {
+    ticketId: ticketRaw.trim(),
+    symbol: (get('symbol') || '').trim().toUpperCase(),
+    orderType: typeRaw as 'buy' | 'sell',
+    lotSize: parseMTNumber(get('size')),
+    openTime,
+    closeTime,
+    entryPrice,
+    exitPrice,
+    stopLoss: parseMTNumber(get('sl')),
+    takeProfit: parseMTNumber(get('tp')),
+    profitLoss: profitBase + commission + swap + taxes,
+  };
+};
+
+// Splits a CSV/TSV line respecting simple double-quoted fields.
+const splitMTDelimitedLine = (line: string, delimiter: string): string[] => {
+  const cells: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+    } else if (ch === delimiter && !inQuotes) {
+      cells.push(current);
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  cells.push(current);
+  return cells.map(c => c.trim().replace(/^"|"$/g, ''));
+};
+
+const parseMT4MT5Csv = (text: string): ParsedMTTrade[] => {
+  const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+  if (lines.length < 2) return [];
+  const delimiter = (lines[0].match(/\t/g)?.length || 0) >= (lines[0].match(/,/g)?.length || 0) ? '\t' : ',';
+
+  const trades: ParsedMTTrade[] = [];
+  let roles: Partial<Record<MTColumnRole, number[]>> | null = null;
+
+  for (const line of lines) {
+    const cells = splitMTDelimitedLine(line, delimiter);
+    // (Re)detect the header whenever a "Ticket"/"Order"/"Position"/"Deal"
+    // column shows up, since some exports repeat headers per section.
+    const looksLikeHeader = cells.some(c => MT_TICKET_HEADER_RE.test(c.trim()));
+    if (looksLikeHeader) {
+      roles = classifyMTHeaders(cells);
+      continue;
+    }
+    if (!roles) continue;
+    const trade = rowToMTTrade(cells, roles);
+    if (trade) trades.push(trade);
+  }
+  return trades;
+};
+
+const parseMT4MT5Html = (text: string): ParsedMTTrade[] => {
+  const doc = new DOMParser().parseFromString(text, 'text/html');
+  const rows = Array.from(doc.querySelectorAll('table tr'));
+  const trades: ParsedMTTrade[] = [];
+  let roles: Partial<Record<MTColumnRole, number[]>> | null = null;
+
+  for (const row of rows) {
+    const cells = Array.from(row.querySelectorAll('td, th')).map(c => (c.textContent || '').trim());
+    if (cells.length === 0 || cells.every(c => !c)) continue;
+    const looksLikeHeader = cells.some(c => MT_TICKET_HEADER_RE.test(c));
+    if (looksLikeHeader) {
+      roles = classifyMTHeaders(cells);
+      continue;
+    }
+    if (!roles) continue;
+    const trade = rowToMTTrade(cells, roles);
+    if (trade) trades.push(trade);
+  }
+  return trades;
+};
+
+// Entry point — dispatches on file extension (falling back to content
+// sniffing) and never throws; returns an empty array if nothing recognizable
+// is found so callers can show one clean "no valid trades found" message
+// instead of a raw JS error.
+const parseMTFile = (fileName: string, text: string): ParsedMTTrade[] => {
+  try {
+    const lower = fileName.toLowerCase();
+    if (lower.endsWith('.html') || lower.endsWith('.htm')) return parseMT4MT5Html(text);
+    if (lower.endsWith('.csv')) return parseMT4MT5Csv(text);
+    if (/<html|<table/i.test(text.slice(0, 2000))) return parseMT4MT5Html(text);
+    return parseMT4MT5Csv(text);
+  } catch {
+    return [];
+  }
+};
+// ================== end MT4/MT5 Trade Import: parsing helpers ==================
 
 // ---- Trade duration display helpers (Trade Detail Modal only) ----
 // Pure, read-only formatting utilities that operate on the already-saved
