@@ -158,6 +158,7 @@ interface Trade {
   absoluteTradeNumber: number; // Assigned at creation, never changes
   trackingNumber?: string; // Manual Trade # (e.g. Notion log ref, day marker)
   session?: SessionOption; // Trading session the trade was taken in
+  importTicketId?: string; // MT4/MT5 broker ticket ID — set on import, used to dedupe re-uploads of the same report
 }
 
 type RuleSeverity = 'critical' | 'warning' | 'guide';
@@ -4428,6 +4429,20 @@ function App() {
   );
   const [customSymbols, setCustomSymbols] = useState<string[]>([]);
   const [customPillars, setCustomPillars] = useState<CustomPillar[]>([]);
+
+  // ---- MT4/MT5 Trade Import: UI state ----
+  const tradeImportInputRef = useRef<HTMLInputElement | null>(null);
+  const [isImportingTrades, setIsImportingTrades] = useState(false);
+  const [tradeImportToast, setTradeImportToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const tradeImportToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showTradeImportToast = (type: 'success' | 'error', message: string) => {
+    setTradeImportToast({ type, message });
+    if (tradeImportToastTimeoutRef.current) clearTimeout(tradeImportToastTimeoutRef.current);
+    tradeImportToastTimeoutRef.current = setTimeout(() => setTradeImportToast(null), 4000);
+  };
+  useEffect(() => () => {
+    if (tradeImportToastTimeoutRef.current) clearTimeout(tradeImportToastTimeoutRef.current);
+  }, []);
   // How many pillar columns the Trading Rules card shows per row (2–6).
   // Purely a display preference — not persisted to the trading journal
   // schema, so it always starts at a sensible default per session.
@@ -6132,6 +6147,121 @@ function App() {
       setSelectedAccounts(selectedAccounts.filter(a => a !== id));
     }
     setAccountPendingDelete(null);
+  };
+
+  // Reads an uploaded MT4/MT5 .csv or .html report, parses it, maps each
+  // parsed row onto the app's Trade shape, de-dupes against trades already
+  // imported (by broker ticket ID), and appends whatever's left. All
+  // account-level stats (PnL, win rate, trade table) recompute automatically
+  // off the `trades` state update below — no extra wiring needed here.
+  const handleImportTradesFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (e.target) e.target.value = ''; // reset so re-selecting the same file re-fires onChange
+    if (!file) return;
+
+    const nameLower = file.name.toLowerCase();
+    if (!nameLower.endsWith('.csv') && !nameLower.endsWith('.html') && !nameLower.endsWith('.htm')) {
+      showTradeImportToast('error', 'Unsupported file type — please upload a .csv or .html MT4/MT5 report.');
+      return;
+    }
+    if (accounts.length === 0) {
+      showTradeImportToast('error', 'Add an account first, then import your trades.');
+      return;
+    }
+
+    setIsImportingTrades(true);
+    try {
+      const text = await file.text();
+      const parsed = parseMTFile(file.name, text);
+      if (parsed.length === 0) {
+        showTradeImportToast('error', 'No valid trades found in that report.');
+        return;
+      }
+
+      // Import into whichever single account is currently filtered to; if
+      // "All Accounts" (or several) is selected, fall back to the first account.
+      const targetAccountId = (!selectedAccounts.includes('all') && selectedAccounts.length === 1)
+        ? selectedAccounts[0]
+        : accounts[0].id;
+
+      const existingTicketIds = new Set(trades.map(t => t.importTicketId).filter((v): v is string => !!v));
+      let nextTradeNumber = trades.length > 0 ? Math.max(...trades.map(t => t.absoluteTradeNumber || 0)) + 1 : 1;
+      const newCustomSymbols: string[] = [];
+
+      // Chronological order so absoluteTradeNumber assignment reads sensibly.
+      const sortedParsed = [...parsed].sort((a, b) => new Date(a.openTime).getTime() - new Date(b.openTime).getTime());
+
+      const newTrades: Trade[] = [];
+      let duplicateCount = 0;
+      for (const p of sortedParsed) {
+        if (existingTicketIds.has(p.ticketId)) { duplicateCount++; continue; }
+        existingTicketIds.add(p.ticketId);
+
+        const isoOpen = /^\d{4}-\d{2}-\d{2}T/.test(p.openTime) ? p.openTime : '';
+        const dateStr = isoOpen ? isoOpen.slice(0, 10) : new Date().toISOString().slice(0, 10);
+        const startTimeMatch = isoOpen.match(/T(\d{2}:\d{2})/);
+        const isoClose = /^\d{4}-\d{2}-\d{2}T/.test(p.closeTime) ? p.closeTime : '';
+        const endTimeMatch = isoClose.match(/T(\d{2}:\d{2})/);
+
+        if (p.symbol && !PRESET_SYMBOLS.some(ps => ps.value === p.symbol) && !customSymbols.includes(p.symbol) && !newCustomSymbols.includes(p.symbol)) {
+          newCustomSymbols.push(p.symbol);
+        }
+
+        newTrades.push({
+          id: generateId(),
+          accountId: targetAccountId,
+          symbol: p.symbol,
+          profitLoss: p.profitLoss,
+          entryPrice: p.entryPrice,
+          exitPrice: p.exitPrice,
+          stopLoss: p.stopLoss,
+          takeProfit: p.takeProfit,
+          slPoints: calculatePoints(p.symbol, p.entryPrice, p.stopLoss),
+          tpPoints: calculatePoints(p.symbol, p.entryPrice, p.takeProfit),
+          lotSize: p.lotSize,
+          orderType: p.orderType,
+          setupTypes: [],
+          confluences: [],
+          mistakes: [],
+          rulesFollowed: 'followed',
+          timeframes: initializeEmptyTimeframes(),
+          executionImages: [],
+          riskAmount: 0,
+          mistakesAnalysis: '',
+          lessonsLearned: '',
+          timestamp: isoOpen ? new Date(isoOpen).toISOString() : buildLiveTimestamp(dateStr),
+          date: dateStr,
+          startTime: startTimeMatch ? startTimeMatch[1] : undefined,
+          endTime: endTimeMatch ? endTimeMatch[1] : undefined,
+          absoluteTradeNumber: nextTradeNumber++,
+          trackingNumber: '',
+          importTicketId: p.ticketId,
+        });
+      }
+
+      if (newTrades.length === 0) {
+        showTradeImportToast(
+          'error',
+          duplicateCount > 0
+            ? `All ${duplicateCount} trade${duplicateCount === 1 ? '' : 's'} in this file ${duplicateCount === 1 ? 'was' : 'were'} already imported.`
+            : 'No valid trades found in that report.'
+        );
+        return;
+      }
+
+      setTrades(prev => [...prev, ...newTrades]);
+      if (newCustomSymbols.length > 0) {
+        setCustomSymbols(prev => [...prev, ...newCustomSymbols.filter(s => !prev.includes(s))]);
+      }
+
+      const parts = [`Imported ${newTrades.length} trade${newTrades.length === 1 ? '' : 's'}`];
+      if (duplicateCount > 0) parts.push(`skipped ${duplicateCount} duplicate${duplicateCount === 1 ? '' : 's'}`);
+      showTradeImportToast('success', parts.join(' — ') + '.');
+    } catch (err) {
+      showTradeImportToast('error', 'Could not read that file — make sure it\'s a valid MT4/MT5 export.');
+    } finally {
+      setIsImportingTrades(false);
+    }
   };
 
   const handleAddTrade = () => {
@@ -8206,6 +8336,19 @@ function App() {
               <Check className="w-4 h-4" />
               <span className="hidden sm:inline">{tradeSelectMode ? 'Cancel' : 'Select'}</span>
             </button>
+            <button
+              type="button"
+              disabled={isImportingTrades}
+              onClick={() => tradeImportInputRef.current?.click()}
+              className={cn(
+                'flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm transition-colors border',
+                theme !== 'light' ? 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700' : 'bg-zinc-100 border-zinc-200 text-zinc-700 hover:bg-zinc-200',
+                isImportingTrades && 'opacity-60 cursor-not-allowed'
+              )}
+            >
+              <Upload className="w-4 h-4" />
+              <span className="hidden sm:inline">{isImportingTrades ? 'Importing…' : 'Import MT4/MT5'}</span>
+            </button>
             <button onClick={() => { resetTradeForm(); resetCalculator(); setShowAddTrade(true); }} className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors">
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">Add Trade</span>
@@ -8592,6 +8735,19 @@ function App() {
               </button>
             </div>
 
+            <button
+              type="button"
+              disabled={isImportingTrades}
+              onClick={() => tradeImportInputRef.current?.click()}
+              className={cn(
+                'flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors border flex-shrink-0',
+                theme !== 'light' ? 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700' : 'bg-zinc-100 border-zinc-200 text-zinc-700 hover:bg-zinc-200',
+                isImportingTrades && 'opacity-60 cursor-not-allowed'
+              )}
+            >
+              <Upload className="w-4 h-4" />
+              <span className="hidden sm:inline">{isImportingTrades ? 'Importing…' : 'Import MT4/MT5'}</span>
+            </button>
             <button onClick={() => { resetTradeForm(); resetCalculator(); setShowAddTrade(true); }} className="flex items-center gap-2 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition-colors flex-shrink-0">
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">Add Trade</span>
@@ -8830,7 +8986,37 @@ function App() {
 
   const renderTradeHistory = () => (
     <div className="space-y-6 min-w-0">
+      {/* Hidden file input for MT4/MT5 import — shared by the trigger button(s)
+          in both the Overview and Database sub-views below (only one of
+          which is ever mounted at a time). */}
+      <input
+        ref={tradeImportInputRef}
+        type="file"
+        accept=".csv,.html,.htm,text/csv,text/html"
+        className="hidden"
+        onChange={handleImportTradesFile}
+      />
       {tradeSubView === 'overview' ? renderOverviewView() : renderDatabaseView()}
+
+      {/* Import feedback toast */}
+      {tradeImportToast && (
+        <div
+          key={tradeImportToast.message}
+          style={{ animation: 'tradeImportToastIn 0.25s ease-out' }}
+          className={cn(
+            'fixed bottom-6 right-6 z-[60] max-w-sm px-4 py-3 rounded-lg text-sm font-medium shadow-2xl select-none',
+            tradeImportToast.type === 'success' ? 'bg-emerald-500 text-black' : 'bg-rose-500 text-white'
+          )}
+        >
+          {tradeImportToast.message}
+        </div>
+      )}
+      <style>{`
+        @keyframes tradeImportToastIn {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 
