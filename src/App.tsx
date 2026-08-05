@@ -1792,21 +1792,49 @@ const parseMT4MT5Csv = (text: string): ParsedMTTrade[] => {
   return trades;
 };
 
+// Modern MT5 "Save as Report" HTML packs Positions, Orders and Deals into
+// ONE <table>, each section announced by a lone <th colspan="..."> title
+// cell (e.g. <th colspan="14"><div><b>Positions</b></div></th>).
+const MT_SECTION_TITLE_RE = /^(positions|orders|deals|results)$/i;
+
 const parseMT4MT5Html = (text: string): ParsedMTTrade[] => {
   const doc = new DOMParser().parseFromString(text, 'text/html');
   const rows = Array.from(doc.querySelectorAll('table tr'));
   const trades: ParsedMTTrade[] = [];
   let roles: Partial<Record<MTColumnRole, number[]>> | null = null;
+  // Orders and Deals headers use column names ("Order", "Deal") that also
+  // satisfy the ticket-column pattern below, so without tracking which
+  // section we're in, their individual order-fill / half-trade deal rows
+  // get misread as complete trades — duplicating/corrupting the real
+  // Positions rows, which are the only ones with both an entry and exit.
+  let inPositionsSection = false;
 
   for (const row of rows) {
-    const cells = Array.from(row.querySelectorAll('td, th')).map(c => (c.textContent || '').trim());
+    const headerCells = Array.from(row.querySelectorAll('th'));
+    if (headerCells.length === 1) {
+      const title = (headerCells[0].textContent || '').trim();
+      if (MT_SECTION_TITLE_RE.test(title)) {
+        inPositionsSection = title.toLowerCase() === 'positions';
+        roles = null;
+        continue;
+      }
+    }
+
+    // MT5 inserts class="hidden" spacer cells into Positions data rows
+    // (to share column widths with the Orders section) that have no
+    // counterpart in the Positions header row — including them shifts
+    // every later column off by one. Drop them from both header and data
+    // rows so cell indices actually line up.
+    const cells = Array.from(row.querySelectorAll('td, th'))
+      .filter(c => !/(^|\s)hidden(\s|$)/.test(c.className || ''))
+      .map(c => (c.textContent || '').trim());
     if (cells.length === 0 || cells.every(c => !c)) continue;
     const looksLikeHeader = cells.some(c => MT_TICKET_HEADER_RE.test(c));
     if (looksLikeHeader) {
       roles = classifyMTHeaders(cells);
       continue;
     }
-    if (!roles) continue;
+    if (!roles || !inPositionsSection) continue;
     const trade = rowToMTTrade(cells, roles);
     if (trade) trades.push(trade);
   }
@@ -1827,6 +1855,30 @@ const parseMTFile = (fileName: string, text: string): ParsedMTTrade[] => {
   } catch {
     return [];
   }
+};
+// MT5's "Save as Report" HTML export is very often saved as UTF-16 (with a
+// BOM), not UTF-8. Blob/File.text() always decodes as UTF-8 regardless of
+// the file's real encoding, which turns a UTF-16 report into unreadable
+// mojibake before parsing even starts. Sniff the encoding from the leading
+// bytes ourselves (BOM if present, otherwise a null-byte heuristic — plain
+// ASCII/UTF-8 HTML won't have runs of 0x00 bytes, UTF-16 always does) and
+// decode accordingly.
+const readMTReportFileText = async (file: File): Promise<string> => {
+  const buffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE) {
+    return new TextDecoder('utf-16le').decode(buffer);
+  }
+  if (bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF) {
+    return new TextDecoder('utf-16be').decode(buffer);
+  }
+  const sampleLen = Math.min(bytes.length, 1000);
+  let nullCount = 0;
+  for (let i = 0; i < sampleLen; i++) if (bytes[i] === 0) nullCount++;
+  if (sampleLen > 0 && nullCount > sampleLen * 0.3) {
+    return new TextDecoder('utf-16le').decode(buffer);
+  }
+  return new TextDecoder('utf-8').decode(buffer);
 };
 // ================== end MT4/MT5 Trade Import: parsing helpers ==================
 
@@ -6171,7 +6223,7 @@ function App() {
 
     setIsImportingTrades(true);
     try {
-      const text = await file.text();
+      const text = await readMTReportFileText(file);
       const parsed = parseMTFile(file.name, text);
       if (parsed.length === 0) {
         showTradeImportToast('error', 'No valid trades found in that report.');
